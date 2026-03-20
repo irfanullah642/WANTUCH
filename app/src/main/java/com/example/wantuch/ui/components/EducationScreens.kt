@@ -4271,15 +4271,49 @@ fun FeeStructureTab(data: JSONObject, viewModel: WantuchViewModel, isDark: Boole
 
     var editingClass by remember { mutableStateOf<JSONObject?>(null) }
 
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("Class-wise Fee Structure", color = textColor, fontWeight = FontWeight.Black, fontSize = 18.sp)
-            TextButton(onClick = { 
-                viewModel.safeFeeApiCall("clear_all_fees_for_school", mapOf()) {
-                    viewModel.refreshDashboard()
-                }
-            }) {
-                Text("CLEAR ALL", color = Color.Red, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    val searchBg  = if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9)
+    val borderCol = Color.Gray.copy(0.2f)
+    val iconBg    = if (isDark) Color(0xFF0F172A) else Color(0xFFE2E8F0)
+
+    var selClass by remember { mutableStateOf("All") }
+    var selSection by remember { mutableStateOf("All") }
+    var selMonth by remember { mutableStateOf("Jan") }
+    var selYear by remember { mutableStateOf("2024") }
+    var selType by remember { mutableStateOf("All Fees") }
+    var selStatus by remember { mutableStateOf("Active") }
+
+    Column(Modifier.fillMaxSize().padding(12.dp)) {
+        // ROW 1: 3 dropdowns
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            val classNames = mutableListOf("All")
+            structureState?.classes?.forEach { classNames.add(it.name) }
+            DropdownSelector(selClass, classNames, Modifier.weight(1f), isDark) { selClass = it }
+            DropdownSelector(selSection, listOf("All"), Modifier.weight(1f), isDark) { selSection = it }
+            DropdownSelector(selMonth, listOf("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"), Modifier.weight(1f), isDark) { selMonth = it }
+        }
+        Spacer(Modifier.height(8.dp))
+        // ROW 2: 3 dropdowns
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            DropdownSelector(selYear, (2020..2030).map{it.toString()}, Modifier.weight(1f), isDark) { selYear = it }
+            DropdownSelector(selType, listOf("All Fees","Tuition","Transport"), Modifier.weight(1f), isDark) { selType = it }
+            DropdownSelector(selStatus, listOf("Active","Inactive"), Modifier.weight(1f), isDark) { selStatus = it }
+        }
+        Spacer(Modifier.height(10.dp))
+        // ROW 3: Actions
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Fee Structure", color = textColor, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
+            Button(
+                onClick = { 
+                    viewModel.safeFeeApiCall("clear_all_fees_for_school", mapOf()) {
+                        viewModel.refreshDashboard()
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Red.copy(0.1f)),
+                contentPadding = PaddingValues(horizontal = 12.dp),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.height(32.dp).border(1.dp, Color.Red.copy(0.3f), RoundedCornerShape(8.dp))
+            ) {
+                Text("CLEAR ALL", color = Color.Red, fontSize = 10.sp, fontWeight = FontWeight.Bold)
             }
         }
         Spacer(Modifier.height(12.dp))
@@ -4288,40 +4322,121 @@ fun FeeStructureTab(data: JSONObject, viewModel: WantuchViewModel, isDark: Boole
             items(classes.length()) { i ->
                 val cls = classes.optJSONObject(i)
                 val cid = cls?.optInt("id") ?: 0
+                val className = cls?.optString("name") ?: "Class"
                 
                 Card(
                     colors = CardDefaults.cardColors(containerColor = bgColor),
                     border = BorderStroke(1.dp, Color.Gray.copy(0.1f)),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Column(Modifier.padding(16.dp)) {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(cls?.optString("name") ?: "Class", fontWeight = FontWeight.ExtraBold, color = textColor)
-                            TextButton(onClick = { editingClass = cls }, contentPadding = PaddingValues(0.dp)) {
-                                Text("UPDATE RATE", color = Color(0xFF3B82F6), fontSize = 11.sp, fontWeight = FontWeight.Black)
-                            }
+                    var selectedTypeIdx by remember { mutableIntStateOf(0) }
+                    var amountText by remember { mutableStateOf("0") }
+                    
+                    val typeNames = remember(feeTypes) {
+                        val names = mutableListOf<String>()
+                        for (i in 0 until (feeTypes?.length() ?: 0)) {
+                            names.add(feeTypes!!.getJSONObject(i).optString("type_name"))
                         }
-                        Spacer(Modifier.height(12.dp))
-                        
-                        feeTypes?.let { types ->
-                            for (j in 0 until types.length()) {
-                                val type = types.optJSONObject(j)
-                                val tid = type.optInt("id")
-                                
-                                var amount = 0.0
-                                structure?.let { sArr ->
-                                    for (k in 0 until sArr.length()) {
-                                        val s = sArr.getJSONObject(k)
-                                        if (s.optInt("class_id") == cid && s.optInt("fee_type_id") == tid) {
-                                            amount = s.optDouble("amount", 0.0)
-                                            break
-                                        }
+                        names
+                    }
+
+                    // Update amount whenever type or data changes
+                    LaunchedEffect(selectedTypeIdx, structure) {
+                        if (typeNames.isNotEmpty()) {
+                            val tid = feeTypes!!.getJSONObject(selectedTypeIdx).optInt("id")
+                            var foundAmount = 0.0
+                            structure?.let { sArr ->
+                                for (k in 0 until sArr.length()) {
+                                    val s = sArr.getJSONObject(k)
+                                    if (s.optInt("class_id") == cid && s.optInt("fee_type_id") == tid) {
+                                        foundAmount = s.optDouble("amount", 0.0)
+                                        break
                                     }
                                 }
-
-                                Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text(type.optString("type_name"), color = Color.Gray, fontSize = 12.sp)
-                                    Text("Rs. ${amount.toInt()}", color = if(amount > 0) Color(0xFF10B981) else Color.Gray, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
+                            amountText = if (foundAmount % 1 == 0.0) foundAmount.toInt().toString() else foundAmount.toString()
+                        }
+                    }
+                    
+                    Column(Modifier.padding(12.dp)) {
+                        Row(
+                            Modifier.fillMaxWidth(), 
+                            verticalAlignment = Alignment.CenterVertically, 
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            // Class Name
+                            Text(
+                                text = className, 
+                                fontWeight = FontWeight.ExtraBold, 
+                                color = textColor, 
+                                modifier = Modifier.weight(1.2f), 
+                                fontSize = 13.sp,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                            )
+                            
+                            if (typeNames.isNotEmpty()) {
+                                // Fee Type Dropdown
+                                Box(Modifier.weight(2f)) {
+                                    DropdownSelector(
+                                        value = typeNames[selectedTypeIdx],
+                                        options = typeNames,
+                                        isDark = isDark
+                                    ) { name ->
+                                        selectedTypeIdx = typeNames.indexOf(name)
+                                    }
+                                }
+                                
+                                // + Icon
+                                Box(
+                                    modifier = Modifier
+                                        .size(24.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF7C3AED))
+                                        .clickable { /* Action */ },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.Add, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                                }
+                                
+                                // Amount Box
+                                Box(
+                                    Modifier
+                                        .weight(1f)
+                                        .height(48.dp)
+                                        .background(if(isDark) Color.Black.copy(0.2f) else Color.Black.copy(0.05f), RoundedCornerShape(10.dp))
+                                        .border(1.dp, Color.Gray.copy(0.2f), RoundedCornerShape(10.dp))
+                                        .padding(horizontal = 8.dp),
+                                    Alignment.CenterStart
+                                ) {
+                                    androidx.compose.foundation.text.BasicTextField(
+                                        value = amountText,
+                                        onValueChange = { amountText = it },
+                                        textStyle = androidx.compose.ui.text.TextStyle(
+                                            color = textColor, 
+                                            fontSize = 12.sp, 
+                                            fontWeight = FontWeight.Bold
+                                        ),
+                                        modifier = Modifier.fillMaxWidth(),
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                                    )
+                                }
+                                
+                                // UPDATE button
+                                TextButton(
+                                    onClick = {
+                                        val tid = feeTypes!!.getJSONObject(selectedTypeIdx).optInt("id")
+                                        val ratesJson = JSONObject().apply { put(tid.toString(), amountText) }
+                                        viewModel.safeFeeApiCall("save_fee_structure_bulk", mapOf(
+                                            "class_id" to cid.toString(), 
+                                            "rates" to ratesJson.toString()
+                                        )) {
+                                            viewModel.refreshDashboard()
+                                        }
+                                    },
+                                    contentPadding = PaddingValues(0.dp)
+                                ) {
+                                    Text("UPDATE", color = Color(0xFF3B82F6), fontSize = 10.sp, fontWeight = FontWeight.Black)
                                 }
                             }
                         }
@@ -4442,38 +4557,11 @@ fun StudentFeeSetTab(data: JSONObject, viewModel: WantuchViewModel, isDark: Bool
         val borderCol = Color.Gray.copy(0.2f)
         val iconBg    = if (isDark) Color(0xFF0F172A) else Color(0xFFE2E8F0)
 
-        // ══════════════════════════════════════════════
-        // ROW 1 – Search bar (full width)
-        // ══════════════════════════════════════════════
-        Box(
-            Modifier.fillMaxWidth()
-                .height(42.dp)
-                .background(searchBg, RoundedCornerShape(10.dp))
-                .border(1.dp, borderCol, RoundedCornerShape(10.dp))
-                .padding(horizontal = 12.dp),
-            Alignment.CenterStart
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Search, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(6.dp))
-                Box {
-                    if (searchQuery.isEmpty()) Text("Search student...", color = Color.Gray, fontSize = 12.sp)
-                    androidx.compose.foundation.text.BasicTextField(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
-                        textStyle = androidx.compose.ui.text.TextStyle(
-                            color = if (isDark) Color.White else Color.Black, fontSize = 12.sp
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
-        }
-
-        Spacer(Modifier.height(8.dp))
+        var statusFilter by remember { mutableStateOf("All Status") }
+        val statuses = listOf("All Status", "Active", "Inactive", "Late", "Struck-off")
 
         // ══════════════════════════════════════════════
-        // ROW 2 – Filters: Class · Section · Month · Year
+        // ROW 1: Class · Section · Month
         // ══════════════════════════════════════════════
         Row(
             Modifier.fillMaxWidth(),
@@ -4493,80 +4581,95 @@ fun StudentFeeSetTab(data: JSONObject, viewModel: WantuchViewModel, isDark: Bool
             }
             DropdownSelector(month,
                 listOf("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"),
-                Modifier.weight(1f), isDark) { month = when(it) {
-                    "Jan"->"January"; "Feb"->"February"; "Mar"->"March"; "Apr"->"April"
-                    "May"->"May"; "Jun"->"June"; "Jul"->"July"; "Aug"->"August"
-                    "Sep"->"September"; "Oct"->"October"; "Nov"->"November"; else->"December"
-                }}
-            DropdownSelector(year, (2020..2030).map { it.toString() }, Modifier.weight(0.85f), isDark) { year = it }
+                Modifier.weight(1f), isDark) {
+                    month = when(it) {
+                        "Jan"->"January"; "Feb"->"February"; "Mar"->"March"; "Apr"->"April"
+                        "May"->"May"; "Jun"->"June"; "Jul"->"July"; "Aug"->"August"
+                        "Sep"->"September"; "Oct"->"October"; "Nov"->"November"; else->"December"
+                    }
+                }
         }
 
         Spacer(Modifier.height(8.dp))
 
         // ══════════════════════════════════════════════
-        // ROW 3 – Actions: CSV · Export · Print | ADD SPECIFIC FEE | CLEAR ALL
+        // ROW 2: Year · Export Format · Status
         // ══════════════════════════════════════════════
         Row(
             Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            // CSV format selector (compact)
-            DropdownSelector(exportFormat, listOf("CSV","PDF","Excel"), Modifier.width(72.dp), isDark) {
+            DropdownSelector(year, (2020..2030).map { it.toString() }, Modifier.weight(1f), isDark) { year = it }
+            DropdownSelector(exportFormat, listOf("CSV","PDF","Excel"), Modifier.weight(1f), isDark) {
                 exportFormat = it
             }
+            DropdownSelector(statusFilter, statuses, Modifier.weight(1f), isDark) { statusFilter = it }
+        }
 
-            // Export icon
-            IconButton(
-                onClick = {},
-                modifier = Modifier.size(36.dp)
-                    .background(iconBg, RoundedCornerShape(8.dp))
-                    .border(1.dp, borderCol, RoundedCornerShape(8.dp))
+        Spacer(Modifier.height(10.dp))
+
+        // ══════════════════════════════════════════════
+        // ROW 3: Search bar, Icons, and Buttons
+        // ══════════════════════════════════════════════
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Mini search bar
+            Box(
+                Modifier.weight(1.5f).height(36.dp).background(searchBg, RoundedCornerShape(8.dp)).border(1.dp, borderCol, RoundedCornerShape(8.dp)).padding(horizontal = 8.dp),
+                Alignment.CenterStart
             ) {
-                Icon(Icons.Default.Share, "Export", tint = Color(0xFF3B82F6), modifier = Modifier.size(17.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Search, null, tint = Color.Gray, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(6.dp))
+                    androidx.compose.foundation.text.BasicTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        textStyle = androidx.compose.ui.text.TextStyle(color = textColor, fontSize = 11.sp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
 
-            // Print/doc icon
+            // Export Icons
             IconButton(
-                onClick = {},
-                modifier = Modifier.size(36.dp)
-                    .background(iconBg, RoundedCornerShape(8.dp))
-                    .border(1.dp, borderCol, RoundedCornerShape(8.dp))
-            ) {
-                Icon(Icons.Default.Description, "Doc", tint = Color(0xFF3B82F6), modifier = Modifier.size(17.dp))
-            }
+                onClick = {}, 
+                modifier = Modifier.size(32.dp).background(iconBg, RoundedCornerShape(8.dp)).border(1.dp, borderCol, RoundedCornerShape(8.dp))
+            ) { Icon(Icons.Default.Share, null, tint = Color(0xFF3B82F6), modifier = Modifier.size(16.dp)) }
 
-            Spacer(Modifier.weight(1f))
+            IconButton(
+                onClick = {}, 
+                modifier = Modifier.size(32.dp).background(iconBg, RoundedCornerShape(8.dp)).border(1.dp, borderCol, RoundedCornerShape(8.dp))
+            ) { Icon(Icons.Default.Description, null, tint = Color(0xFF3B82F6), modifier = Modifier.size(16.dp)) }
 
-            // + ADD SPECIFIC FEE button
+            // + ADD button
             Button(
                 onClick = { showAddSpecificFee = true },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E3A5F)),
-                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
                 shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.height(36.dp)
+                modifier = Modifier.height(32.dp),
+                contentPadding = PaddingValues(horizontal = 8.dp)
             ) {
-                Icon(Icons.Default.Add, null, tint = Color(0xFF60A5FA), modifier = Modifier.size(14.dp))
-                Spacer(Modifier.width(3.dp))
-                Text("ADD FEE", fontSize = 10.sp, fontWeight = FontWeight.Black, color = Color.White)
+                Text("ADD", fontSize = 9.sp, fontWeight = FontWeight.Black, color = Color.White)
             }
 
-            // CLEAR ALL button
+            // CLEAR button
             Button(
                 onClick = {
                     viewModel.safeFeeApiCall("clear_all_fees", mapOf(
                         "institution_id" to instId.toString(),
                         "month" to month, "year" to year
-                    )) {}
+                    )) { viewModel.refreshDashboard() }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED)),
-                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
                 shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.height(36.dp)
+                modifier = Modifier.height(32.dp),
+                contentPadding = PaddingValues(horizontal = 8.dp)
             ) {
-                Icon(Icons.Default.Delete, null, tint = Color.White, modifier = Modifier.size(14.dp))
-                Spacer(Modifier.width(3.dp))
-                Text("CLEAR", fontSize = 10.sp, fontWeight = FontWeight.Black, color = Color.White)
+                Text("CLEAR", fontSize = 9.sp, fontWeight = FontWeight.Black, color = Color.White)
             }
         }
 

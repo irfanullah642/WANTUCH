@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="purple_200">#FFBB86FC</color>
+    <color name="purple_500">#FF6200EE</color>
+    <color name="purple_700">#FF3700B3</color>
+    <color name="teal_200">#FF03DAC5</color>
+    <color name="teal_700">#FF018786</color>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+
+    <!-- WANTUCH Colors -->
+    <color name="wantuch_bg_start">#0F0C29</color>
+    <color name="wantuch_bg_mid">#302B63</color>
+    <color name="wantuch_bg_end">#24243E</color>
+    <color name="wantuch_accent">#6366F1</color>
+    <color name="wantuch_accent_dark">#4F46E5</color>
+    <color name="wantuch_cyan">#00F3FF</color>
+    <color name="wantuch_red">#E74C3C</color>
+    <color name="wantuch_green">#2ECC71</color>
+    <color name="wantuch_blue">#3498DB</color>
+    <color name="wantuch_orange">#E67E22</color>
+    <color name="wantuch_yellow">#F39C12</color>
+    <color name="wantuch_purple">#9B59B6</color>
+    <color name="wantuch_teal">#1ABC9C</color>
+</resources>

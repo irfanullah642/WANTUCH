@@ -5,6 +5,7 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.*
@@ -4246,9 +4247,25 @@ fun FeeSettingItem(title: String, desc: String, initialValue: Boolean, isDark: B
 
 @Composable
 fun FeeStructureTab(data: JSONObject, viewModel: WantuchViewModel, isDark: Boolean) {
-    val classes = data.optJSONArray("classes")
+    val instId = viewModel.getSavedData()["last_inst"] as? Int ?: 0
+    val structureState by viewModel.schoolStructure.collectAsState()
+    
+    // Fallback if 'classes' is missing from dashboard data
+    val classes = data.optJSONArray("classes") ?: JSONArray().apply {
+        structureState?.classes?.forEach { cls ->
+            put(JSONObject().apply {
+                put("id", cls.id)
+                put("name", cls.name)
+            })
+        }
+    }
     val feeTypes = data.optJSONArray("fee_types")
     val structure = data.optJSONArray("fee_structure")
+    
+    LaunchedEffect(instId) {
+        if (structureState == null && instId > 0) viewModel.fetchSchoolStructure()
+    }
+
     val bgColor = if (isDark) Color(0xFF1E293B) else Color.White
     val textColor = if (isDark) Color.White else Color.Black
 
@@ -4259,7 +4276,7 @@ fun FeeStructureTab(data: JSONObject, viewModel: WantuchViewModel, isDark: Boole
             Text("Class-wise Fee Structure", color = textColor, fontWeight = FontWeight.Black, fontSize = 18.sp)
             TextButton(onClick = { 
                 viewModel.safeFeeApiCall("clear_all_fees_for_school", mapOf()) {
-                    // Refresh logic
+                    viewModel.refreshDashboard()
                 }
             }) {
                 Text("CLEAR ALL", color = Color.Red, fontSize = 11.sp, fontWeight = FontWeight.Bold)
@@ -4268,8 +4285,8 @@ fun FeeStructureTab(data: JSONObject, viewModel: WantuchViewModel, isDark: Boole
         Spacer(Modifier.height(12.dp))
         
         LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.weight(1f)) {
-            items(classes?.length() ?: 0) { i ->
-                val cls = classes?.optJSONObject(i)
+            items(classes.length()) { i ->
+                val cls = classes.optJSONObject(i)
                 val cid = cls?.optInt("id") ?: 0
                 
                 Card(
@@ -4403,146 +4420,421 @@ fun StudentFeeSetTab(data: JSONObject, viewModel: WantuchViewModel, isDark: Bool
         }
     }
 
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
-        // Filter UI
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            val classNames = mutableListOf("All Classes")
-            structure?.classes?.forEach { classNames.add(it.name) }
-            Column(Modifier.weight(1f)) {
-                DropdownSelector(selectedClass ?: "All Classes", classNames, Modifier.fillMaxWidth(), isDark) { 
-                    selectedClass = if(it == "All Classes") null else it
-                }
-            }
-            val sections = mutableListOf("All Sections")
-            structure?.classes?.find { it.name == selectedClass }?.sections?.forEach { sections.add(it.name) }
-            Column(Modifier.weight(1f)) {
-                DropdownSelector(selectedSection ?: "All Sections", sections, Modifier.fillMaxWidth(), isDark) {
-                    selectedSection = if(it == "All Sections") null else it
+    // Extra filter / action state
+    var searchQuery by remember { mutableStateOf("") }
+    var exportFormat by remember { mutableStateOf("CSV") }
+    var allTuitionEnabled by remember { mutableStateOf(true) }
+    var allTransEnabled by remember { mutableStateOf(false) }
+    var showAddSpecificFee by remember { mutableStateOf(false) }
+
+    // Keep displayedStudents filtered by search
+    LaunchedEffect(searchQuery, allStudents.size) {
+        displayedStudents = if (searchQuery.isBlank()) allStudents.toList()
+        else allStudents.filter {
+            it.optString("full_name").contains(searchQuery, ignoreCase = true) ||
+            it.optString("parent_name").contains(searchQuery, ignoreCase = true)
+        }
+    }
+
+    Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 10.dp)) {
+
+        val searchBg  = if (isDark) Color(0xFF1E293B) else Color(0xFFF1F5F9)
+        val borderCol = Color.Gray.copy(0.2f)
+        val iconBg    = if (isDark) Color(0xFF0F172A) else Color(0xFFE2E8F0)
+
+        // ══════════════════════════════════════════════
+        // ROW 1 – Search bar (full width)
+        // ══════════════════════════════════════════════
+        Box(
+            Modifier.fillMaxWidth()
+                .height(42.dp)
+                .background(searchBg, RoundedCornerShape(10.dp))
+                .border(1.dp, borderCol, RoundedCornerShape(10.dp))
+                .padding(horizontal = 12.dp),
+            Alignment.CenterStart
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Search, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Box {
+                    if (searchQuery.isEmpty()) Text("Search student...", color = Color.Gray, fontSize = 12.sp)
+                    androidx.compose.foundation.text.BasicTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        textStyle = androidx.compose.ui.text.TextStyle(
+                            color = if (isDark) Color.White else Color.Black, fontSize = 12.sp
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
         }
+
         Spacer(Modifier.height(8.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Column(Modifier.weight(1f)) {
-                DropdownSelector(month, listOf("January","February","March","April","May","June","July","August","September","October","November","December"), Modifier.fillMaxWidth(), isDark) { month = it }
+
+        // ══════════════════════════════════════════════
+        // ROW 2 – Filters: Class · Section · Month · Year
+        // ══════════════════════════════════════════════
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            val classNames = mutableListOf("All")
+            structure?.classes?.forEach { classNames.add(it.name) }
+            val sections = mutableListOf("All")
+            structure?.classes?.find { it.name == selectedClass }?.sections?.forEach { sections.add(it.name) }
+
+            DropdownSelector(selectedClass ?: "All", classNames, Modifier.weight(1f), isDark) {
+                selectedClass = if (it == "All") null else it; selectedSection = null
             }
-            Column(Modifier.weight(1f)) {
-                DropdownSelector(year, (2020..2030).map { it.toString() }, Modifier.fillMaxWidth(), isDark) { year = it }
+            DropdownSelector(selectedSection ?: "All", sections, Modifier.weight(1f), isDark) {
+                selectedSection = if (it == "All") null else it
+            }
+            DropdownSelector(month,
+                listOf("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"),
+                Modifier.weight(1f), isDark) { month = when(it) {
+                    "Jan"->"January"; "Feb"->"February"; "Mar"->"March"; "Apr"->"April"
+                    "May"->"May"; "Jun"->"June"; "Jul"->"July"; "Aug"->"August"
+                    "Sep"->"September"; "Oct"->"October"; "Nov"->"November"; else->"December"
+                }}
+            DropdownSelector(year, (2020..2030).map { it.toString() }, Modifier.weight(0.85f), isDark) { year = it }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        // ══════════════════════════════════════════════
+        // ROW 3 – Actions: CSV · Export · Print | ADD SPECIFIC FEE | CLEAR ALL
+        // ══════════════════════════════════════════════
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            // CSV format selector (compact)
+            DropdownSelector(exportFormat, listOf("CSV","PDF","Excel"), Modifier.width(72.dp), isDark) {
+                exportFormat = it
+            }
+
+            // Export icon
+            IconButton(
+                onClick = {},
+                modifier = Modifier.size(36.dp)
+                    .background(iconBg, RoundedCornerShape(8.dp))
+                    .border(1.dp, borderCol, RoundedCornerShape(8.dp))
+            ) {
+                Icon(Icons.Default.Share, "Export", tint = Color(0xFF3B82F6), modifier = Modifier.size(17.dp))
+            }
+
+            // Print/doc icon
+            IconButton(
+                onClick = {},
+                modifier = Modifier.size(36.dp)
+                    .background(iconBg, RoundedCornerShape(8.dp))
+                    .border(1.dp, borderCol, RoundedCornerShape(8.dp))
+            ) {
+                Icon(Icons.Default.Description, "Doc", tint = Color(0xFF3B82F6), modifier = Modifier.size(17.dp))
+            }
+
+            Spacer(Modifier.weight(1f))
+
+            // + ADD SPECIFIC FEE button
+            Button(
+                onClick = { showAddSpecificFee = true },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E3A5F)),
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.height(36.dp)
+            ) {
+                Icon(Icons.Default.Add, null, tint = Color(0xFF60A5FA), modifier = Modifier.size(14.dp))
+                Spacer(Modifier.width(3.dp))
+                Text("ADD FEE", fontSize = 10.sp, fontWeight = FontWeight.Black, color = Color.White)
+            }
+
+            // CLEAR ALL button
+            Button(
+                onClick = {
+                    viewModel.safeFeeApiCall("clear_all_fees", mapOf(
+                        "institution_id" to instId.toString(),
+                        "month" to month, "year" to year
+                    )) {}
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED)),
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.height(36.dp)
+            ) {
+                Icon(Icons.Default.Delete, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                Spacer(Modifier.width(3.dp))
+                Text("CLEAR", fontSize = 10.sp, fontWeight = FontWeight.Black, color = Color.White)
             }
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(6.dp))
 
+        // ══════════════════════════════════════════════
+        // ROW 4 – Global toggles: ALL TUITION · ALL TRANS
+        // ══════════════════════════════════════════════
+        Row(
+            Modifier.fillMaxWidth()
+                .background(searchBg, RoundedCornerShape(8.dp))
+                .border(1.dp, borderCol, RoundedCornerShape(8.dp))
+                .padding(horizontal = 12.dp, vertical = 2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.End
+        ) {
+            Text("ALL TUITION", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold,
+                color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B))
+            Switch(
+                allTuitionEnabled,
+                {
+                    allTuitionEnabled = it
+                    viewModel.safeFeeApiCall("toggle_all_tuition", mapOf(
+                        "institution_id" to instId.toString(),
+                        "state" to if (it) "1" else "0",
+                        "month" to month, "year" to year
+                    )) {}
+                },
+                modifier = Modifier.scale(0.6f),
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color.White,
+                    checkedTrackColor = Color(0xFF3B82F6)
+                )
+            )
+            Spacer(Modifier.width(16.dp))
+            Text("ALL TRANS", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold,
+                color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B))
+            Switch(
+                allTransEnabled,
+                {
+                    allTransEnabled = it
+                    viewModel.safeFeeApiCall("toggle_all_transport", mapOf(
+                        "institution_id" to instId.toString(),
+                        "state" to if (it) "1" else "0",
+                        "month" to month, "year" to year
+                    )) {}
+                },
+                modifier = Modifier.scale(0.6f),
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color.White,
+                    checkedTrackColor = Color(0xFF3B82F6)
+                )
+            )
+        }
+
+        Spacer(Modifier.height(8.dp))
         if (isLoading) {
             Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.weight(1f)) {
-                items(displayedStudents) { stu ->
+                itemsIndexed(displayedStudents) { idx, stu ->
                     val sid = stu.optString("id")
                     val cid = stu.optString("class_id")
                     Card(
                         colors = CardDefaults.cardColors(containerColor = bgColor),
                         border = BorderStroke(1.dp, Color.Gray.copy(0.1f)),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(14.dp),
+                        elevation = CardDefaults.cardElevation(2.dp)
                     ) {
-                        Column(Modifier.padding(16.dp)) {
+                        Column(Modifier.fillMaxWidth().padding(12.dp)) {
+
+                            // ── Row 1: serial · photo · name/parent · reset ──
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // Serial badge
+                                Box(
+                                    Modifier.size(22.dp)
+                                        .background(Color(0xFF3B82F6).copy(0.12f), RoundedCornerShape(5.dp)),
+                                    Alignment.Center
+                                ) {
+                                    Text("${idx + 1}", color = Color(0xFF3B82F6), fontSize = 9.sp, fontWeight = FontWeight.Black)
+                                }
+                                Spacer(Modifier.width(6.dp))
+                                // Photo
                                 val pic = stu.optString("profile_pic")
-                                Box(Modifier.size(45.dp).clip(CircleShape).background(Color(0xFF3B82F6).copy(0.1f)), Alignment.Center) {
+                                Box(
+                                    Modifier.size(38.dp).clip(CircleShape)
+                                        .background(Color(0xFF3B82F6).copy(0.1f)),
+                                    Alignment.Center
+                                ) {
                                     if (pic.isNotEmpty()) {
-                                        AsyncImage(model = pic, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                                        AsyncImage(
+                                            model = pic, contentDescription = null,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
                                     } else {
-                                        Icon(Icons.Default.Person, null, modifier = Modifier.size(24.dp), tint = Color(0xFF3B82F6))
+                                        Icon(Icons.Default.Person, null, modifier = Modifier.size(20.dp), tint = Color(0xFF3B82F6))
                                     }
                                 }
-                                Spacer(Modifier.width(12.dp))
+                                Spacer(Modifier.width(8.dp))
+                                // Name + class info
                                 Column(Modifier.weight(1f)) {
-                                    Text(stu.optString("full_name"), fontWeight = FontWeight.Black, color = textColor)
-                                    Text("${stu.optString("class_name")} - ${stu.optString("section_name")}", fontSize = 11.sp, color = Color.Gray)
+                                    Text(
+                                        stu.optString("full_name"),
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 13.sp,
+                                        color = textColor,
+                                        maxLines = 1
+                                    )
+                                    val parent = stu.optString("parent_name", "")
+                                    val classInfo = "${stu.optString("class_name")} · ${stu.optString("section_name")}"
+                                    Text(
+                                        if (parent.isNotEmpty()) "$parent · $classInfo" else classInfo,
+                                        fontSize = 10.sp,
+                                        color = Color.Gray,
+                                        maxLines = 1
+                                    )
                                 }
-                                IconButton(onClick = {
-                                    viewModel.safeFeeApiCall("reset_student_fee", mapOf("student_id" to sid, "month" to month, "year" to year)) {
-                                        // Trigger re-load for this student
-                                    }
-                                }) {
-                                    Icon(Icons.Default.Refresh, "Reset Billing", tint = Color(0xFF3B82F6), modifier = Modifier.size(18.dp))
+                                // Reset button
+                                IconButton(
+                                    onClick = {
+                                        viewModel.safeFeeApiCall(
+                                            "reset_student_fee",
+                                            mapOf("student_id" to sid, "month" to month, "year" to year)
+                                        ) {}
+                                    },
+                                    modifier = Modifier.size(30.dp)
+                                ) {
+                                    Icon(Icons.Default.Refresh, "Reset", tint = Color(0xFF3B82F6), modifier = Modifier.size(16.dp))
                                 }
                             }
-                            
-                            Spacer(Modifier.height(12.dp))
-                            Divider(color = Color.Gray.copy(0.1f))
-                            Spacer(Modifier.height(12.dp))
 
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                // Tuition Column
-                                Column(Modifier.weight(1f)) {
-                                    var tuitionState by remember { mutableStateOf(stu.optString("tuition_enabled", "1") == "1") }
-                                    var mode by remember { mutableStateOf(stu.optString("tuition_type", "Full")) }
-                                    
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text("TUITION", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
-                                        Spacer(Modifier.weight(1f))
-                                        Switch(tuitionState, { 
-                                            tuitionState = it
-                                            viewModel.safeFeeApiCall("toggle_student_fee", mapOf("enroll_id" to sid, "type" to "tuition", "state" to if(it) "1" else "0", "class_id" to cid, "tuition_mode" to mode, "target_month" to month, "target_year" to year)) {}
-                                        }, modifier = Modifier.scale(0.7f))
+                            Spacer(Modifier.height(10.dp))
+                            Divider(color = Color.Gray.copy(0.12f))
+                            Spacer(Modifier.height(10.dp))
+
+                            // ── Row 2: TUITION toggle | TRANSPORT toggle (side by side) ──
+                            var tuitionState by remember { mutableStateOf(stu.optString("tuition_enabled", "1") == "1") }
+                            var mode by remember { mutableStateOf(stu.optString("tuition_type", "Full")) }
+                            var transState by remember { mutableStateOf(stu.optString("transport_enabled", "0") == "1") }
+                            val locations = data.optJSONArray("trans_locations")
+                            val locNames = mutableListOf("Select Loc")
+                            for (i in 0 until (locations?.length() ?: 0))
+                                locNames.add(locations!!.getJSONObject(i).optString("location"))
+                            var selectedLoc by remember { mutableStateOf(stu.optString("transport_location_id", "0")) }
+                            val locName = locations?.let { arr ->
+                                for (i in 0 until arr.length())
+                                    if (arr.getJSONObject(i).optString("id") == selectedLoc)
+                                        return@let arr.getJSONObject(i).optString("location")
+                                "Select Loc"
+                            } ?: "Select Loc"
+
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                // TUITION toggle
+                                Text("TUITION", fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, color = Color.Gray)
+                                Switch(
+                                    tuitionState,
+                                    {
+                                        tuitionState = it
+                                        viewModel.safeFeeApiCall("toggle_student_fee", mapOf(
+                                            "enroll_id" to sid, "type" to "tuition",
+                                            "state" to if (it) "1" else "0",
+                                            "class_id" to cid, "tuition_mode" to mode,
+                                            "target_month" to month, "target_year" to year
+                                        )) {}
+                                    },
+                                    modifier = Modifier.scale(0.65f)
+                                )
+                                Spacer(Modifier.weight(1f))
+                                // TRANSPORT toggle
+                                Text("TRANSPORT", fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, color = Color.Gray)
+                                Switch(
+                                    transState,
+                                    {
+                                        transState = it
+                                        viewModel.safeFeeApiCall("toggle_student_fee", mapOf(
+                                            "enroll_id" to sid, "type" to "transport",
+                                            "state" to if (it) "1" else "0",
+                                            "class_id" to cid, "location_id" to selectedLoc,
+                                            "target_month" to month, "target_year" to year
+                                        )) {}
+                                    },
+                                    modifier = Modifier.scale(0.65f)
+                                )
+                            }
+
+                            // ── Row 3: Tuition controls (full width) ──
+                            if (tuitionState) {
+                                Spacer(Modifier.height(6.dp))
+                                Row(
+                                    Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    DropdownSelector(
+                                        mode,
+                                        listOf("Full", "Half", "Custom"),
+                                        if (mode == "Custom") Modifier.weight(1f) else Modifier.fillMaxWidth(),
+                                        isDark
+                                    ) {
+                                        mode = it
+                                        viewModel.safeFeeApiCall("toggle_student_fee", mapOf(
+                                            "enroll_id" to sid, "type" to "tuition",
+                                            "state" to "1", "class_id" to cid,
+                                            "tuition_mode" to it,
+                                            "target_month" to month, "target_year" to year
+                                        )) {}
                                     }
-                                    if(tuitionState) {
-                                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                            DropdownSelector(mode, listOf("Full", "Half", "Custom"), if(mode == "Custom") Modifier.weight(1.1f) else Modifier.fillMaxWidth(), isDark) {
-                                                mode = it
-                                                viewModel.safeFeeApiCall("toggle_student_fee", mapOf("enroll_id" to sid, "type" to "tuition", "state" to "1", "class_id" to cid, "tuition_mode" to it, "target_month" to month, "target_year" to year)) {}
-                                            }
-                                            if (mode == "Custom") {
-                                                var customAmt by remember { mutableStateOf(stu.optString("tuition_fee", "0")) }
-                                                PremiumTextField(customAmt, { 
-                                                    customAmt = it
-                                                    viewModel.safeFeeApiCall("toggle_student_fee", mapOf("enroll_id" to sid, "type" to "tuition", "state" to "1", "class_id" to cid, "tuition_mode" to "Custom", "custom_amount" to it, "target_month" to month, "target_year" to year)) {}
-                                                }, "Amt", Icons.Default.Money, isDark, modifier = Modifier.weight(1f))
-                                            }
-                                        }
+                                    if (mode == "Custom") {
+                                        var customAmt by remember { mutableStateOf(stu.optString("tuition_fee", "0")) }
+                                        PremiumTextField(customAmt, {
+                                            customAmt = it
+                                            viewModel.safeFeeApiCall("toggle_student_fee", mapOf(
+                                                "enroll_id" to sid, "type" to "tuition",
+                                                "state" to "1", "class_id" to cid,
+                                                "tuition_mode" to "Custom",
+                                                "custom_amount" to it,
+                                                "target_month" to month, "target_year" to year
+                                            )) {}
+                                        }, "Amount", Icons.Default.Money, isDark, modifier = Modifier.weight(1f))
                                     }
                                 }
+                            }
 
-                                // Transport Column
-                                Column(Modifier.weight(1f)) {
-                                    var transState by remember { mutableStateOf(stu.optString("transport_enabled", "0") == "1") }
-                                    val locations = data.optJSONArray("trans_locations")
-                                    val locNames = mutableListOf("No Location")
-                                    for(i in 0 until (locations?.length() ?: 0)) locNames.add(locations!!.getJSONObject(i).optString("location"))
-                                    
-                                    var selectedLoc by remember { mutableStateOf(stu.optString("transport_location_id", "0")) }
-                                    val locName = locations?.let { arr -> 
-                                        for(i in 0 until arr.length()) if(arr.getJSONObject(i).optString("id") == selectedLoc) return@let arr.getJSONObject(i).optString("location")
-                                        "No Location"
-                                    } ?: "No Location"
-
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text("TRANSPORT", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
-                                        Spacer(Modifier.weight(1f))
-                                        Switch(transState, {
-                                            transState = it
-                                            viewModel.safeFeeApiCall("toggle_student_fee", mapOf("enroll_id" to sid, "type" to "transport", "state" to if(it) "1" else "0", "class_id" to cid, "location_id" to selectedLoc, "target_month" to month, "target_year" to year)) {}
-                                        }, modifier = Modifier.scale(0.7f))
+                            // ── Row 4: Transport controls (full width) ──
+                            if (transState) {
+                                val showCustom = (locName == "User Define")
+                                Spacer(Modifier.height(6.dp))
+                                Row(
+                                    Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    DropdownSelector(
+                                        locName,
+                                        locNames,
+                                        if (showCustom) Modifier.weight(1f) else Modifier.fillMaxWidth(),
+                                        isDark
+                                    ) { name ->
+                                        val lid = locations?.let { arr ->
+                                            for (i in 0 until arr.length())
+                                                if (arr.getJSONObject(i).optString("location") == name)
+                                                    return@let arr.getJSONObject(i).optString("id")
+                                            "0"
+                                        } ?: "0"
+                                        selectedLoc = lid
+                                        viewModel.safeFeeApiCall("toggle_student_fee", mapOf(
+                                            "enroll_id" to sid, "type" to "transport",
+                                            "state" to "1", "class_id" to cid,
+                                            "location_id" to lid,
+                                            "target_month" to month, "target_year" to year
+                                        )) {}
                                     }
-                                    if(transState) {
-                                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                            val showCustom = (locName == "User Define")
-                                            DropdownSelector(locName, locNames, if(showCustom) Modifier.weight(1.1f) else Modifier.fillMaxWidth(), isDark) { name ->
-                                                val lid = locations?.let { arr ->
-                                                    for(i in 0 until arr.length()) if(arr.getJSONObject(i).optString("location") == name) return@let arr.getJSONObject(i).optString("id")
-                                                    "0"
-                                                } ?: "0"
-                                                selectedLoc = lid
-                                                viewModel.safeFeeApiCall("toggle_student_fee", mapOf("enroll_id" to sid, "type" to "transport", "state" to "1", "class_id" to cid, "location_id" to lid, "target_month" to month, "target_year" to year)) {}
-                                            }
-                                            if (showCustom) {
-                                                var customTrans by remember { mutableStateOf(stu.optString("transport_charges", "0")) }
-                                                PremiumTextField(customTrans, {
-                                                    customTrans = it
-                                                    viewModel.safeFeeApiCall("toggle_student_fee", mapOf("enroll_id" to sid, "type" to "transport", "state" to "1", "class_id" to cid, "location_id" to "-1", "custom_amount" to it, "target_month" to month, "target_year" to year)) {}
-                                                }, "Amt", Icons.Default.Money, isDark, modifier = Modifier.weight(1f))
-                                            }
-                                        }
+                                    if (showCustom) {
+                                        var customTrans by remember { mutableStateOf(stu.optString("transport_charges", "0")) }
+                                        PremiumTextField(customTrans, {
+                                            customTrans = it
+                                            viewModel.safeFeeApiCall("toggle_student_fee", mapOf(
+                                                "enroll_id" to sid, "type" to "transport",
+                                                "state" to "1", "class_id" to cid,
+                                                "location_id" to "-1",
+                                                "custom_amount" to it,
+                                                "target_month" to month, "target_year" to year
+                                            )) {}
+                                        }, "Amount", Icons.Default.Money, isDark, modifier = Modifier.weight(1f))
                                     }
                                 }
                             }
@@ -4552,10 +4844,12 @@ fun StudentFeeSetTab(data: JSONObject, viewModel: WantuchViewModel, isDark: Bool
             }
         }
     }
+}
 
 
 @Composable
 fun TransportSetupTab(data: JSONObject, viewModel: WantuchViewModel, isDark: Boolean) {
+    val instId = viewModel.getSavedData()["last_inst"] as? Int ?: 0
     val locations = data.optJSONArray("trans_locations")
     val textColor = if (isDark) Color.White else Color.Black
     val bgColor = if (isDark) Color(0xFF1E293B) else Color.White
@@ -4650,14 +4944,39 @@ fun TransportSetupTab(data: JSONObject, viewModel: WantuchViewModel, isDark: Boo
                 Text("Driver Management module active on Web", color = Color.Gray, fontSize = 12.sp)
             }
         } else if (selectedSubTab == 2) {
+            val staffDataState by viewModel.staffData.collectAsState()
+            
+            LaunchedEffect(instId) {
+                if (staffDataState == null && instId > 0) viewModel.fetchStaff()
+            }
+
             Column(Modifier.fillMaxSize()) {
                 Text("Staff Transport Enrollment", color = textColor, fontWeight = FontWeight.Black)
                 Text("Manage transport settings for employees.", color = Color.Gray, fontSize = 11.sp)
                 Spacer(Modifier.height(16.dp))
                 
-                // Show a list of staff (we'd need staff list in data)
-                val staffArr = data.optJSONArray("staff_list")
-                if (staffArr == null || staffArr.length() == 0) {
+                // Fallback if 'staff_list' is missing from dashboard data
+                val dashboardStaff = data.optJSONArray("staff_list")
+                val staffArr = if (dashboardStaff == null || dashboardStaff.length() == 0) JSONArray().apply {
+                    staffDataState?.teaching_staff?.forEach { s ->
+                        put(JSONObject().apply {
+                            put("id", s.id)
+                            put("name", s.name)
+                            put("designation", s.role)
+                            put("transport_enabled", "0")
+                        })
+                    }
+                    staffDataState?.non_teaching_staff?.forEach { s ->
+                        put(JSONObject().apply {
+                            put("id", s.id)
+                            put("name", s.name)
+                            put("designation", s.role)
+                            put("transport_enabled", "0")
+                        })
+                    }
+                } else dashboardStaff
+                
+                if (staffArr.length() == 0) {
                    Box(Modifier.fillMaxSize(), Alignment.Center) {
                        Text("No staff data loaded for transport", color = Color.Gray, fontSize = 12.sp)
                    }

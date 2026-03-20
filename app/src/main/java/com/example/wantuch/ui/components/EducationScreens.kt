@@ -4358,19 +4358,27 @@ fun FeeStructureTab(data: JSONObject, viewModel: WantuchViewModel, isDark: Boole
                         }
                     }
                     
-                    Column(Modifier.padding(12.dp)) {
+                    Column(Modifier.padding(6.dp)) {
                         Row(
                             Modifier.fillMaxWidth(), 
                             verticalAlignment = Alignment.CenterVertically, 
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
+                            // ID Badge
+                            Box(
+                                Modifier.size(24.dp).background(if(isDark) Color.White.copy(0.1f) else Color.Black.copy(0.1f), CircleShape), 
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(cid.toString(), fontSize = 9.sp, fontWeight = FontWeight.Black, color = textColor.copy(0.6f))
+                            }
+                            
                             // Class Name
                             Text(
                                 text = className, 
                                 fontWeight = FontWeight.ExtraBold, 
                                 color = textColor, 
-                                modifier = Modifier.weight(1.2f), 
-                                fontSize = 13.sp,
+                                modifier = Modifier.weight(1f), 
+                                fontSize = 12.sp,
                                 maxLines = 1,
                                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                             )
@@ -4381,7 +4389,8 @@ fun FeeStructureTab(data: JSONObject, viewModel: WantuchViewModel, isDark: Boole
                                     DropdownSelector(
                                         value = typeNames[selectedTypeIdx],
                                         options = typeNames,
-                                        isDark = isDark
+                                        isDark = isDark,
+                                        modifier = Modifier.height(36.dp)
                                     ) { name ->
                                         selectedTypeIdx = typeNames.indexOf(name)
                                     }
@@ -4392,21 +4401,22 @@ fun FeeStructureTab(data: JSONObject, viewModel: WantuchViewModel, isDark: Boole
                                     modifier = Modifier
                                         .size(24.dp)
                                         .clip(CircleShape)
-                                        .background(Color(0xFF7C3AED))
+                                        .background(Color(0xFF8B5CF6).copy(0.15f))
+                                        .border(1.dp, Color(0xFF8B5CF6).copy(0.4f), CircleShape)
                                         .clickable { /* Action */ },
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Icon(Icons.Default.Add, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                                    Icon(Icons.Default.Add, null, tint = Color(0xFF8B5CF6), modifier = Modifier.size(14.dp))
                                 }
                                 
                                 // Amount Box
                                 Box(
                                     Modifier
-                                        .weight(1f)
-                                        .height(48.dp)
-                                        .background(if(isDark) Color.Black.copy(0.2f) else Color.Black.copy(0.05f), RoundedCornerShape(10.dp))
-                                        .border(1.dp, Color.Gray.copy(0.2f), RoundedCornerShape(10.dp))
-                                        .padding(horizontal = 8.dp),
+                                        .weight(0.8f)
+                                        .height(36.dp)
+                                        .background(if(isDark) Color.Black.copy(0.2f) else Color.Black.copy(0.05f), RoundedCornerShape(8.dp))
+                                        .border(1.dp, Color.Gray.copy(0.2f), RoundedCornerShape(8.dp))
+                                        .padding(horizontal = 6.dp),
                                     Alignment.CenterStart
                                 ) {
                                     androidx.compose.foundation.text.BasicTextField(
@@ -4415,15 +4425,17 @@ fun FeeStructureTab(data: JSONObject, viewModel: WantuchViewModel, isDark: Boole
                                         textStyle = androidx.compose.ui.text.TextStyle(
                                             color = textColor, 
                                             fontSize = 12.sp, 
-                                            fontWeight = FontWeight.Bold
+                                            fontWeight = FontWeight.Bold,
+                                            textAlign = TextAlign.Center
                                         ),
                                         modifier = Modifier.fillMaxWidth(),
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                                        maxLines = 1,
+                                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
                                     )
                                 }
-                                
-                                // UPDATE button
-                                TextButton(
+
+                                // Update button
+                                Button(
                                     onClick = {
                                         val tid = feeTypes!!.getJSONObject(selectedTypeIdx).optInt("id")
                                         val ratesJson = JSONObject().apply { put(tid.toString(), amountText) }
@@ -4434,9 +4446,12 @@ fun FeeStructureTab(data: JSONObject, viewModel: WantuchViewModel, isDark: Boole
                                             viewModel.refreshDashboard()
                                         }
                                     },
-                                    contentPadding = PaddingValues(0.dp)
+                                    contentPadding = PaddingValues(horizontal = 4.dp),
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6)),
+                                    modifier = Modifier.height(36.dp)
                                 ) {
-                                    Text("UPDATE", color = Color(0xFF3B82F6), fontSize = 10.sp, fontWeight = FontWeight.Black)
+                                    Text("UPDATE", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Black)
                                 }
                             }
                         }
@@ -4610,30 +4625,13 @@ fun StudentFeeSetTab(data: JSONObject, viewModel: WantuchViewModel, isDark: Bool
         Spacer(Modifier.height(10.dp))
 
         // ══════════════════════════════════════════════
-        // ROW 3: Search bar, Icons, and Buttons
+        // ROW 3: Icons and Buttons
         // ══════════════════════════════════════════════
         Row(
             Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Mini search bar
-            Box(
-                Modifier.weight(1.5f).height(36.dp).background(searchBg, RoundedCornerShape(8.dp)).border(1.dp, borderCol, RoundedCornerShape(8.dp)).padding(horizontal = 8.dp),
-                Alignment.CenterStart
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Search, null, tint = Color.Gray, modifier = Modifier.size(14.dp))
-                    Spacer(Modifier.width(6.dp))
-                    androidx.compose.foundation.text.BasicTextField(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
-                        textStyle = androidx.compose.ui.text.TextStyle(color = textColor, fontSize = 11.sp),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
-
             // Export Icons
             IconButton(
                 onClick = {}, 
@@ -4645,7 +4643,9 @@ fun StudentFeeSetTab(data: JSONObject, viewModel: WantuchViewModel, isDark: Bool
                 modifier = Modifier.size(32.dp).background(iconBg, RoundedCornerShape(8.dp)).border(1.dp, borderCol, RoundedCornerShape(8.dp))
             ) { Icon(Icons.Default.Description, null, tint = Color(0xFF3B82F6), modifier = Modifier.size(16.dp)) }
 
-            // + ADD button
+            Spacer(Modifier.weight(1f))
+
+            // ADD SPECIFIC FEE button
             Button(
                 onClick = { showAddSpecificFee = true },
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E3A5F)),
@@ -4653,7 +4653,7 @@ fun StudentFeeSetTab(data: JSONObject, viewModel: WantuchViewModel, isDark: Bool
                 modifier = Modifier.height(32.dp),
                 contentPadding = PaddingValues(horizontal = 8.dp)
             ) {
-                Text("ADD", fontSize = 9.sp, fontWeight = FontWeight.Black, color = Color.White)
+                Text("ADD SPECIFIC FEE", fontSize = 9.sp, fontWeight = FontWeight.Black, color = Color.White)
             }
 
             // CLEAR button
@@ -4958,7 +4958,7 @@ fun TransportSetupTab(data: JSONObject, viewModel: WantuchViewModel, isDark: Boo
     val bgColor = if (isDark) Color(0xFF1E293B) else Color.White
     
     var selectedSubTab by remember { mutableStateOf(0) }
-    val subTabs = listOf("PRICING SETUP", "DRIVER MANAGEMENT", "STAFF TRANSPORT")
+    val subTabs = listOf("PRICING SETUP", "DRIVER", "STAFF TRANSPORT")
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
         // Sub-tabs
@@ -5106,7 +5106,25 @@ fun TransportSetupTab(data: JSONObject, viewModel: WantuchViewModel, isDark: Boo
                                     Switch(stState, {
                                         stState = it
                                         viewModel.safeFeeApiCall("toggle_staff_transport", mapOf("staff_id" to staff.optString("id"), "state" to if(it) "1" else "0")) {}
-                                    }, modifier = Modifier.scale(0.8f))
+                                    }, modifier = Modifier.scale(0.7f))
+
+                                    Spacer(Modifier.width(8.dp))
+
+                                    // Select Area Dropdown
+                                    val areaOptions = remember(locations) {
+                                        val opts = mutableListOf("Select Area")
+                                        for(k in 0 until (locations?.length() ?: 0)) opts.add(locations!!.getJSONObject(k).optString("location"))
+                                        opts
+                                    }
+                                    var selectedArea by remember { mutableStateOf("Select Area") }
+                                    DropdownSelector(selectedArea, areaOptions, Modifier.width(90.dp), isDark) { selectedArea = it }
+
+                                    Spacer(Modifier.width(4.dp))
+
+                                    // Restore icon
+                                    IconButton(onClick = { /* Action */ }, modifier = Modifier.size(30.dp)) {
+                                        Icon(Icons.Default.Refresh, null, tint = Color.Gray, modifier = Modifier.size(16.dp))
+                                    }
                                 }
                             }
                         }

@@ -566,9 +566,6 @@ fun ActionTile(action: ActionItem, isDark: Boolean, modifier: Modifier = Modifie
     }
 }
 
-@Composable
-fun demo(modifier: Modifier = Modifier) {
 
-}
 
 

@@ -73,7 +73,7 @@ val defaultApps = listOf(
     AppItem("Download App",      Icons.Default.Download,              Color(0xFF3498DB), type = "none")
 )
 
-enum class EduFlowState { SELECTOR, DASHBOARD, STAFF, STAFF_PROFILE, STUDENTS, STUDENT_PROFILE, MY_PROFILE, FEE_MANAGEMENT, STUDENT_FEE_DETAIL }
+enum class EduFlowState { SELECTOR, DASHBOARD, STAFF, STAFF_PROFILE, STUDENTS, STUDENT_PROFILE, MY_PROFILE, FEE_MANAGEMENT, STUDENT_FEE_DETAIL, ATTENDANCE_MANAGEMENT }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -176,6 +176,9 @@ fun WantuchApp(vm: WantuchViewModel = viewModel()) {
                     },
                     onOpenFee = {
                         eduFlowState = EduFlowState.FEE_MANAGEMENT
+                    },
+                    onOpenAttendance = {
+                        eduFlowState = EduFlowState.ATTENDANCE_MANAGEMENT
                     }
                 )
                 EduFlowState.FEE_MANAGEMENT -> FeeManagementScreen(
@@ -185,6 +188,10 @@ fun WantuchApp(vm: WantuchViewModel = viewModel()) {
                         currentStudentId = id
                         eduFlowState = EduFlowState.STUDENT_FEE_DETAIL
                     }
+                )
+                EduFlowState.ATTENDANCE_MANAGEMENT -> AttendanceManagementScreen(
+                    viewModel = vm,
+                    onBack = { eduFlowState = EduFlowState.DASHBOARD }
                 )
                 EduFlowState.STUDENT_FEE_DETAIL -> currentStudentId?.let { id ->
                     StudentFeeDetailScreen(

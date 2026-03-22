@@ -2,12 +2,13 @@ package com.example.wantuch.data.repository
 
 import com.example.wantuch.data.api.WantuchApi
 import com.example.wantuch.domain.model.*
+import com.example.wantuch.data.local.entities.*
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
-class WantuchRepository(private val baseUrl: String) {
+class WantuchRepository(private val baseUrl: String, private val dao: com.example.wantuch.data.local.dao.WantuchDao) {
     
     private val api: WantuchApi by lazy {
         val logging = HttpLoggingInterceptor().apply {
@@ -60,6 +61,10 @@ class WantuchRepository(private val baseUrl: String) {
             .create(WantuchApi::class.java)
     }
 
+    // Offline caching streams
+    fun getLocalStudents(instId: Int) = dao.getStudents(instId)
+    fun getLocalStaff(instId: Int) = dao.getStaff(instId)
+
     suspend fun getInstitutions(type: String): Result<List<Institution>> = runCatching {
         api.getInstitutions(type)
     }
@@ -93,7 +98,15 @@ class WantuchRepository(private val baseUrl: String) {
     }
 
     suspend fun fetchStaff(instId: Int): Result<StaffResponse> = runCatching {
-        api.getStaff(instId = instId)
+        val response = api.getStaff(instId = instId)
+        if (response.status == "success") {
+            val allStaff = (response.teaching_staff ?: emptyList()) + (response.non_teaching_staff ?: emptyList())
+            if (allStaff.isNotEmpty()) {
+                val entities = allStaff.map { it.toEntity(instId) }
+                dao.insertStaff(entities)
+            }
+        }
+        response
     }
 
     suspend fun fetchStaffProfile(staffId: Int, instId: Int): Result<StaffProfileResponse> = runCatching {
@@ -143,7 +156,12 @@ class WantuchRepository(private val baseUrl: String) {
     }
 
     suspend fun fetchStudents(instId: Int, classId: Int = 0, sectionId: Int = 0, status: String = "active", year: String = ""): Result<StudentResponse> = runCatching {
-        api.getStudents(instId = instId, classId = classId, sectionId = sectionId, status = status, year = year)
+        val response = api.getStudents(instId = instId, classId = classId, sectionId = sectionId, status = status, year = year)
+        if (response.status == "success" && response.students != null) {
+            val entities = response.students.map { it.toEntity(instId) }
+            dao.insertStudents(entities)
+        }
+        response
     }
 
     suspend fun bulkSaveStudents(instId: Int, classId: Int, sectionId: Int, namesText: String, gender: String) = runCatching {
@@ -155,7 +173,18 @@ class WantuchRepository(private val baseUrl: String) {
     }
 
     suspend fun fetchSchoolStructure(instId: Int): Result<SchoolStructureResponse> = runCatching {
-        api.getStructure(instId = instId)
+        val response = api.getStructure(instId = instId)
+        if (response.status == "success" && response.classes != null) {
+            val classEntities = response.classes.map { it.toEntity(instId) }
+            dao.insertClasses(classEntities)
+            response.classes.forEach { schoolClass ->
+                schoolClass.sections?.let { sections ->
+                    val sectionEntities = sections.map { it.toEntity(schoolClass.id) }
+                    dao.insertSections(sectionEntities)
+                }
+            }
+        }
+        response
     }
 
     suspend fun deleteStudent(studentId: Int, instId: Int): Result<BasicResponse> = runCatching {

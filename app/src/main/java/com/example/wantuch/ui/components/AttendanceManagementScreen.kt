@@ -24,6 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.CalendarToday
@@ -122,8 +123,11 @@ fun AttendanceMainTab(viewModel: WantuchViewModel, isDark: Boolean, textColor: C
     var selectedClassId by remember { androidx.compose.runtime.mutableIntStateOf(0) }
     var classExpanded by remember { androidx.compose.runtime.mutableStateOf(false) }
 
+    val studentsData by viewModel.studentsData.collectAsState()
+
     androidx.compose.runtime.LaunchedEffect(Unit) {
         viewModel.fetchSchoolStructure()
+        viewModel.fetchStudents()
     }
 
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
@@ -262,6 +266,119 @@ fun AttendanceMainTab(viewModel: WantuchViewModel, isDark: Boolean, textColor: C
                                 }
                             }
                         }
+                    }
+                }
+            }
+            
+            Spacer(Modifier.height(16.dp))
+
+            if (selectedClassId > 0) {
+                val allStudents = studentsData?.students ?: emptyList()
+                val classNameMatch = structure?.classes?.find { it.id == selectedClassId }?.name ?: ""
+                val students = allStudents.filter { st -> 
+                    st.class_section.split(" - ").firstOrNull()?.equals(classNameMatch, ignoreCase = true) == true
+                }
+                
+                if (students.isEmpty()) {
+                    Box(Modifier.fillMaxWidth().padding(20.dp), Alignment.Center) {
+                        Text("No students found for this class.", color = labelColor, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        students.forEachIndexed { idx, st ->
+                            StudentAttendanceRow(
+                                idx = idx + 1,
+                                student = st,
+                                isDark = isDark,
+                                textColor = textColor,
+                                labelColor = labelColor,
+                                cardColor = cardColor,
+                                onMark = { status ->
+                                    viewModel.markStudentAttendance(st.id, status, "") {}
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun StudentAttendanceRow(
+    idx: Int,
+    student: com.example.wantuch.domain.model.StudentMember,
+    isDark: Boolean,
+    textColor: Color,
+    labelColor: Color,
+    cardColor: Color,
+    onMark: (String) -> Unit
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = cardColor),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, labelColor.copy(0.1f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // Number badge
+                Box(Modifier.size(24.dp).background(Color(0xFF6366F1).copy(0.1f), CircleShape), Alignment.Center) {
+                    Text(idx.toString(), color = Color(0xFF6366F1), fontSize = 10.sp, fontWeight = FontWeight.Black)
+                }
+                Spacer(Modifier.width(12.dp))
+                
+                // Name & Stats
+                Column(Modifier.weight(1f)) {
+                    Text(student.name, color = textColor, fontSize = 13.sp, fontWeight = FontWeight.Black)
+                    Spacer(Modifier.height(8.dp))
+                    
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("5P 1A 0L", color = textColor, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                        
+                        val statusLabel = student.marked.uppercase()
+                        val statusColor = when (student.marked) {
+                            "Present" -> Color(0xFF10B981)
+                            "Absent" -> Color(0xFFEF4444)
+                            "Leave" -> Color(0xFFF59E0B)
+                            "Public Holiday" -> Color(0xFFEF4444)
+                            "Short" -> Color(0xFF6366F1)
+                            else -> labelColor
+                        }
+                        if (statusLabel.isNotEmpty() && statusLabel != "NONE") {
+                            Surface(color = statusColor, shape = RoundedCornerShape(20.dp)) {
+                                Text(statusLabel, color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                            }
+                        }
+                    }
+                }
+                
+                // Right side buttons
+                Column(horizontalAlignment = Alignment.End) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        listOf("Present" to "P", "Absent" to "A", "Leave" to "L", "Holiday" to "H", "Public Holiday" to "PH", "Short" to "S").forEach { (status, tag) ->
+                            val isSelected = student.marked == status
+                            Surface(
+                                onClick = { onMark(status) },
+                                color = if(isSelected) Color(0xFF3B82F6) else Color.Transparent,
+                                shape = CircleShape,
+                                border = BorderStroke(1.dp, if(isSelected) Color.Transparent else labelColor.copy(0.3f)),
+                                modifier = Modifier.size(22.dp)
+                            ) {
+                                Box(Modifier.fillMaxSize(), Alignment.Center) {
+                                    Text(tag, color = if(isSelected) Color.White else labelColor, fontSize = 8.sp, fontWeight = FontWeight.Black)
+                                }
+                            }
+                        }
+                    }
+                    
+                    Spacer(Modifier.height(8.dp))
+                    
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Icon(Icons.Default.Sync, null, tint = labelColor.copy(0.7f), modifier = Modifier.size(14.dp))
+                        Icon(Icons.Default.Edit, null, tint = labelColor.copy(0.7f), modifier = Modifier.size(14.dp))
+                        Icon(Icons.Default.Delete, null, tint = labelColor.copy(0.7f), modifier = Modifier.size(14.dp))
                     }
                 }
             }

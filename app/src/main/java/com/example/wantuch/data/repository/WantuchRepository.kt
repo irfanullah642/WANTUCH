@@ -7,6 +7,8 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 class WantuchRepository(private val baseUrl: String, private val dao: com.example.wantuch.data.local.dao.WantuchDao) {
     
@@ -65,8 +67,16 @@ class WantuchRepository(private val baseUrl: String, private val dao: com.exampl
     fun getLocalStudents(instId: Int) = dao.getStudents(instId)
     fun getLocalStaff(instId: Int) = dao.getStaff(instId)
 
+    val getLocalInstitutions: Flow<List<Institution>> = dao.getAllInstitutions().map { it.map { entity -> entity.toDomain() } }
+    fun getLocalDashboard(instId: Int): Flow<DashboardResponse?> = dao.getDashboard(instId).map { it?.toDomain() }
+    val getLocalPortfolio: Flow<PortfolioResponse?> = dao.getPortfolio().map { it?.toDomain() }
+
     suspend fun getInstitutions(type: String): Result<List<Institution>> = runCatching {
-        api.getInstitutions(type)
+        val response = api.getInstitutions(type)
+        if (response.isNotEmpty()) {
+            dao.insertInstitutions(response.map { it.toEntity() })
+        }
+        response
     }
 
     suspend fun authInstitution(instId: Int, user: String, pass: String, role: String): Result<LoginResponse> = runCatching {
@@ -86,11 +96,19 @@ class WantuchRepository(private val baseUrl: String, private val dao: com.exampl
     }
 
     suspend fun fetchPortfolio(): Result<PortfolioResponse> = runCatching {
-        api.getPortfolio()
+        val response = api.getPortfolio()
+        if (response.status == "success") {
+            dao.insertPortfolio(response.toEntity())
+        }
+        response
     }
 
     suspend fun fetchDashboard(instId: Int): Result<DashboardResponse> = runCatching {
-        api.switchAndGetDashboard(instId = instId)
+        val response = api.switchAndGetDashboard(instId = instId)
+        if (response.status == "success") {
+            dao.insertDashboard(response.toEntity(instId))
+        }
+        response
     }
 
     suspend fun genericGet(action: String, params: Map<String, String>) = runCatching {

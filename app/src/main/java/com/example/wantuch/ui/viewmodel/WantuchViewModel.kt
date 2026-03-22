@@ -46,27 +46,65 @@ class WantuchViewModel(application: Application) : AndroidViewModel(application)
     val studentsData = _studentsData.asStateFlow()
 
     init {
-        // Collect cached data to show immediately when app starts/switches institution
+        // Collect cached data to show immediately when app starts
         viewModelScope.launch {
-            val lastId = prefs.getInt("last_inst", 0)
-            if (lastId != 0) {
+            try {
+                // Portfolio & Institutions (Global)
                 launch {
-                    repository.getLocalStudents(lastId).collect { entities ->
-                        if (entities.isNotEmpty() && _studentsData.value == null) {
-                            val domainStudents = entities.map { it.toDomain() }
-                            _studentsData.value = StudentResponse(status = "success", students = domainStudents)
+                    try {
+                        repository.getLocalInstitutions.collect { entities ->
+                            if (entities.isNotEmpty() && _institutions.value.isEmpty()) {
+                                _institutions.value = entities
+                            }
                         }
-                    }
+                    } catch (e: Exception) { println("Local Inst Error: ${e.message}") }
                 }
                 launch {
-                    repository.getLocalStaff(lastId).collect { entities ->
-                        if (entities.isNotEmpty() && _staffData.value == null) {
-                            val teaching = entities.filter { it.role.contains("Teaching", ignoreCase = true) }.map { it.toDomain() }
-                            val nonTeaching = entities.filter { !it.role.contains("Teaching", ignoreCase = true) }.map { it.toDomain() }
-                            _staffData.value = StaffResponse(status = "success", teaching_staff = teaching, non_teaching_staff = nonTeaching)
+                    try {
+                        repository.getLocalPortfolio.collect { data ->
+                            if (data != null && _portfolio.value == null) {
+                                _portfolio.value = data
+                            }
                         }
+                    } catch (e: Exception) { println("Local Portfolio Error: ${e.message}") }
+                }
+
+                // Institution-specific data
+                val lastId = prefs.getInt("last_inst", 0)
+                if (lastId != 0) {
+                    launch {
+                        try {
+                            repository.getLocalDashboard(lastId).collect { data ->
+                                if (data != null && _dashboardData.value == null) {
+                                    _dashboardData.value = data
+                                }
+                            }
+                        } catch (e: Exception) { println("Local Dash Error: ${e.message}") }
+                    }
+                    launch {
+                        try {
+                            repository.getLocalStudents(lastId).collect { entities ->
+                                if (entities.isNotEmpty() && _studentsData.value == null) {
+                                    val domainStudents = entities.map { it.toDomain() }
+                                    _studentsData.value = StudentResponse(status = "success", students = domainStudents)
+                                }
+                            }
+                        } catch (e: Exception) { println("Local Student Error: ${e.message}") }
+                    }
+                    launch {
+                        try {
+                            repository.getLocalStaff(lastId).collect { entities ->
+                                if (entities.isNotEmpty() && _staffData.value == null) {
+                                    val teaching = entities.filter { it.role.contains("Teaching", ignoreCase = true) }.map { it.toDomain() }
+                                    val nonTeaching = entities.filter { !it.role.contains("Teaching", ignoreCase = true) }.map { it.toDomain() }
+                                    _staffData.value = StaffResponse(status = "success", teaching_staff = teaching, non_teaching_staff = nonTeaching)
+                                }
+                            }
+                        } catch (e: Exception) { println("Local Staff Error: ${e.message}") }
                     }
                 }
+            } catch (e: Exception) {
+                 println("Global Init Error: ${e.message}")
             }
         }
     }

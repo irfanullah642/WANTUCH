@@ -102,8 +102,8 @@ fun AttendanceManagementScreen(viewModel: WantuchViewModel, onBack: () -> Unit) 
         Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState())) {
             Spacer(Modifier.height(16.dp))
             when (selectedTopTab) {
-                0 -> AttendanceMainTab(isDark, textColor, labelColor, cardColor)
-                1 -> MonthlyAttendanceTab(isDark, textColor, labelColor, cardColor)
+                0 -> AttendanceMainTab(viewModel, isDark, textColor, labelColor, cardColor)
+                1 -> MonthlyAttendanceTab(viewModel, isDark, textColor, labelColor, cardColor)
                 2 -> AttendanceRulesTab(isDark, textColor, labelColor, cardColor)
                 3 -> LeaveAppealsTab(isDark, textColor, labelColor, cardColor)
                 4 -> StatusAdminTab(isDark, textColor, labelColor, cardColor)
@@ -114,9 +114,17 @@ fun AttendanceManagementScreen(viewModel: WantuchViewModel, onBack: () -> Unit) 
 }
 
 @Composable
-fun AttendanceMainTab(isDark: Boolean, textColor: Color, labelColor: Color, cardColor: Color) {
-    var subTab by remember { mutableIntStateOf(0) }
-    val subTabs = listOf("Students", "Staff", "Manual", "Smart Attendance")
+fun AttendanceMainTab(viewModel: WantuchViewModel, isDark: Boolean, textColor: Color, labelColor: Color, cardColor: Color) {
+    var subTab by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    val subTabs = listOf("Students", "Staff", "Manual", "Smart")
+
+    val structure by viewModel.schoolStructure.collectAsState()
+    var selectedClassId by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    var classExpanded by remember { androidx.compose.runtime.mutableStateOf(false) }
+
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        viewModel.fetchSchoolStructure()
+    }
 
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         // Sub-tabs row
@@ -124,13 +132,13 @@ fun AttendanceMainTab(isDark: Boolean, textColor: Color, labelColor: Color, card
             subTabs.forEachIndexed { i, t ->
                 Surface(
                     onClick = { subTab = i },
-                    color = if(subTab == i) Color(0xFF3B82F6).copy(0.1f) else Color.Transparent,
+                    color = if(subTab == i) Color(0xFFF59E0B).copy(0.1f) else Color.Transparent,
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.weight(1f).height(38.dp),
-                    border = BorderStroke(1.dp, if(subTab == i) Color(0xFF3B82F6) else labelColor.copy(0.2f))
+                    border = BorderStroke(1.dp, if(subTab == i) Color(0xFFF59E0B) else labelColor.copy(0.2f))
                 ) {
                     Box(Modifier.fillMaxSize(), Alignment.Center) {
-                        Text(t.uppercase(), color = if(subTab == i) Color(0xFF3B82F6) else labelColor, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                        Text(t.uppercase(), color = if(subTab == i) Color(0xFFF59E0B) else labelColor, fontSize = 9.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
                     }
                 }
             }
@@ -183,11 +191,41 @@ fun AttendanceMainTab(isDark: Boolean, textColor: Color, labelColor: Color, card
                         Column(Modifier.weight(1f)) {
                             Text("CHOOSE CLASS...", color = labelColor, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                             Spacer(Modifier.height(6.dp))
-                            Surface(color = if(isDark) Color.White.copy(0.05f) else Color.Black.copy(0.03f), shape = RoundedCornerShape(8.dp)) {
-                                Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Text("SELECT CLASS", color = labelColor.copy(0.5f), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                    Spacer(Modifier.weight(1f))
-                                    Icon(Icons.Default.ArrowDropDown, null, tint = labelColor)
+                            
+                            val selectedText = if(selectedClassId > 0) {
+                                structure?.classes?.find { it.id == selectedClassId }?.name?.uppercase() ?: "SELECT CLASS"
+                            } else {
+                                "SELECT CLASS"
+                            }
+
+                            Box {
+                                Surface(
+                                    onClick = { classExpanded = true },
+                                    color = if (isDark) Color.White.copy(0.05f) else Color.Black.copy(0.03f),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Text(selectedText, color = if(selectedClassId > 0) textColor else labelColor.copy(0.5f), fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                                        Spacer(Modifier.weight(1f))
+                                        Icon(Icons.Default.ArrowDropDown, null, tint = labelColor)
+                                    }
+                                }
+                                androidx.compose.material3.DropdownMenu(
+                                    expanded = classExpanded,
+                                    onDismissRequest = { classExpanded = false },
+                                    modifier = Modifier.background(cardColor)
+                                ) {
+                                    androidx.compose.material3.DropdownMenuItem(
+                                        text = { Text("ALL CLASSES", color = textColor, fontSize = 12.sp) },
+                                        onClick = { selectedClassId = 0; classExpanded = false }
+                                    )
+                                    structure?.classes?.forEach { cls ->
+                                        androidx.compose.material3.DropdownMenuItem(
+                                            text = { Text(cls.name.uppercase(), color = textColor, fontSize = 12.sp) },
+                                            onClick = { selectedClassId = cls.id; classExpanded = false }
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -232,8 +270,16 @@ fun AttendanceMainTab(isDark: Boolean, textColor: Color, labelColor: Color, card
 }
 
 @Composable
-fun MonthlyAttendanceTab(isDark: Boolean, textColor: Color, labelColor: Color, cardColor: Color) {
-    var subTab by remember { mutableIntStateOf(0) }
+fun MonthlyAttendanceTab(viewModel: WantuchViewModel, isDark: Boolean, textColor: Color, labelColor: Color, cardColor: Color) {
+    var subTab by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+
+    val structure by viewModel.schoolStructure.collectAsState()
+    var selectedClassId by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    var classExpanded by remember { androidx.compose.runtime.mutableStateOf(false) }
+
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        viewModel.fetchSchoolStructure()
+    }
 
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -267,11 +313,39 @@ fun MonthlyAttendanceTab(isDark: Boolean, textColor: Color, labelColor: Color, c
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Box(Modifier.weight(1.5f)) {
-                Surface(color = cardColor, shape = RoundedCornerShape(12.dp), border = BorderStroke(1.dp, labelColor.copy(0.2f))) {
-                    Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Choose Class...", color = labelColor, fontSize = 13.sp)
-                        Spacer(Modifier.weight(1f))
-                        Icon(Icons.Default.ArrowDropDown, null, tint = labelColor)
+                val selectedText = if(selectedClassId > 0) {
+                    structure?.classes?.find { it.id == selectedClassId }?.name?.uppercase() ?: "CHOOSE CLASS..."
+                } else {
+                    "CHOOSE CLASS..."
+                }
+
+                Box {
+                    Surface(
+                        onClick = { classExpanded = true },
+                        color = cardColor, shape = RoundedCornerShape(12.dp), border = BorderStroke(1.dp, labelColor.copy(0.2f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(selectedText, color = if(selectedClassId > 0) textColor else labelColor, fontSize = 13.sp, maxLines = 1)
+                            Spacer(Modifier.weight(1f))
+                            Icon(Icons.Default.ArrowDropDown, null, tint = labelColor)
+                        }
+                    }
+                    androidx.compose.material3.DropdownMenu(
+                        expanded = classExpanded,
+                        onDismissRequest = { classExpanded = false },
+                        modifier = Modifier.background(cardColor)
+                    ) {
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = { Text("ALL CLASSES", color = textColor, fontSize = 12.sp) },
+                            onClick = { selectedClassId = 0; classExpanded = false }
+                        )
+                        structure?.classes?.forEach { cls ->
+                            androidx.compose.material3.DropdownMenuItem(
+                                text = { Text(cls.name.uppercase(), color = textColor, fontSize = 12.sp) },
+                                onClick = { selectedClassId = cls.id; classExpanded = false }
+                            )
+                        }
                     }
                 }
             }

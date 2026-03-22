@@ -60,10 +60,15 @@ fun SchoolSelectorScreen(
         viewModel.fetchPortfolio()
     }
 
-    Box(Modifier.fillMaxSize().background(Color(0xFF0F172A))) {
+    Box(Modifier
+        .fillMaxSize()
+        .background(Color(0xFF0F172A))) {
         Column(Modifier.fillMaxSize()) {
             // Header
-            Row(Modifier.fillMaxWidth().statusBarsPadding().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack, Modifier.background(Color.White.copy(0.05f), RoundedCornerShape(12.dp))) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White)
                 }
@@ -79,7 +84,9 @@ fun SchoolSelectorScreen(
             } else {
                 portfolio?.let { data ->
                     // Stats Row
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         PortfolioStatCard("Schools", data.stats?.get("schools")?.toString() ?: "0", Color(0xFF3B82F6), Modifier.weight(1f))
                         PortfolioStatCard("Students", data.stats?.get("students")?.toString() ?: "0", Color(0xFF10B981), Modifier.weight(1f))
                         PortfolioStatCard("Staff", data.stats?.get("staff")?.toString() ?: "0", Color(0xFFF59E0B), Modifier.weight(1f))
@@ -116,13 +123,20 @@ fun SchoolSelectorScreen(
 fun InstitutionCard(inst: Institution, onClick: () -> Unit) {
     Card(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth().aspectRatio(0.85f),
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(0.85f),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
         border = BorderStroke(1.dp, Color.White.copy(0.1f))
     ) {
-        Column(Modifier.fillMaxSize().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            Box(Modifier.size(70.dp).clip(RoundedCornerShape(18.dp)).background(Color.White.copy(0.05f)), Alignment.Center) {
+        Column(Modifier
+            .fillMaxSize()
+            .padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            Box(Modifier
+                .size(70.dp)
+                .clip(RoundedCornerShape(18.dp))
+                .background(Color.White.copy(0.05f)), Alignment.Center) {
                 if (!inst.logo.isNullOrEmpty()) {
                     AsyncImage(model = "https://www.wantuch.pk/${inst.logo}", contentDescription = null, contentScale = ContentScale.Crop)
                 } else {
@@ -138,7 +152,11 @@ fun InstitutionCard(inst: Institution, onClick: () -> Unit) {
 
 @Composable
 fun PortfolioStatCard(label: String, value: String, accent: Color, modifier: Modifier) {
-    Box(modifier.clip(RoundedCornerShape(18.dp)).background(Color(0xFF1E293B)).border(1.dp, accent.copy(0.3f), RoundedCornerShape(18.dp)).padding(12.dp)) {
+    Box(modifier
+        .clip(RoundedCornerShape(18.dp))
+        .background(Color(0xFF1E293B))
+        .border(1.dp, accent.copy(0.3f), RoundedCornerShape(18.dp))
+        .padding(12.dp)) {
         Column {
             Text(label, color = Color.White.copy(0.5f), fontSize = 10.sp, fontWeight = FontWeight.Bold)
             Text(value, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
@@ -149,10 +167,29 @@ fun PortfolioStatCard(label: String, value: String, accent: Color, modifier: Mod
 
 @Composable
 fun HangingTube(modifier: Modifier) {
-    Column(modifier.width(4.dp).height(20.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Box(Modifier.fillMaxWidth().height(4.dp).background(Color(0xFF94A3B8), CircleShape))
-        Box(Modifier.fillMaxWidth().weight(1f).background(Brush.horizontalGradient(listOf(Color(0xFF64748B), Color(0xFFCBD5E1), Color(0xFF64748B)))))
-        Box(Modifier.fillMaxWidth().height(4.dp).background(Color(0xFF94A3B8), CircleShape))
+    Column(modifier
+        .width(4.dp)
+        .height(20.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Box(Modifier
+            .fillMaxWidth()
+            .height(4.dp)
+            .background(Color(0xFF94A3B8), CircleShape))
+        Box(Modifier
+            .fillMaxWidth()
+            .weight(1f)
+            .background(
+                Brush.horizontalGradient(
+                    listOf(
+                        Color(0xFF64748B),
+                        Color(0xFFCBD5E1),
+                        Color(0xFF64748B)
+                    )
+                )
+            ))
+        Box(Modifier
+            .fillMaxWidth()
+            .height(4.dp)
+            .background(Color(0xFF94A3B8), CircleShape))
     }
 }
 
@@ -161,7 +198,11 @@ fun HangingTube(modifier: Modifier) {
 fun ActionIconButton(icon: ImageVector, label: String, color: Color, isDark: Boolean, onClick: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onClick() }) {
         Box(
-            Modifier.size(38.dp).clip(RoundedCornerShape(10.dp)).background(color.copy(0.1f)).border(1.dp, color.copy(0.15f), RoundedCornerShape(10.dp)),
+            Modifier
+                .size(38.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(color.copy(0.1f))
+                .border(1.dp, color.copy(0.15f), RoundedCornerShape(10.dp)),
             contentAlignment = Alignment.Center
         ) {
             Icon(icon, null, tint = color, modifier = Modifier.size(18.dp))
@@ -175,7 +216,12 @@ fun ActionIconButton(icon: ImageVector, label: String, color: Color, isDark: Boo
 fun HeaderActionIcon(icon: ImageVector, isDark: Boolean, onClick: () -> Unit) {
     IconButton(
         onClick = onClick,
-        modifier = Modifier.size(32.dp).background(if (isDark) Color.White.copy(0.1f) else Color.Black.copy(0.05f), RoundedCornerShape(8.dp))
+        modifier = Modifier
+            .size(32.dp)
+            .background(
+                if (isDark) Color.White.copy(0.1f) else Color.Black.copy(0.05f),
+                RoundedCornerShape(8.dp)
+            )
     ) {
         Icon(icon, null, tint = if (isDark) Color.White else Color(0xFF1E293B), modifier = Modifier.size(16.dp))
     }
@@ -190,7 +236,9 @@ fun SuspendedStatCard(label: String, value: String, accent: Color, isDark: Boole
         colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0xFF1E293B) else Color.White),
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
-        Column(Modifier.fillMaxSize().padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Column(Modifier
+            .fillMaxSize()
+            .padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             Text(label, color = if (isDark) Color.White.copy(0.5f) else Color.Gray, fontSize = 8.sp, fontWeight = FontWeight.Black, maxLines = 1)
             Text(value, color = accent, fontSize = 15.sp, fontWeight = FontWeight.Black)
         }
@@ -206,8 +254,15 @@ fun FlapModuleCard(label: String, icon: ImageVector, isDark: Boolean, modifier: 
         colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0xFF1E293B) else Color.White),
         elevation = CardDefaults.cardElevation(6.dp)
     ) {
-        Column(Modifier.fillMaxSize().padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(Modifier.size(38.dp).background(if (isDark) Color.White.copy(0.05f) else Color(0xFF3B82F6).copy(0.1f), CircleShape), Alignment.Center) {
+        Column(Modifier
+            .fillMaxSize()
+            .padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(Modifier
+                .size(38.dp)
+                .background(
+                    if (isDark) Color.White.copy(0.05f) else Color(0xFF3B82F6).copy(0.1f),
+                    CircleShape
+                ), Alignment.Center) {
                 Icon(icon, null, tint = Color(0xFF3B82F6), modifier = Modifier.size(20.dp))
             }
             Spacer(Modifier.height(10.dp))
@@ -226,7 +281,9 @@ fun DashStatCard(label: String, value: String, color: Color, modifier: Modifier)
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
-        Column(Modifier.fillMaxSize().padding(15.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Column(Modifier
+            .fillMaxSize()
+            .padding(15.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             Text(label, color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
             Text(value, color = color, fontSize = 24.sp, fontWeight = FontWeight.Black)
         }
@@ -241,7 +298,9 @@ fun ModuleButton(label: String, icon: ImageVector, modifier: Modifier) {
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
-        Column(Modifier.fillMaxSize().padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Column(Modifier
+            .fillMaxSize()
+            .padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             Icon(icon, null, tint = Color(0xFF3B82F6), modifier = Modifier.size(28.dp))
             Spacer(Modifier.height(8.dp))
             Text(label, color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
@@ -300,7 +359,11 @@ fun AttendanceSubModal(member: com.example.wantuch.domain.model.StaffMember, isD
             Spacer(Modifier.height(20.dp))
             
             // Status Card
-            Box(Modifier.fillMaxWidth().height(140.dp).clip(RoundedCornerShape(20.dp)).background(Color(0xFF3B82F6).copy(0.1f)), Alignment.Center) {
+            Box(Modifier
+                .fillMaxWidth()
+                .height(140.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(Color(0xFF3B82F6).copy(0.1f)), Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("CURRENT STATUS", color = Color(0xFF3B82F6), fontSize = 11.sp, fontWeight = FontWeight.Black)
                     Text("NOT MARKED", color = Color(0xFF3B82F6), fontSize = 32.sp, fontWeight = FontWeight.Bold)
@@ -384,7 +447,11 @@ fun SalarySubModal(member: com.example.wantuch.domain.model.StaffMember, isDark:
             Spacer(Modifier.height(20.dp))
             
             // Balance Card
-            Box(Modifier.fillMaxWidth().height(120.dp).clip(RoundedCornerShape(20.dp)).background(Color(0xFF10B981).copy(0.1f)), Alignment.Center) {
+            Box(Modifier
+                .fillMaxWidth()
+                .height(120.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(Color(0xFF10B981).copy(0.1f)), Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("OUTSTANDING BALANCE", color = Color(0xFF10B981), fontSize = 11.sp, fontWeight = FontWeight.Black)
                     Text("RS ${member.balance ?: 0}", color = Color(0xFF10B981), fontSize = 38.sp, fontWeight = FontWeight.Bold)
@@ -402,14 +469,25 @@ fun SalarySubModal(member: com.example.wantuch.domain.model.StaffMember, isDark:
                 Column(Modifier.weight(1f)) {
                     Text("FOR MONTH", color = textColor.copy(0.6f), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(6.dp))
-                    Box(Modifier.fillMaxWidth().height(55.dp).clip(RoundedCornerShape(12.dp)).background(if(isDark) Color.Black.copy(0.2f) else Color.Black.copy(0.05f)).padding(15.dp), Alignment.CenterStart) {
+                    Box(Modifier
+                        .fillMaxWidth()
+                        .height(55.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (isDark) Color.Black.copy(0.2f) else Color.Black.copy(0.05f))
+                        .padding(15.dp), Alignment.CenterStart) {
                         Text(java.text.SimpleDateFormat("MMMM yyyy", java.util.Locale.getDefault()).format(java.util.Date()), color = textColor, fontWeight = FontWeight.Bold)
                     }
                 }
                 Column(Modifier.weight(1f)) {
                     Text("AMOUNT (RS)", color = textColor.copy(0.6f), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(6.dp))
-                    Box(Modifier.fillMaxWidth().height(55.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF10B981).copy(0.05f)).border(1.dp, Color(0xFF10B981).copy(0.3f), RoundedCornerShape(12.dp)).padding(15.dp), Alignment.CenterStart) {
+                    Box(Modifier
+                        .fillMaxWidth()
+                        .height(55.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF10B981).copy(0.05f))
+                        .border(1.dp, Color(0xFF10B981).copy(0.3f), RoundedCornerShape(12.dp))
+                        .padding(15.dp), Alignment.CenterStart) {
                         Text("${member.balance ?: 0}", color = Color(0xFF10B981), fontSize = 20.sp, fontWeight = FontWeight.Black)
                     }
                 }
@@ -419,7 +497,9 @@ fun SalarySubModal(member: com.example.wantuch.domain.model.StaffMember, isDark:
             
             Button(
                 onClick = { /* Process */ },
-                modifier = Modifier.fillMaxWidth().height(65.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(65.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
                 shape = RoundedCornerShape(16.dp)
             ) {
@@ -486,5 +566,9 @@ fun ActionTile(action: ActionItem, isDark: Boolean, modifier: Modifier = Modifie
     }
 }
 
+@Composable
+fun demo(modifier: Modifier = Modifier) {
+
+}
 
 

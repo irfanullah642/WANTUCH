@@ -71,12 +71,20 @@ class WantuchRepository(private val baseUrl: String, private val dao: com.exampl
     fun getLocalDashboard(instId: Int): Flow<DashboardResponse?> = dao.getDashboard(instId).map { it?.toDomain() }
     val getLocalPortfolio: Flow<PortfolioResponse?> = dao.getPortfolio().map { it?.toDomain() }
 
-    suspend fun getInstitutions(type: String): Result<List<Institution>> = runCatching {
+    suspend fun getInstitutions(type: String): Result<List<Institution>> = try {
         val response = api.getInstitutions(type)
         if (response.isNotEmpty()) {
             dao.insertInstitutions(response.map { it.toEntity() })
         }
-        response
+        Result.success(response)
+    } catch (e: Exception) {
+        // Fallback to cache if network fails
+        val cached = dao.getAllInstitutionsOnce()
+        if (cached.isNotEmpty()) {
+            Result.success(cached.map { it.toDomain() })
+        } else {
+            Result.failure(e)
+        }
     }
 
     suspend fun authInstitution(instId: Int, user: String, pass: String, role: String): Result<LoginResponse> = runCatching {
@@ -95,27 +103,41 @@ class WantuchRepository(private val baseUrl: String, private val dao: com.exampl
         api.getUnreadCounts()
     }
 
-    suspend fun fetchPortfolio(): Result<PortfolioResponse> = runCatching {
+    suspend fun fetchPortfolio(): Result<PortfolioResponse> = try {
         val response = api.getPortfolio()
         if (response.status == "success") {
             dao.insertPortfolio(response.toEntity())
         }
-        response
+        Result.success(response)
+    } catch (e: Exception) {
+        val cached = dao.getPortfolioOnce()
+        if (cached != null) {
+            Result.success(cached.toDomain())
+        } else {
+            Result.failure(e)
+        }
     }
 
-    suspend fun fetchDashboard(instId: Int): Result<DashboardResponse> = runCatching {
+    suspend fun fetchDashboard(instId: Int): Result<DashboardResponse> = try {
         val response = api.switchAndGetDashboard(instId = instId)
         if (response.status == "success") {
             dao.insertDashboard(response.toEntity(instId))
         }
-        response
+        Result.success(response)
+    } catch (e: Exception) {
+        val cached = dao.getDashboardOnce(instId)
+        if (cached != null) {
+            Result.success(cached.toDomain())
+        } else {
+            Result.failure(e)
+        }
     }
 
     suspend fun genericGet(action: String, params: Map<String, String>) = runCatching {
         api.genericGet(action, params)
     }
 
-    suspend fun fetchStaff(instId: Int): Result<StaffResponse> = runCatching {
+    suspend fun fetchStaff(instId: Int): Result<StaffResponse> = try {
         val response = api.getStaff(instId = instId)
         if (response.status == "success") {
             val allStaff = (response.teaching_staff ?: emptyList()) + (response.non_teaching_staff ?: emptyList())
@@ -124,7 +146,16 @@ class WantuchRepository(private val baseUrl: String, private val dao: com.exampl
                 dao.insertStaff(entities)
             }
         }
-        response
+        Result.success(response)
+    } catch (e: Exception) {
+        val cachedEntities = dao.getStaffOnce(instId)
+        if (cachedEntities.isNotEmpty()) {
+            val teaching = cachedEntities.filter { it.role.contains("Teaching", ignoreCase = true) }.map { it.toDomain() }
+            val nonTeaching = cachedEntities.filter { !it.role.contains("Teaching", ignoreCase = true) }.map { it.toDomain() }
+            Result.success(StaffResponse(status = "success", teaching_staff = teaching, non_teaching_staff = nonTeaching))
+        } else {
+            Result.failure(e)
+        }
     }
 
     suspend fun fetchStaffProfile(staffId: Int, instId: Int): Result<StaffProfileResponse> = runCatching {
@@ -173,13 +204,20 @@ class WantuchRepository(private val baseUrl: String, private val dao: com.exampl
         api.markAttendance(studentId = studentId, status = status, institutionId = instId, date = date)
     }
 
-    suspend fun fetchStudents(instId: Int, classId: Int = 0, sectionId: Int = 0, status: String = "active", year: String = ""): Result<StudentResponse> = runCatching {
+    suspend fun fetchStudents(instId: Int, classId: Int = 0, sectionId: Int = 0, status: String = "active", year: String = ""): Result<StudentResponse> = try {
         val response = api.getStudents(instId = instId, classId = classId, sectionId = sectionId, status = status, year = year)
         if (response.status == "success" && response.students != null) {
             val entities = response.students.map { it.toEntity(instId) }
             dao.insertStudents(entities)
         }
-        response
+        Result.success(response)
+    } catch (e: Exception) {
+        val cached = dao.getStudentsOnce(instId)
+        if (cached.isNotEmpty()) {
+            Result.success(StudentResponse(status = "success", students = cached.map { it.toDomain() }))
+        } else {
+            Result.failure(e)
+        }
     }
 
     suspend fun bulkSaveStudents(instId: Int, classId: Int, sectionId: Int, namesText: String, gender: String) = runCatching {
@@ -190,7 +228,7 @@ class WantuchRepository(private val baseUrl: String, private val dao: com.exampl
         api.getStudentProfile(studentId = studentId, instId = instId)
     }
 
-    suspend fun fetchSchoolStructure(instId: Int): Result<SchoolStructureResponse> = runCatching {
+    suspend fun fetchSchoolStructure(instId: Int): Result<SchoolStructureResponse> = try {
         val response = api.getStructure(instId = instId)
         if (response.status == "success" && response.classes != null) {
             val classEntities = response.classes.map { it.toEntity(instId) }
@@ -202,7 +240,17 @@ class WantuchRepository(private val baseUrl: String, private val dao: com.exampl
                 }
             }
         }
-        response
+        Result.success(response)
+    } catch (e: Exception) {
+        val classes = dao.getClassesOnce(instId)
+        if (classes.isNotEmpty()) {
+             // For now we map classes with empty sections to avoid compile error, 
+             // since querying relation wasn't setup
+             val domainClasses = classes.map { SchoolClass(id = it.id, name = it.name, sections = emptyList()) }
+             Result.success(SchoolStructureResponse(status = "success", classes = domainClasses))
+        } else {
+            Result.failure(e)
+        }
     }
 
     suspend fun deleteStudent(studentId: Int, instId: Int): Result<BasicResponse> = runCatching {

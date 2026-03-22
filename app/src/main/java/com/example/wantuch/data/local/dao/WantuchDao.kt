@@ -17,6 +17,9 @@ interface WantuchDao {
     @Query("SELECT * FROM students WHERE institutionId = :institutionId")
     fun getStudents(institutionId: Int): Flow<List<StudentEntity>>
 
+    @Query("SELECT * FROM students WHERE institutionId = :institutionId")
+    suspend fun getStudentsOnce(institutionId: Int): List<StudentEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertStudents(students: List<StudentEntity>): List<Long>
 
@@ -32,6 +35,9 @@ interface WantuchDao {
     // Staff
     @Query("SELECT * FROM staff WHERE institutionId = :institutionId")
     fun getStaff(institutionId: Int): Flow<List<StaffEntity>>
+
+    @Query("SELECT * FROM staff WHERE institutionId = :institutionId")
+    suspend fun getStaffOnce(institutionId: Int): List<StaffEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertStaff(staff: List<StaffEntity>): List<Long>
@@ -49,6 +55,9 @@ interface WantuchDao {
     @Query("SELECT * FROM classes WHERE institutionId = :institutionId")
     fun getClasses(institutionId: Int): Flow<List<ClassEntity>>
 
+    @Query("SELECT * FROM classes WHERE institutionId = :institutionId")
+    suspend fun getClassesOnce(institutionId: Int): List<ClassEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertClasses(classes: List<ClassEntity>): List<Long>
 
@@ -62,6 +71,9 @@ interface WantuchDao {
     @Query("SELECT * FROM institutions")
     fun getAllInstitutions(): Flow<List<InstitutionEntity>>
 
+    @Query("SELECT * FROM institutions")
+    suspend fun getAllInstitutionsOnce(): List<InstitutionEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertInstitutions(institutions: List<InstitutionEntity>): List<Long>
 
@@ -69,12 +81,18 @@ interface WantuchDao {
     @Query("SELECT * FROM dashboards WHERE institutionId = :institutionId")
     fun getDashboard(institutionId: Int): Flow<DashboardEntity?>
 
+    @Query("SELECT * FROM dashboards WHERE institutionId = :institutionId")
+    suspend fun getDashboardOnce(institutionId: Int): DashboardEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertDashboard(dashboard: DashboardEntity): Long
 
     // Portfolio
     @Query("SELECT * FROM portfolio WHERE id = 1")
     fun getPortfolio(): Flow<PortfolioEntity?>
+
+    @Query("SELECT * FROM portfolio WHERE id = 1")
+    suspend fun getPortfolioOnce(): PortfolioEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPortfolio(portfolio: PortfolioEntity): Long

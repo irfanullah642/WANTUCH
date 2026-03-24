@@ -36,14 +36,12 @@ fun ParentDashboardScreen(
 
     // State
     var childrenData by remember { mutableStateOf<JSONArray?>(null) }
-    var selectedChild by remember { mutableStateOf<JSONObject?>(null) }
-    var activeTab by remember { mutableStateOf("children") }  // children | fee | notices
+    var dashboardStats by remember { mutableStateOf<JSONObject?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMsg by remember { mutableStateOf("") }
 
     val isDark by viewModel.isDarkTheme.collectAsState()
-    val bgColor = if (isDark) Color(0xFF0F172A) else Color(0xFFF1F5F9)
-    val cardColor = if (isDark) Color(0xFF1E293B) else Color.White
+    val bgColor = if (isDark) Color(0xFF0F172A) else Color(0xFFF8FAFC)
     val textColor = if (isDark) Color.White else Color(0xFF1E293B)
     val subColor = if (isDark) Color.White.copy(0.5f) else Color.Gray
 
@@ -56,9 +54,7 @@ fun ParentDashboardScreen(
         ) { json ->
             if (json.optString("status") == "success") {
                 childrenData = json.optJSONArray("children")
-                if (childrenData != null && childrenData!!.length() > 0) {
-                    selectedChild = childrenData!!.optJSONObject(0)
-                }
+                dashboardStats = json.optJSONObject("stats")
             } else {
                 errorMsg = json.optString("message", "Failed to load parent data")
             }
@@ -71,60 +67,37 @@ fun ParentDashboardScreen(
             .fillMaxSize()
             .background(bgColor)
     ) {
-        // ── Header ──────────────────────────────────────────────────────────
+        // ── Header (Matching Web Parent Hub Style) ──────────────────────────
         Box(
             Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
-            // Gradient bar
             Box(
                 Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(24.dp))
-                    .background(
-                        Brush.horizontalGradient(
-                            listOf(Color(0xFFEC4899), Color(0xFF9333EA))
-                        )
-                    )
+                    .background(Brush.horizontalGradient(listOf(Color(0xFF3B82F6), Color(0xFF8B5CF6))))
                     .padding(16.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(
                         onClick = onBack,
-                        modifier = Modifier
-                            .size(36.dp)
-                            .background(Color.White.copy(0.2f), CircleShape)
+                        modifier = Modifier.size(36.dp).background(Color.White.copy(0.2f), CircleShape)
                     ) {
                         Icon(Icons.Default.ArrowBack, null, tint = Color.White, modifier = Modifier.size(18.dp))
                     }
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(
-                            "PARENT PORTAL",
-                            color = Color.White,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Black
-                        )
-                        Text(
-                            "Monitor your child's progress",
-                            color = Color.White.copy(0.7f),
-                            fontSize = 12.sp
-                        )
+                        Text("PARENT HUB", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Black)
+                        Text("Keep track of your children's journey", color = Color.White.copy(0.7f), fontSize = 12.sp)
                     }
-                    Box(
-                        Modifier
-                            .size(42.dp)
-                            .background(Color.White.copy(0.2f), CircleShape),
-                        Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.FamilyRestroom,
-                            null,
-                            tint = Color.White,
-                            modifier = Modifier.size(22.dp)
-                        )
+                    // Web icons: Notification, Theme, Logout
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Notifications, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(16.dp))
+                        Icon(Icons.Default.Logout, null, tint = Color.White, modifier = Modifier.size(20.dp).clickable { onBack() })
                     }
                 }
             }
@@ -132,299 +105,164 @@ fun ParentDashboardScreen(
 
         if (isLoading) {
             Box(Modifier.fillMaxSize(), Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    CircularProgressIndicator(color = Color(0xFFEC4899))
-                    Spacer(Modifier.height(16.dp))
-                    Text("Loading parent dashboard...", color = subColor, fontSize = 14.sp)
-                }
+                CircularProgressIndicator(color = Color(0xFF3B82F6))
             }
         } else if (errorMsg.isNotEmpty()) {
-            // ── Error / No Data State ──────────────────────────────────────
             Box(Modifier.fillMaxSize(), Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
-                    Icon(Icons.Default.FamilyRestroom, null, tint = Color(0xFFEC4899).copy(0.4f), modifier = Modifier.size(64.dp))
+                    Icon(Icons.Default.ErrorOutline, null, tint = Color.Red.copy(0.5f), modifier = Modifier.size(64.dp))
                     Spacer(Modifier.height(16.dp))
-                    Text(
-                        "Parent Dashboard",
-                        color = textColor,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        errorMsg.ifEmpty { "Connect to the school portal to view your children's data. The school must add your CNIC to the student records." },
-                        color = subColor,
-                        fontSize = 14.sp,
-                        textAlign = TextAlign.Center
-                    )
+                    Text(errorMsg, color = Color.Red, textAlign = TextAlign.Center, fontSize = 14.sp)
                     Spacer(Modifier.height(24.dp))
-                    // Quick access tiles
-                    ParentQuickAccessGrid()
+                    Button(onClick = { /* Retry logic */ }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6))) {
+                        Text("Try Again")
+                    }
                 }
             }
         } else {
             LazyColumn(
                 Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 80.dp)
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Children selector
-                if (childrenData != null && childrenData!!.length() > 0) {
-                    item {
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            "MY CHILDREN",
-                            color = subColor,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Black,
-                            modifier = Modifier.padding(horizontal = 20.dp)
-                        )
-                        Spacer(Modifier.height(10.dp))
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            val count = childrenData!!.length()
-                            repeat(count) { i ->
-                                val child = childrenData!!.optJSONObject(i) ?: return@repeat
-                                val isSelected = selectedChild == child
-                                ChildChip(
-                                    name = child.optString("full_name", "Child ${i+1}"),
-                                    className = child.optString("class_name", ""),
-                                    isSelected = isSelected,
-                                    modifier = Modifier.weight(1f)
-                                ) { selectedChild = child }
-                            }
+                // Top Summary Cards (Horizontal Scroll-like but in Grid for App Feel)
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ParentStatCard("Children", dashboardStats?.optString("children") ?: "0", Icons.Default.People, Color(0xFF3B82F6), Modifier.weight(1f))
+                            ParentStatCard("Schools", dashboardStats?.optString("schools") ?: "0", Icons.Default.School, Color(0xFF10B981), Modifier.weight(1f))
                         }
-                        Spacer(Modifier.height(20.dp))
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ParentStatCard("Dues", dashboardStats?.optString("dues") ?: "0", Icons.Default.Payments, Color(0xFFEF4444), Modifier.weight(1f))
+                            ParentStatCard("Notices", dashboardStats?.optString("notices") ?: "0", Icons.Default.Campaign, Color(0xFFF59E0B), Modifier.weight(1f))
+                        }
                     }
                 }
 
-                // Selected child info
-                selectedChild?.let { child ->
-                    item {
-                        // Stat cards
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            val attPct = child.optInt("att_pct", 0)
-                            ParentStatCard(
-                                label = "ATTENDANCE",
-                                value = "$attPct%",
-                                icon = Icons.Default.HowToReg,
-                                color = if (attPct >= 75) Color(0xFF10B981) else Color(0xFFEF4444),
-                                modifier = Modifier.weight(1f)
-                            )
-                            val feeStatus = child.optString("fee_status", "Unpaid")
-                            ParentStatCard(
-                                label = "FEE STATUS",
-                                value = feeStatus,
-                                icon = Icons.Default.Payments,
-                                color = if (feeStatus == "Paid") Color(0xFF10B981) else Color(0xFFEF4444),
-                                modifier = Modifier.weight(1f)
-                            )
-                            ParentStatCard(
-                                label = "CLASS",
-                                value = child.optString("class_name", "N/A"),
-                                icon = Icons.Default.Class,
-                                color = Color(0xFF3B82F6),
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                        Spacer(Modifier.height(20.dp))
-                    }
-
-                    // Today's attendance
-                    item {
-                        Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp)
-                                .clip(RoundedCornerShape(20.dp))
-                                .background(cardColor)
-                                .border(1.dp, Color.White.copy(0.06f), RoundedCornerShape(20.dp))
-                                .padding(20.dp)
-                        ) {
-                            Column {
-                                Text(
-                                    "TODAY'S STATUS",
-                                    color = subColor,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Black
-                                )
-                                Spacer(Modifier.height(12.dp))
-                                val todayStatus = child.optString("today_status", "Not Marked")
-                                val statusColor = when (todayStatus) {
-                                    "Present" -> Color(0xFF10B981)
-                                    "Absent"  -> Color(0xFFEF4444)
-                                    "Leave"   -> Color(0xFFF59E0B)
-                                    else      -> subColor
-                                }
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Box(
-                                        Modifier
-                                            .size(12.dp)
-                                            .background(statusColor, CircleShape)
-                                    )
-                                    Spacer(Modifier.width(10.dp))
-                                    Text(
-                                        todayStatus,
-                                        color = statusColor,
-                                        fontSize = 18.sp,
-                                        fontWeight = FontWeight.Black
-                                    )
-                                }
-                                Spacer(Modifier.height(8.dp))
-                                Text(
-                                    child.optString("full_name", "Student"),
-                                    color = textColor,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    "${child.optString("class_name", "")} • ${child.optString("section_name", "")}",
-                                    color = subColor,
-                                    fontSize = 12.sp
-                                )
-                            }
-                        }
-                        Spacer(Modifier.height(20.dp))
-                    }
-                }
-
-                // Quick access modules
+                // Child Header
                 item {
                     Text(
-                        "QUICK ACCESS",
+                        "STUDENT PROFILES",
                         color = subColor,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Black,
-                        modifier = Modifier.padding(horizontal = 20.dp)
+                        modifier = Modifier.padding(top = 8.dp)
                     )
-                    Spacer(Modifier.height(12.dp))
-                    ParentQuickAccessGrid()
-                    Spacer(Modifier.height(20.dp))
+                }
+
+                // Children Cards
+                childrenData?.let { data ->
+                    val count = data.length()
+                    items((0 until count).toList()) { i ->
+                        val child = data.optJSONObject(i) ?: return@items
+                        NewChildCard(child, isDark)
+                    }
+                }
+                
+                item { Spacer(Modifier.height(40.dp)) }
+            }
+        }
+    }
+}
+
+@Composable
+fun NewChildCard(child: JSONObject, isDark: Boolean) {
+    val cardBg = if (isDark) Color(0xFF1E293B) else Color.White
+    val textColor = if (isDark) Color.White else Color(0xFF1E293B)
+    val subTextColor = if (isDark) Color.White.copy(0.6f) else Color.Gray
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = cardBg),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(Modifier.padding(20.dp)) {
+            // Child Info Row (Header of Card)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // Profile Pic Placeholder
+                Box(
+                    Modifier.size(54.dp).clip(CircleShape).background(Color(0xFF3B82F6).copy(0.1f)),
+                    Alignment.Center
+                ) {
+                    Icon(Icons.Default.Person, null, tint = Color(0xFF3B82F6), modifier = Modifier.size(32.dp))
+                }
+                Spacer(Modifier.width(16.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(child.optString("full_name"), fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = textColor)
+                    Text(child.optString("school_name"), fontSize = 12.sp, color = Color(0xFF3B82F6), fontWeight = FontWeight.Bold)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(6.dp).background(Color(0xFF10B981), CircleShape))
+                        Spacer(Modifier.width(6.dp))
+                        Text("${child.optString("class_name")} (${child.optString("section_name")})", fontSize = 11.sp, color = subTextColor)
+                    }
                 }
             }
-        }
-    }
-}
 
-@Composable
-fun ChildChip(
-    name: String,
-    className: String,
-    isSelected: Boolean,
-    modifier: Modifier,
-    onClick: () -> Unit
-) {
-    Box(
-        modifier
-            .clip(RoundedCornerShape(16.dp))
-            .background(if (isSelected) Color(0xFFEC4899) else Color(0xFF1E293B))
-            .border(
-                1.dp,
-                if (isSelected) Color(0xFFEC4899) else Color.White.copy(0.1f),
-                RoundedCornerShape(16.dp)
-            )
-            .clickable { onClick() }
-            .padding(12.dp)
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-            Icon(
-                Icons.Default.Person,
-                null,
-                tint = if (isSelected) Color.White else Color.White.copy(0.5f),
-                modifier = Modifier.size(24.dp)
-            )
-            Spacer(Modifier.height(6.dp))
-            Text(
-                name.split(" ").firstOrNull() ?: name,
-                color = if (isSelected) Color.White else Color.White.copy(0.7f),
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                maxLines = 1
-            )
-            if (className.isNotEmpty()) {
-                Text(
-                    className,
-                    color = if (isSelected) Color.White.copy(0.8f) else Color.White.copy(0.4f),
-                    fontSize = 9.sp,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1
-                )
+            Spacer(Modifier.height(20.dp))
+            Divider(color = textColor.copy(0.05f), thickness = 1.dp)
+            Spacer(Modifier.height(20.dp))
+
+            // Metrics Grid
+            Row(Modifier.fillMaxWidth()) {
+                ChildMetricItem("ATTENDANCE", "${child.optString("att_pct")}%", Icons.Default.Timeline, Color(0xFF10B981), Modifier.weight(1f))
+                ChildMetricItem("FEE DUES", child.optString("fee_status"), Icons.Default.Wallet, Color(0xFFF43F5E), Modifier.weight(1f))
             }
-        }
-    }
-}
+            Spacer(Modifier.height(16.dp))
+            Row(Modifier.fillMaxWidth()) {
+                ChildMetricItem("PERFORMANCE", child.optString("performance", "N/A"), Icons.Default.Stars, Color(0xFFF59E0B), Modifier.weight(1f))
+                ChildMetricItem("PEND. WORK", child.optString("pending_work", "0"), Icons.Default.EditNote, Color(0xFF8B5CF6), Modifier.weight(1f))
+            }
 
-@Composable
-fun ParentStatCard(
-    label: String,
-    value: String,
-    icon: ImageVector,
-    color: Color,
-    modifier: Modifier
-) {
-    Box(
-        modifier
-            .clip(RoundedCornerShape(16.dp))
-            .background(color.copy(0.1f))
-            .border(1.dp, color.copy(0.3f), RoundedCornerShape(16.dp))
-            .padding(12.dp)
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-            Icon(icon, null, tint = color, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.height(6.dp))
-            Text(value, color = color, fontSize = 13.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center, maxLines = 1)
-            Text(label, color = color.copy(0.7f), fontSize = 8.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-        }
-    }
-}
-
-@Composable
-fun ParentQuickAccessGrid() {
-    val modules = listOf(
-        Triple("Attendance", Icons.Default.HowToReg, Color(0xFF3B82F6)),
-        Triple("Fee Status", Icons.Default.Payments, Color(0xFF10B981)),
-        Triple("Notices", Icons.Default.Campaign, Color(0xFFF59E0B)),
-        Triple("Results", Icons.Default.Assignment, Color(0xFF8B5CF6))
-    )
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        modules.forEach { (label, icon, color) ->
+            Spacer(Modifier.height(24.dp))
+            
+            // View Report Action
             Box(
                 Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(color.copy(0.1f))
-                    .border(1.dp, color.copy(0.2f), RoundedCornerShape(16.dp))
-                    .padding(12.dp)
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .border(1.dp, Color(0xFF3B82F6).copy(0.2f), RoundedCornerShape(12.dp))
+                    .clickable { }
+                    .padding(vertical = 10.dp),
+                Alignment.Center
             ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(icon, null, tint = color, modifier = Modifier.size(24.dp))
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        label,
-                        color = color,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Black,
-                        textAlign = TextAlign.Center
-                    )
-                }
+                Text("View Full Report →", color = Color(0xFF3B82F6), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
+fun ChildMetricItem(label: String, value: String, icon: ImageVector, color: Color, modifier: Modifier) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)).background(color.copy(0.1f)),
+            Alignment.Center
+        ) {
+            Icon(icon, null, tint = color, modifier = Modifier.size(18.dp))
+        }
+        Spacer(Modifier.width(12.dp))
+        Column {
+            Text(label, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+            Text(value, fontSize = 14.sp, fontWeight = FontWeight.Black)
+        }
+    }
+}
+
+@Composable
+fun ParentStatCard(label: String, value: String, icon: ImageVector, color: Color, modifier: Modifier) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = color.copy(0.05f)),
+        border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(0.1f))
+    ) {
+        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, null, tint = color, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(10.dp))
+            Column {
+                Text(label, fontSize = 10.sp, color = color.copy(0.7f), fontWeight = FontWeight.Bold)
+                Text(value, fontSize = 16.sp, fontWeight = FontWeight.Black, color = color)
             }
         }
     }

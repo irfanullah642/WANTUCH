@@ -135,6 +135,36 @@ fun StudentDashboardScreen(
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Black
                     )
+
+                    Spacer(Modifier.height(16.dp))
+
+                    // --- STUDENT STATS CARDS ---
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        StudentStatCard(
+                            "ATTENDANCE",
+                            dashboardData?.stats?.get("attendance_per")?.toString() ?: "0%",
+                            Color(0xFF10B981),
+                            isDark,
+                            Modifier.weight(1f)
+                        )
+                        StudentStatCard(
+                            "FEE STATUS",
+                            dashboardData?.stats?.get("fee_status")?.toString() ?: "N/A",
+                            if ((dashboardData?.stats?.get("fee_status")?.toString() ?: "").contains("UNPAID")) Color(0xFFEF4444) else Color(0xFF10B981),
+                            isDark,
+                            Modifier.weight(1f)
+                        )
+                        StudentStatCard(
+                            "MY CLASS",
+                            dashboardData?.stats?.get("my_class")?.toString() ?: "N/A",
+                            Color(0xFFF59E0B),
+                            isDark,
+                            Modifier.weight(1f)
+                        )
+                    }
                 }
             }
         }
@@ -238,6 +268,33 @@ fun StudentModuleCard(
                     lineHeight = 14.sp
                 )
             }
+        }
+    }
+}
+
+@Composable
+fun StudentStatCard(
+    label: String,
+    value: String,
+    accent: Color,
+    isDark: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.height(65.dp),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White.copy(0.15f)
+        ),
+        elevation = CardDefaults.cardElevation(0.dp)
+    ) {
+        Column(
+            Modifier.fillMaxSize().padding(8.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(label, color = Color.White.copy(0.7f), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+            Text(value, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Black)
         }
     }
 }

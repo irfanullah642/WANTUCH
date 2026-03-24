@@ -17,11 +17,11 @@ interface WantuchApi {
     ): LoginResponse
 
     @FormUrlEncoded
-    @POST("modules/education/auth_parent.php")
+    @POST("modules/education/auth_institution.php")
     suspend fun authParent(
         @Field("CNIC") cnic: String,
         @Field("PASSWORD") pass: String,
-        @Field("ACTION") action: String
+        @Field("ACTION") action: String // Always "PARENT_LOGIN"
     ): LoginResponse
 
     @FormUrlEncoded

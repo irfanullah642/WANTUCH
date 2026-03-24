@@ -21,6 +21,7 @@ data class DashboardResponse(
     val role: String,
     val stats: Map<String, Any?>? = null,
     val is_holiday: Boolean,
+    val holiday_name: String? = null,
     val modules: List<ModuleItem>? = null
 )
 

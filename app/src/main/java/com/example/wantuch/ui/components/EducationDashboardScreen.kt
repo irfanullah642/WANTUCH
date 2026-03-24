@@ -130,25 +130,36 @@ fun EducationDashboardScreen(
                 data?.let { dash ->
                     Column(Modifier.verticalScroll(rememberScrollState()).padding(top = 15.dp)) {
                         // Suspended Stat Cards (4 in a row)
+                        val role = dash.role?.lowercase() ?: ""
+                        val isHighAdmin = role == "admin" || role == "super_admin" || role == "developer"
+
                         Row(
                             Modifier.fillMaxWidth().padding(horizontal = 10.dp),
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            val context = LocalContext.current
-                            val rawStaff = dash.stats?.get("staff")?.toString() ?: "0"
-                            val staffCount = rawStaff.toDoubleOrNull()?.toInt() ?: "0"
-                            val displayStaff = if (staffCount.toString().toIntOrNull() ?: 0 > 0) ((staffCount.toString().toIntOrNull() ?: 0) - 1).toString() else "0"
+                            if (isHighAdmin) {
+                                val rawStaff = dash.stats?.get("staff")?.toString() ?: "0"
+                                val staffCountInt = rawStaff.toDoubleOrNull()?.toInt() ?: 0
+                                val displayStaff = if (staffCountInt > 0) (staffCountInt - 1).toString() else "0"
 
-                            SuspendedStatCard("STAFF", displayStaff, Color(0xFF6366F1), isDark, Modifier.weight(1f)) {
-                                onOpenStaff()
+                                SuspendedStatCard("STAFF", displayStaff, Color(0xFF6366F1), isDark, Modifier.weight(1f)) {
+                                    onOpenStaff()
+                                }
                             }
                             SuspendedStatCard("STUDENTS", dash.stats?.get("students")?.toString() ?: "0", Color(0xFF3B82F6), isDark, Modifier.weight(1f)) {
                                 onOpenStudents()
                             }
-                            SuspendedStatCard("FEE", dash.stats?.get("fee_today")?.toString() ?: "0", Color(0xFF10B981), isDark, Modifier.weight(1f)) {
-                                onOpenFee()
+
+
+                            if (isHighAdmin) {
+                                val feeToday = dash.stats?.get("fee_today")?.toString() ?: "0"
+                                SuspendedStatCard("FEE TODAY", "PKR $feeToday", Color(0xFF10B981), isDark, Modifier.weight(1f)) {
+                                    onOpenFee()
+                                }
                             }
-                            SuspendedStatCard("ATTENDANCE", if (dash.is_holiday) "HOLIDAY" else "PRESENT", Color(0xFFF59E0B), isDark, Modifier.weight(1f)) {
+                            
+                            val attLabel = if (dash.is_holiday) (dash.holiday_name?.uppercase() ?: "HOLIDAY") else "PRESENT"
+                            SuspendedStatCard("ATTENDANCE", attLabel, Color(0xFFF59E0B), isDark, Modifier.weight(1f)) {
                                 onOpenAttendance()
                             }
                         }

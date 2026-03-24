@@ -181,10 +181,15 @@ fun EduLoginModal(
                             EduTextField(cnic, { cnic = it }, "CNIC (35202-xxxxxxx-x)", Icons.Default.AssignmentInd)
                             EduTextField(password, { password = it }, "Password", Icons.Default.Lock, isPassword = true, showPass = showPass, onTogglePass = { showPass = !showPass })
                             
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Checkbox(checked = rememberMe, onCheckedChange = { rememberMe = it }, 
-                                    colors = CheckboxDefaults.colors(uncheckedColor = Color.White.copy(0.4f), checkedColor = Color(0xFFEC4899)))
-                                Text("Remember Me", color = Color.White.copy(0.6f), fontSize = 14.sp)
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Checkbox(checked = rememberMe, onCheckedChange = { rememberMe = it }, 
+                                        colors = CheckboxDefaults.colors(uncheckedColor = Color.White.copy(0.4f), checkedColor = Color(0xFFEC4899)))
+                                    Text("Remember Me", color = Color.White.copy(0.6f), fontSize = 14.sp)
+                                }
+                                TextButton(onClick = { /* Step to forgot password */ }) {
+                                    Text("Forgot?", color = Color(0xFFEC4899), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
                             }
 
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {

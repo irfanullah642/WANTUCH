@@ -74,7 +74,8 @@ val defaultApps = listOf(
 )
 
 enum class EduFlowState { 
-    SELECTOR, DASHBOARD, STAFF, STAFF_PROFILE, STUDENTS, STUDENT_PROFILE, 
+    SELECTOR, DASHBOARD, PARENT_DASHBOARD, STUDENT_DASHBOARD,
+    STAFF, STAFF_PROFILE, STUDENTS, STUDENT_PROFILE, 
     MY_PROFILE, FEE_MANAGEMENT, STUDENT_FEE_DETAIL, ATTENDANCE_MANAGEMENT,
     REPORTS_DASHBOARD, QUESTION_PAPERS, QUESTION_PAPER_BUILDER, SYLLABUS,
     HOMEWORK, DATABASE_MANAGEMENT, PROMOTION, STUDY_PLAN
@@ -151,8 +152,39 @@ fun WantuchApp(vm: WantuchViewModel = viewModel()) {
 
         // MODALS
         eduModalType?.let { type ->
-            EduLoginModal(type, vm, onDismiss = { eduModalType = null }, onSuccess = { _ ->
-                showEduFlow = true; eduFlowState = EduFlowState.SELECTOR; eduModalType = null
+            EduLoginModal(type, vm, onDismiss = { eduModalType = null }, onSuccess = { role ->
+                showEduFlow = true
+                val lowerRole = role.lowercase()
+                when (lowerRole) {
+                    "parent" -> {
+                        // Parent has own portal – no institution needed
+                        eduFlowState = EduFlowState.PARENT_DASHBOARD
+                    }
+                    "admin" -> {
+                        // Admin goes through school selector since they may manage multiple
+                        eduFlowState = EduFlowState.SELECTOR
+                    }
+                    "super_admin", "developer" -> {
+                        // Super admin / developer sees portfolio + selector
+                        vm.fetchPortfolio()
+                        eduFlowState = EduFlowState.SELECTOR
+                    }
+                    else -> {
+                        // Staff / Teacher / Student: auto-load their specific institution's dashboard
+                        val storedInstId = vm.getInstitutionId()
+                        if (storedInstId != 0) {
+                            vm.selectInstitution(storedInstId) {
+                                eduFlowState = if (lowerRole == "student")
+                                    EduFlowState.STUDENT_DASHBOARD
+                                else
+                                    EduFlowState.DASHBOARD  // Staff/Teacher use the full dashboard with role-filtered modules
+                            }
+                        } else {
+                            eduFlowState = EduFlowState.SELECTOR
+                        }
+                    }
+                }
+                eduModalType = null
             })
         }
         if (genLoginVisible) {
@@ -162,6 +194,22 @@ fun WantuchApp(vm: WantuchViewModel = viewModel()) {
         // NATIVE EDUCATION FLOW
         AnimatedVisibility(showEduFlow, enter = slideInHorizontally { it }, exit = slideOutHorizontally { it }) {
             when (eduFlowState) {
+                EduFlowState.PARENT_DASHBOARD -> ParentDashboardScreen(
+                    viewModel = vm,
+                    onBack = { showEduFlow = false; eduFlowState = EduFlowState.SELECTOR }
+                )
+                EduFlowState.STUDENT_DASHBOARD -> StudentDashboardScreen(
+                    viewModel = vm,
+                    onBack = { showEduFlow = false; eduFlowState = EduFlowState.SELECTOR },
+                    onOpenSyllabus = { eduFlowState = EduFlowState.SYLLABUS },
+                    onOpenHomework = { eduFlowState = EduFlowState.HOMEWORK },
+                    onOpenStudyPlan = { eduFlowState = EduFlowState.STUDY_PLAN },
+                    onOpenMyProfile = { id ->
+                        currentStaffId = id
+                        profileBackState = EduFlowState.STUDENT_DASHBOARD
+                        eduFlowState = EduFlowState.MY_PROFILE
+                    }
+                )
                 EduFlowState.SELECTOR -> SchoolSelectorScreen(vm, onBack = { showEduFlow = false }, onInstitutionSelected = { eduFlowState = EduFlowState.DASHBOARD })
                 EduFlowState.DASHBOARD -> EducationDashboardScreen(
                     viewModel = vm,

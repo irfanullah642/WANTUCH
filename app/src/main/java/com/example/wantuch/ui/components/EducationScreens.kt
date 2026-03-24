@@ -331,6 +331,8 @@ fun getIcon(name: String): ImageVector {
         "event_available" -> Icons.Default.EventAvailable
         "analytics" -> Icons.Default.Analytics
         "database" -> Icons.Default.Storage
+        "family_restroom" -> Icons.Default.FamilyRestroom
+        "people" -> Icons.Default.People
         else -> Icons.Default.Category
     }
 }

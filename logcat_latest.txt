@@ -1,0 +1,46 @@
+> 03-24 00:40:21.393  9810  9810 E AndroidRuntime: FATAL EXCEPTION: main
+> 03-24 00:40:21.393  9810  9810 E AndroidRuntime: Process: com.example.wantuch, PID: 9810
+> 03-24 00:40:21.393  9810  9810 E AndroidRuntime: java.lang.RuntimeException: Unable to instantiate activity ComponentInfo{com.example.wantuch/com.example.wantuch.MainActivity}: java.lang.ClassNotFoundException: Didn't find class "com.example.wantuch.MainActivity" on path: DexPathList[[zip file "/data/app/~~Fzn-7kz4hk_88k2-HjXl7w==/com.example.wantuch-MgWI5df7hP3VKeiMPRJHKg==/base.apk"],nativeLibraryDirectories=[/data/app/~~Fzn-7kz4hk_88k2-HjXl7w==/com.example.wantuch-MgWI5df7hP3VKeiMPRJHKg==/lib/arm64, /data/app/~~Fzn-7kz4hk_88k2-HjXl7w==/com.example.wantuch-MgWI5df7hP3VKeiMPRJHKg==/base.apk!/lib/arm64-v8a, /system/lib64, /system_ext/lib64]]
+> 03-24 00:40:21.393  9810  9810 E AndroidRuntime: 	at android.app.ActivityThread.performLaunchActivity(ActivityThread.java:4025)
+> 03-24 00:40:21.393  9810  9810 E AndroidRuntime: 	at android.app.ActivityThread.handleLaunchActivity(ActivityThread.java:4308)
+> 03-24 00:40:21.393  9810  9810 E AndroidRuntime: 	at android.app.servertransaction.LaunchActivityItem.execute(LaunchActivityItem.java:112)
+> 03-24 00:40:21.393  9810  9810 E AndroidRuntime: 	at android.app.servertransaction.TransactionExecutor.executeNonLifecycleItem(TransactionExecutor.java:174)
+> 03-24 00:40:21.393  9810  9810 E AndroidRuntime: 	at android.app.servertransaction.TransactionExecutor.executeTransactionItems(TransactionExecutor.java:109)
+> 03-24 00:40:21.393  9810  9810 E AndroidRuntime: 	at android.app.servertransaction.TransactionExecutor.execute(TransactionExecutor.java:81)
+> 03-24 00:40:21.393  9810  9810 E AndroidRuntime: 	at android.app.ActivityThread$H.handleMessage(ActivityThread.java:2697)
+> 03-24 00:40:21.393  9810  9810 E AndroidRuntime: 	at android.os.Handler.dispatchMessage(Handler.java:107)
+> 03-24 00:40:21.393  9810  9810 E AndroidRuntime: 	at android.os.Looper.loopOnce(Looper.java:232)
+> 03-24 00:40:21.393  9810  9810 E AndroidRuntime: 	at android.os.Looper.loop(Looper.java:317)
+> 03-24 00:40:21.393  9810  9810 E AndroidRuntime: 	at android.app.ActivityThread.main(ActivityThread.java:8886)
+> 03-24 00:40:21.393  9810  9810 E AndroidRuntime: 	at java.lang.reflect.Method.invoke(Native Method)
+> 03-24 00:40:21.393  9810  9810 E AndroidRuntime: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:681)
+> 03-24 00:40:21.393  9810  9810 E AndroidRuntime: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:915)
+> 03-24 00:40:21.393  9810  9810 E AndroidRuntime: Caused by: java.lang.ClassNotFoundException: Didn't find class "com.example.wantuch.MainActivity" on path: DexPathList[[zip file "/data/app/~~Fzn-7kz4hk_88k2-HjXl7w==/com.example.wantuch-MgWI5df7hP3VKeiMPRJHKg==/base.apk"],nativeLibraryDirectories=[/data/app/~~Fzn-7kz4hk_88k2-HjXl7w==/com.example.wantuch-MgWI5df7hP3VKeiMPRJHKg==/lib/arm64, /data/app/~~Fzn-7kz4hk_88k2-HjXl7w==/com.example.wantuch-MgWI5df7hP3VKeiMPRJHKg==/base.apk!/lib/arm64-v8a, /system/lib64, /system_ext/lib64]]
+> 03-24 00:40:21.393  9810  9810 E AndroidRuntime: 	at dalvik.system.BaseDexClassLoader.findClass(BaseDexClassLoader.java:259)
+> 03-24 00:40:21.393  9810  9810 E AndroidRuntime: 	at java.lang.ClassLoader.loadClass(ClassLoader.java:642)
+> 03-24 00:40:21.393  9810  9810 E AndroidRuntime: 	at java.lang.ClassLoader.loadClass(ClassLoader.java:578)
+> 03-24 00:40:21.393  9810  9810 E AndroidRuntime: 	at android.app.AppComponentFactory.instantiateActivity(AppComponentFactory.java:95)
+> 03-24 00:40:21.393  9810  9810 E AndroidRuntime: 	at androidx.core.app.CoreComponentFactory.instantiateActivity(CoreComponentFactory.java:44)
+> 03-24 00:40:21.393  9810  9810 E AndroidRuntime: 	at android.app.Instrumentation.newActivity(Instrumentation.java:1448)
+> 03-24 00:40:21.393  9810  9810 E AndroidRuntime: 	at android.app.ActivityThread.performLaunchActivity(ActivityThread.java:4011)
+> 03-24 00:40:21.393  9810  9810 E AndroidRuntime: 	... 13 more
+  03-24 00:40:21.432   438   438 E lowmemorykiller: device has enough memory 2337328Kib, disable killing
+  03-24 00:40:21.483  5455 13572 E FrameEvents: addRelease: Did not find frame.
+  03-24 00:40:21.486  1121  1121 E SurfaceFlinger: Out of order buffers detected for RequestedLayerState{com.android.launcher3/com.android.searchlauncher.SearchLauncher#23397 parentId=16462} producedId=90 frameNumber=291 -> producedId=90 frameNumber=2
+  03-24 00:40:21.498  1121  1226 E CompositionEngine: ===>enable for gpu
+  03-24 00:40:21.534   438   438 E lowmemorykiller: device has enough memory 2372192Kib, disable killing
+  03-24 00:40:21.568  1121  1191 E CompositionEngine: ===>enable for gpu
+  03-24 00:40:21.581  1085  1085 E PowerHAL: Error writing to /proc/sys/unisched/sched_task_ui: No such file or directory
+  03-24 00:40:21.581  1085  1085 E PowerHAL: Error writing to /proc/sys/unisched/sched_task_ui: No such file or directory
+  03-24 00:40:21.583  4789  4819 E SystemServiceRegistry: No service published for: payjoy_access_service
+  03-24 00:40:21.583  4789  4819 E SystemServiceRegistry: android.os.ServiceManager$ServiceNotFoundException: No service published for: payjoy_access_service
+  03-24 00:40:21.583  4789  4819 E SystemServiceRegistry: 	at android.os.ServiceManager.getServiceOrThrow(ServiceManager.java:203)
+  03-24 00:40:21.583  4789  4819 E SystemServiceRegistry: 	at android.app.SystemServiceRegistry$84.createService(SystemServiceRegistry.java:1123)
+  03-24 00:40:21.583  4789  4819 E SystemServiceRegistry: 	at android.app.SystemServiceRegistry$84.createService(SystemServiceRegistry.java:1120)
+  03-24 00:40:21.583  4789  4819 E SystemServiceRegistry: 	at android.app.SystemServiceRegistry$StaticServiceFetcher.getService(SystemServiceRegistry.java:2363)
+  03-24 00:40:21.583  4789  4819 E SystemServiceRegistry: 	at android.app.SystemServiceRegistry.getSystemService(SystemServiceRegistry.java:1882)
+  03-24 00:40:21.583  4789  4819 E SystemServiceRegistry: 	at android.app.ContextImpl.getSystemService(ContextImpl.java:2241)
+  03-24 00:40:21.583  4789  4819 E SystemServiceRegistry: 	at com.android.server.wm.TaskFragment.shouldSendPayJoyBroadcast(TaskFragment.java:482)
+  03-24 00:40:21.583  4789  4819 E SystemServiceRegistry: 	at com.android.server.wm.TaskFragment.-$$Nest$mshouldSendPayJoyBroadcast(TaskFragment.java:0)
+  03-24 00:40:21.583  4789  4819 E SystemServiceRegistry: 	at com.android.server.wm.TaskFragment$PayJoyTaskHandler.handleMessage(TaskFragment.java:440)
+  03-24 00:40:21.583  4789  4819 E SystemServiceRegistry: 	at android.os.Handler.dispatchMessage(Handler.java:107)

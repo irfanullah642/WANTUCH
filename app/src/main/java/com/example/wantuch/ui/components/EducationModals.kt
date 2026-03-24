@@ -170,7 +170,7 @@ fun EduLoginModal(
                                 BackBtn { step = "INST" }
                                 EduActionBtn(if (isLoading) "Checking..." else "Login", Color(0xFF1ABC9C), Modifier.weight(1f), enabled = !isLoading) {
                                     viewModel.loginInstitution(selectedInst, username, password, selectedRole, rememberMe) { url ->
-                                        if (url != null) onSuccess(url)
+                                        if (url != null) onSuccess(selectedRole)  // Pass role, not URL
                                     }
                                 }
                             }
@@ -191,7 +191,7 @@ fun EduLoginModal(
                                 BackBtn { step = "ROLE" }
                                 EduActionBtn(if (isLoading) "Authenticating..." else "Parent Login", Color(0xFFEC4899), Modifier.weight(1f), enabled = !isLoading) {
                                     viewModel.loginParent(cnic, password, rememberMe) { url ->
-                                        if (url != null) onSuccess(url)
+                                        if (url != null) onSuccess("parent")  // Always parent role
                                     }
                                 }
                             }

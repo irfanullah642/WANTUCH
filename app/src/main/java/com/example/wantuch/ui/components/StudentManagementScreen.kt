@@ -242,7 +242,13 @@ fun StudentManagementScreen(
                     }
 
                     items(students) { student ->
-                        StudentListCard(student, isDark) { onOpenProfile(student.id) }
+                        val studentId = when(val id = student.id) {
+                            is Double -> id.toInt()
+                            is Int -> id
+                            is String -> id.toIntOrNull() ?: 0
+                            else -> 0
+                        }
+                        StudentListCard(student, isDark) { onOpenProfile(studentId) }
                     }
                 }
             }
@@ -1307,18 +1313,20 @@ fun PremiumTextField(
     value: String,
     onValueChange: (String) -> Unit,
     placeholder: String,
-    icon: ImageVector,
+    icon: ImageVector?,
     isDark: Boolean,
     modifier: Modifier = Modifier,
-    keyboardOptions: KeyboardOptions = KeyboardOptions.Default
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    isPassword: Boolean = false
 ) {
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
         modifier = modifier.fillMaxWidth(),
         placeholder = { Text(placeholder, fontSize = 14.sp, color = if(isDark) Color.White.copy(0.4f) else Color.Gray) },
-        leadingIcon = { Icon(icon, null, tint = Color(0xFF3B82F6), modifier = Modifier.size(20.dp)) },
+        leadingIcon = icon?.let { { Icon(it, null, tint = Color(0xFF3B82F6), modifier = Modifier.size(20.dp)) } },
         shape = RoundedCornerShape(12.dp),
+        visualTransformation = if (isPassword) androidx.compose.ui.text.input.PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
         colors = OutlinedTextFieldDefaults.colors(
             focusedTextColor = if(isDark) Color.White else Color.Black,
             unfocusedTextColor = if(isDark) Color.White else Color.Black,

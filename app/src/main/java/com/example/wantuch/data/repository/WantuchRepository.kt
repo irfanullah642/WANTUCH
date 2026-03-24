@@ -9,6 +9,8 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody.Companion.toRequestBody
 
 class WantuchRepository(private val baseUrl: String, private val dao: com.example.wantuch.data.local.dao.WantuchDao) {
     
@@ -179,6 +181,34 @@ class WantuchRepository(private val baseUrl: String, private val dao: com.exampl
     suspend fun saveExperience(fields: Map<String, String>): Result<BasicResponse> = runCatching { api.saveExperience(fields) }
     suspend fun deleteExperience(id: Int, staffId: Int): Result<BasicResponse> = runCatching { api.deleteExperience(id, staffId) }
 
+    suspend fun updateSyllabusStatus(id: Int, status: String): Result<BasicResponse> = runCatching {
+        api.updateSyllabusStatus(id = id, status = status)
+    }
+
+    suspend fun saveFullSyllabus(payload: SyllabusWizardPayload): Result<BasicResponse> = runCatching {
+        api.saveFullSyllabus(payload = payload)
+    }
+
+    suspend fun editSyllabusChapter(payload: EditChapterPayload): Result<BasicResponse> = runCatching {
+        api.editSyllabusChapter(payload = payload)
+    }
+
+    suspend fun deleteSyllabusTopic(id: Int, institutionId: Int): Result<BasicResponse> = runCatching {
+        api.deleteSyllabusTopic(id = id, institution_id = institutionId)
+    }
+
+    suspend fun getStudentsForPromotion(instId: Int, classId: Int, sectionId: Int, criteria: String, year: String): Result<PromotionResponse> = runCatching {
+        api.getStudentsForPromotion(instId, classId, sectionId, criteria, year)
+    }
+
+    suspend fun promoteStudents(instId: Int, promotions: String, targetClassId: Int, sourceClassId: Int, sourceSectionId: Int, year: String): Result<PromotionResponse> = runCatching {
+        api.promoteStudents(instId, promotions, targetClassId, sourceClassId, sourceSectionId, year)
+    }
+
+    suspend fun shiftStudents(instId: Int, studentIds: String, targetClassId: Int, sourceClassId: Int, sourceSectionId: Int, year: String): Result<PromotionResponse> = runCatching {
+        api.shiftStudents(instId, studentIds, targetClassId, sourceClassId, sourceSectionId, year)
+    }
+
     suspend fun saveBank(fields: Map<String, String>): Result<BasicResponse> = runCatching { api.saveBank(fields) }
     suspend fun deleteBank(id: Int, staffId: Int): Result<BasicResponse> = runCatching { api.deleteBank(id, staffId) }
 
@@ -279,5 +309,177 @@ class WantuchRepository(private val baseUrl: String, private val dao: com.exampl
 
     suspend fun updateStaffStatus(staffId: Int, status: String) = runCatching {
         api.updateStaffStatus(staffId = staffId, status = status)
+    }
+
+    suspend fun getAttendanceSubmissionStatus(instId: Int, date: String) = runCatching {
+        api.getAttendanceSubmissionStatus(instId = instId, date = date)
+    }
+
+    suspend fun markAttendanceSubmitted(body: Map<String, String>) = runCatching {
+        api.markAttendanceSubmitted(body)
+    }
+
+    suspend fun clearAttendanceSubmission(body: Map<String, String>) = runCatching {
+        api.clearAttendanceSubmission(body)
+    }
+
+    suspend fun downloadAttendanceCsv(instId: Int, dateFrom: String, dateTo: String, classSelection: String) = runCatching {
+        api.downloadAttendanceCsv(instId = instId, dateFrom = dateFrom, dateTo = dateTo, classSelection = classSelection)
+    }
+
+    suspend fun saveBulkImportJson(instId: Int, jsonBody: String) = runCatching {
+        val body = jsonBody.toRequestBody("application/json; charset=utf-8".toMediaTypeOrNull())
+        api.saveBulkImportJson(body)
+    }
+
+    suspend fun getSmartStatus(instId: Int) = runCatching { api.getSmartStatus(instId = instId) }
+    suspend fun getFaceSessions(instId: Int, limit: Int = 10) = runCatching { api.getFaceSessions(instId = instId, limit = limit) }
+    suspend fun enrollFace(instId: Int, userId: Int, category: String, base64: String) = runCatching {
+        api.enrollFace(institutionId = instId, userId = userId, category = category, photoBase64 = base64)
+    }
+
+    suspend fun verifyFace(instId: Int, base64: String) = runCatching {
+        api.verifyFace(institutionId = instId, photoBase64 = base64)
+    }
+    
+    suspend fun fetchQuestionPapers(
+        instId: Int,
+        classId: Int = 0,
+        subject: String = "",
+        year: String = "",
+        paperType: String = ""
+    ): Result<QuestionPaperResponse> = runCatching {
+        api.getQuestionPapers(
+            instId = instId,
+            classId = classId,
+            subject = subject,
+            year = year,
+            paperType = paperType
+        )
+    }
+
+    suspend fun saveQuestionPaper(
+        instId: Int, title: String, subject: String,
+        classId: Int, year: String, totalMarks: String, paperType: String
+    ): Result<BasicResponse> = runCatching {
+        api.saveQuestionPaper(
+            action = "SAVE_QUESTION_PAPER",
+            instId = instId, title = title, subject = subject,
+            classId = classId, year = year, totalMarks = totalMarks, paperType = paperType
+        )
+    }
+
+    suspend fun deleteQuestionPaper(paperId: Int, instId: Int): Result<BasicResponse> = runCatching {
+        api.deleteQuestionPaper(action = "DELETE_QUESTION_PAPER", paperId = paperId, instId = instId)
+    }
+
+    suspend fun saveSmartPaper(instId: Int, totalMarks: String, sectionsData: String): Result<BasicResponse> = runCatching {
+        api.saveSmartPaper(instId = instId, totalMarks = totalMarks, sectionsData = sectionsData)
+    }
+
+    suspend fun getAttendanceRules(instId: Int) = runCatching { api.getAttendanceRules(instId = instId) }
+    suspend fun saveAttendanceRules(instId: Int, fields: Map<String, String>) = runCatching {
+        api.saveAttendanceRules(institutionId = instId, fields = fields)
+    }
+    suspend fun getLeaveAppeals(instId: Int) = runCatching { api.getLeaveAppeals(instId = instId) }
+    suspend fun updateAppealStatus(instId: Int, id: Int, status: String) = runCatching {
+        api.updateAppealStatus(institutionId = instId, id = id, status = status)
+    }
+    suspend fun getMonthlyStudentLedger(instId: Int, classId: Int, month: String, year: Int) = runCatching {
+        api.getMonthlyStudentLedger(instId = instId, classId = classId, month = month, year = year)
+    }
+    suspend fun getMonthlyStaffLedger(instId: Int, month: String, year: Int) = runCatching {
+        api.getMonthlyStaffLedger(instId = instId, month = month, year = year)
+    }
+
+    suspend fun fetchSyllabus(instId: Int, classId: Int = 0, sectionId: Int = 0, subjectId: Int = 0) = runCatching {
+        api.getSyllabus(instId = instId, classId = classId, sectionId = sectionId, subjectId = subjectId)
+    }
+
+    suspend fun importDatabase(fileBytes: ByteArray, filename: String, onProgress: (Float) -> Unit) = runCatching {
+        val requestBody = ProgressRequestBody("application/sql".toMediaTypeOrNull(), fileBytes, onProgress)
+        val part = okhttp3.MultipartBody.Part.createFormData("sql_file", filename, requestBody)
+        api.importDatabase(part)
+    }
+
+    suspend fun fetchAssignments() = runCatching { api.getAssignments() }
+
+    suspend fun createAssignment(
+        classId: Int,
+        sectionId: Int,
+        subjectId: Int,
+        title: String,
+        description: String,
+        dueDate: String,
+        fileBytes: ByteArray?,
+        filename: String?,
+        onProgress: (Float) -> Unit
+    ) = runCatching {
+        val classRB = classId.toString().toRequestBody("text/plain".toMediaTypeOrNull())
+        val sectionRB = sectionId.toString().toRequestBody("text/plain".toMediaTypeOrNull())
+        val subjectRB = subjectId.toString().toRequestBody("text/plain".toMediaTypeOrNull())
+        val titleRB = title.toRequestBody("text/plain".toMediaTypeOrNull())
+        val descRB = description.toRequestBody("text/plain".toMediaTypeOrNull())
+        val dateRB = dueDate.toRequestBody("text/plain".toMediaTypeOrNull())
+        
+        val part = if (fileBytes != null && filename != null) {
+            val rb = ProgressRequestBody("application/octet-stream".toMediaTypeOrNull(), fileBytes, onProgress)
+            okhttp3.MultipartBody.Part.createFormData("attachment", filename, rb)
+        } else null
+        
+        api.createAssignment(classRB, sectionRB, subjectRB, titleRB, descRB, dateRB, part)
+    }
+
+    suspend fun reviewSubmission(subId: Int, status: String, feedback: String) = runCatching {
+        api.reviewSubmission(subId, status, feedback)
+    }
+
+    suspend fun fetchSubmissionDetails(assignmentId: Int) = runCatching {
+        api.getSubmissionDetails(assignmentId)
+    }
+
+    suspend fun updateAssignment(id: Int, title: String, description: String, dueDate: String) = runCatching {
+        api.updateAssignment(id, title, description, dueDate)
+    }
+
+    // ── Study Planner ────────────────────────────────────────────────────────────
+
+    suspend fun getStudySubjects(instId: Int, classId: Int, sectionId: Int) = runCatching {
+        api.getStudySubjects(instId, classId, sectionId)
+    }
+
+    suspend fun getPlannerData(instId: Int, classId: Int, sectionId: Int) = runCatching {
+        api.getPlannerData(instId, classId, sectionId)
+    }
+
+    suspend fun savePlannerConfig(instId: Int, classId: Int, sectionId: Int, config: String) = runCatching {
+        api.savePlannerConfig(instId, classId, sectionId, config)
+    }
+
+    suspend fun completeTopic(instId: Int, subjectId: Int, topicName: String) = runCatching {
+        api.completeTopic(instId, subjectId, topicName)
+    }
+}
+
+class ProgressRequestBody(
+    private val contentType: okhttp3.MediaType?,
+    private val fileBytes: ByteArray,
+    private val onProgress: (Float) -> Unit
+) : okhttp3.RequestBody() {
+    override fun contentType() = contentType
+    override fun contentLength() = fileBytes.size.toLong()
+    override fun writeTo(sink: okio.BufferedSink) {
+        val contentLength = fileBytes.size.toLong()
+        var uploaded = 0L
+        val chunkSize = 8192
+        var offset = 0
+        while (offset < fileBytes.size) {
+            val count = kotlin.math.min(chunkSize, fileBytes.size - offset)
+            sink.write(fileBytes, offset, count)
+            offset += count
+            uploaded += count
+            val progress = uploaded.toFloat() / contentLength
+            onProgress(progress)
+        }
     }
 }

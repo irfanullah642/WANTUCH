@@ -56,7 +56,14 @@ fun EducationDashboardScreen(
     onOpenProfile: (Int) -> Unit = {},
     onOpenMyProfile: (Int) -> Unit = {},
     onOpenFee: () -> Unit = {},
-    onOpenAttendance: () -> Unit = {}
+    onOpenAttendance: () -> Unit = {},
+    onOpenQuestionPapers: () -> Unit = {},
+    onOpenReports: () -> Unit = {},
+    onOpenSyllabus: () -> Unit = {},
+    onOpenHomework: () -> Unit = {},
+    onOpenPromotion: () -> Unit = {},
+    onOpenDatabase: () -> Unit = {},
+    onOpenStudyPlan: () -> Unit = {}
 ) {
     val data by viewModel.dashboardData.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -129,8 +136,8 @@ fun EducationDashboardScreen(
                         ) {
                             val context = LocalContext.current
                             val rawStaff = dash.stats?.get("staff")?.toString() ?: "0"
-                            val staffCount = rawStaff.toDoubleOrNull()?.toInt() ?: 0
-                            val displayStaff = if (staffCount > 0) (staffCount - 1).toString() else "0"
+                            val staffCount = rawStaff.toDoubleOrNull()?.toInt() ?: "0"
+                            val displayStaff = if (staffCount.toString().toIntOrNull() ?: 0 > 0) ((staffCount.toString().toIntOrNull() ?: 0) - 1).toString() else "0"
 
                             SuspendedStatCard("STAFF", displayStaff, Color(0xFF6366F1), isDark, Modifier.weight(1f)) {
                                 onOpenStaff()
@@ -173,8 +180,29 @@ fun EducationDashboardScreen(
                                                 "attendance" -> {
                                                     onOpenAttendance()
                                                 }
+                                                "question_papers", "paper" -> {
+                                                    onOpenQuestionPapers()
+                                                }
+                                                "reports" -> {
+                                                    onOpenReports()
+                                                }
+                                                "syllabus", "syllabus_planner" -> {
+                                                    onOpenSyllabus()
+                                                }
+                                                "homework", "edu_assignments", "edu_assignments_submissions" -> {
+                                                    onOpenHomework()
+                                                }
+                                                "promotion" -> {
+                                                    onOpenPromotion()
+                                                }
+                                                "database" -> {
+                                                    onOpenDatabase()
+                                                }
+                                                "study_plan", "planner", "study_planner" -> {
+                                                    onOpenStudyPlan()
+                                                }
                                                 else -> {
-                                                    val baseUrl = "https://www.wantuch.pk/"
+                                                    val baseUrl = "https://wantuch.pk/"
                                                     val path = when(mod.id) {
                                                         "inst_profile" -> "modules/education/profile.php?tab=inst"
                                                         "quick_scan" -> "modules/education/attendance_quick_scan.php"
@@ -183,11 +211,7 @@ fun EducationDashboardScreen(
                                                         "subjects" -> "modules/education/subjects_manage.php"
                                                         "exams" -> "modules/education/exams.php"
                                                         "timetable" -> "modules/education/timetable.php"
-                                                        "syllabus" -> "modules/education/syllabus.php"
-                                                        "homework" -> "modules/education/assignments.php"
-                                                        "transport" -> "modules/education/transport.php"
                                                         "smart_id" -> "modules/education/idcard/idcard.php"
-                                                        "promotion" -> "modules/education/promotion.php"
                                                         "proxies" -> "modules/education/substitution_manage.php"
                                                         else -> "modules/education/dashboard.php"
                                                     }

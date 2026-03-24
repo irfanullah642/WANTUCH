@@ -13,6 +13,7 @@ data class StaffEntity(
     val role: String,
     val bps: String,
     val marked: String,
+    val stats: String,
     val profile_pic: String?
 )
 
@@ -31,6 +32,7 @@ fun StaffMember.toEntity(institutionId: Int): StaffEntity {
         role = role,
         bps = bps,
         marked = marked,
+        stats = stats,
         profile_pic = profile_pic
     )
 }
@@ -45,6 +47,7 @@ fun StaffEntity.toDomain(): StaffMember {
         marked = marked,
         paid = null,
         balance = null,
+        stats = stats,
         profile_pic = profile_pic
     )
 }

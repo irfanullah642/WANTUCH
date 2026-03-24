@@ -112,7 +112,7 @@ fun EduLoginModal(
                             Triple("staff", "Staff", Icons.Default.People),
                             Triple("student", "Student", Icons.Default.School),
                             Triple("parent", "Parent", Icons.Default.FamilyRestroom),
-                            Triple("super_admin", "Super Admin", Icons.Default.ManageAccounts)
+                            Triple("super_admin", "Super Admin", Icons.Default.AdminPanelSettings)
                         )
                         roles.forEach { (key, label, icon) ->
                             Button(

@@ -10,6 +10,8 @@ import com.example.wantuch.data.local.entities.SectionEntity
 import com.example.wantuch.data.local.entities.InstitutionEntity
 import com.example.wantuch.data.local.entities.DashboardEntity
 import com.example.wantuch.data.local.entities.PortfolioEntity
+import com.example.wantuch.data.local.entities.FaceEmbeddingEntity
+import com.example.wantuch.data.local.dao.FaceEmbeddingDao
 
 @Database(
     entities = [
@@ -19,15 +21,17 @@ import com.example.wantuch.data.local.entities.PortfolioEntity
         SectionEntity::class,
         InstitutionEntity::class,
         DashboardEntity::class,
-        PortfolioEntity::class
+        PortfolioEntity::class,
+        FaceEmbeddingEntity::class
     ], 
-    version = 2, 
+    version = 4, 
     exportSchema = false
 )
 @TypeConverters(Converters::class)
 abstract class WantuchDatabase : RoomDatabase() {
 
     abstract fun wantuchDao(): WantuchDao
+    abstract fun faceEmbeddingDao(): FaceEmbeddingDao
 
     companion object {
         @Volatile

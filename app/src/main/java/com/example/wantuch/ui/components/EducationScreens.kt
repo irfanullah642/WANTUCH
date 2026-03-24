@@ -138,7 +138,7 @@ fun InstitutionCard(inst: Institution, onClick: () -> Unit) {
                 .clip(RoundedCornerShape(18.dp))
                 .background(Color.White.copy(0.05f)), Alignment.Center) {
                 if (!inst.logo.isNullOrEmpty()) {
-                    AsyncImage(model = "https://www.wantuch.pk/${inst.logo}", contentDescription = null, contentScale = ContentScale.Crop)
+                    AsyncImage(model = "https://wantuch.pk/${inst.logo}", contentDescription = null, contentScale = ContentScale.Crop)
                 } else {
                     Icon(Icons.Default.School, null, tint = Color(0xFF3B82F6), modifier = Modifier.size(32.dp))
                 }

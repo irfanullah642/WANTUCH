@@ -2,7 +2,7 @@ package com.example.wantuch
 
 import android.os.Bundle
 import android.webkit.*
-import androidx.activity.ComponentActivity
+import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -36,9 +36,9 @@ import com.example.wantuch.ui.viewmodel.WantuchViewModel
 import kotlin.math.abs
 
 // ── Configuration ─────────────────────────────────────────────────────────────
-const val BASE_URL = "https://www.wantuch.pk/" 
+const val BASE_URL = "https://wantuch.pk/" 
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -73,7 +73,12 @@ val defaultApps = listOf(
     AppItem("Download App",      Icons.Default.Download,              Color(0xFF3498DB), type = "none")
 )
 
-enum class EduFlowState { SELECTOR, DASHBOARD, STAFF, STAFF_PROFILE, STUDENTS, STUDENT_PROFILE, MY_PROFILE, FEE_MANAGEMENT, STUDENT_FEE_DETAIL, ATTENDANCE_MANAGEMENT }
+enum class EduFlowState { 
+    SELECTOR, DASHBOARD, STAFF, STAFF_PROFILE, STUDENTS, STUDENT_PROFILE, 
+    MY_PROFILE, FEE_MANAGEMENT, STUDENT_FEE_DETAIL, ATTENDANCE_MANAGEMENT,
+    REPORTS_DASHBOARD, QUESTION_PAPERS, QUESTION_PAPER_BUILDER, SYLLABUS,
+    HOMEWORK, DATABASE_MANAGEMENT, PROMOTION, STUDY_PLAN
+}
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -179,7 +184,48 @@ fun WantuchApp(vm: WantuchViewModel = viewModel()) {
                     },
                     onOpenAttendance = {
                         eduFlowState = EduFlowState.ATTENDANCE_MANAGEMENT
+                    },
+                    onOpenQuestionPapers = {
+                        eduFlowState = EduFlowState.QUESTION_PAPERS
+                    },
+                    onOpenReports = {
+                        eduFlowState = EduFlowState.REPORTS_DASHBOARD
+                    },
+                    onOpenSyllabus = {
+                        eduFlowState = EduFlowState.SYLLABUS
+                    },
+                    onOpenHomework = {
+                        eduFlowState = EduFlowState.HOMEWORK
+                    },
+                    onOpenPromotion = {
+                        eduFlowState = EduFlowState.PROMOTION
+                    },
+                    onOpenDatabase = {
+                        eduFlowState = EduFlowState.DATABASE_MANAGEMENT
+                    },
+                    onOpenStudyPlan = {
+                        eduFlowState = EduFlowState.STUDY_PLAN
                     }
+                )
+                EduFlowState.PROMOTION -> PromotionScreen(
+                    viewModel = vm,
+                    onBack = { eduFlowState = EduFlowState.DASHBOARD }
+                )
+                EduFlowState.SYLLABUS -> SyllabusPlannerScreen(
+                    viewModel = vm,
+                    onBack = { eduFlowState = EduFlowState.DASHBOARD }
+                )
+                EduFlowState.HOMEWORK -> HomeworkManagementScreen(
+                    viewModel = vm,
+                    onBack = { eduFlowState = EduFlowState.DASHBOARD }
+                )
+                EduFlowState.DATABASE_MANAGEMENT -> DatabaseManagementScreen(
+                    viewModel = vm,
+                    onBack = { eduFlowState = EduFlowState.DASHBOARD }
+                )
+                EduFlowState.STUDY_PLAN -> StudyPlannerScreen(
+                    viewModel = vm,
+                    onBack = { eduFlowState = EduFlowState.DASHBOARD }
                 )
                 EduFlowState.FEE_MANAGEMENT -> FeeManagementScreen(
                     viewModel = vm,
@@ -241,6 +287,59 @@ fun WantuchApp(vm: WantuchViewModel = viewModel()) {
                         viewModel = vm,
                         onBack = { eduFlowState = profileBackState },
                         onOpenWeb = { url -> webViewUrl = url }
+                    )
+                }
+                EduFlowState.QUESTION_PAPERS -> QuestionPaperScreen(
+                    viewModel = vm,
+                    onBack = { eduFlowState = EduFlowState.REPORTS_DASHBOARD },
+                    onOpenWeb = { url -> 
+                        if (url == "paper_builder") eduFlowState = EduFlowState.QUESTION_PAPER_BUILDER
+                        else webViewUrl = url 
+                    }
+                )
+                EduFlowState.REPORTS_DASHBOARD -> ReportsDashboardScreen(
+                    viewModel = vm,
+                    onBack = { eduFlowState = EduFlowState.DASHBOARD },
+                    onOpenQuestionPapers = { eduFlowState = EduFlowState.QUESTION_PAPERS },
+                    onOpenAnswerPapers = { webViewUrl = "https://wantuch.pk/modules/education/answer_papers.php" },
+                    onOpenBulkExams = { webViewUrl = "https://wantuch.pk/modules/education/bulk_exam_papers.php" },
+                    onOpenWeb = { url -> webViewUrl = url }
+                )
+                EduFlowState.QUESTION_PAPER_BUILDER -> {
+                    val context = androidx.compose.ui.platform.LocalContext.current
+                    QuestionPaperBuilderScreen(
+                        viewModel = vm,
+                        onBack = { eduFlowState = EduFlowState.QUESTION_PAPERS },
+                        onSave = { title, subject, totalMarks, sections ->
+                            vm.saveSmartPaper(
+                                totalMarks = totalMarks,
+                                sections = sections,
+                                onSuccess = { filePath, message ->
+                                    android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+                                    // Auto-download the generated PDF
+                                    if (filePath.isNotEmpty()) {
+                                        try {
+                                            val fileName = filePath.substringAfterLast("/")
+                                            val request = android.app.DownloadManager.Request(android.net.Uri.parse(filePath))
+                                                .setTitle("Question Paper PDF")
+                                                .setDescription("Downloading generated paper...")
+                                                .setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                                                .setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS, fileName)
+                                                .setMimeType("application/pdf")
+                                            val dm = context.getSystemService(android.content.Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
+                                            dm.enqueue(request)
+                                            android.widget.Toast.makeText(context, "Downloading $fileName...", android.widget.Toast.LENGTH_SHORT).show()
+                                        } catch (e: Exception) {
+                                            android.widget.Toast.makeText(context, "Download failed: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                    eduFlowState = EduFlowState.QUESTION_PAPERS
+                                },
+                                onError = { error ->
+                                    android.widget.Toast.makeText(context, error, android.widget.Toast.LENGTH_LONG).show()
+                                }
+                            )
+                        }
                     )
                 }
             }

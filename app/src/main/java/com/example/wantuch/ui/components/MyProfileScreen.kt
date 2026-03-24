@@ -118,7 +118,7 @@ fun MyProfileScreen(
                     Box(Modifier.background(Color(0xFF3B82F6).copy(0.1f), RoundedCornerShape(30.dp)).padding(horizontal = 15.dp, vertical = 6.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (!profile?.institution?.get("logo")?.toString().isNullOrEmpty()) {
-                                AsyncImage(model = "https://www.wantuch.pk/${profile?.institution?.get("logo")}", contentDescription = null, modifier = Modifier.size(16.dp).clip(CircleShape))
+                                AsyncImage(model = "https://wantuch.pk/${profile?.institution?.get("logo")}", contentDescription = null, modifier = Modifier.size(16.dp).clip(CircleShape))
                                 Spacer(Modifier.width(8.dp))
                             }
                             Text(profile?.institution?.get("name")?.toString()?.uppercase() ?: "WANTUCH", color = textColor, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
@@ -880,7 +880,7 @@ fun InstitutionProfileDetail(inst: Map<String, Any?>?, isDark: Boolean, onSave: 
         Box(Modifier.size(100.dp).background(cardColor, RoundedCornerShape(30.dp)).padding(10.dp), Alignment.Center) {
             val logo = inst?.get("logo_path")?.toString()
             if (!logo.isNullOrEmpty()) {
-                AsyncImage(model = "https://www.wantuch.pk/$logo", contentDescription = null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+                AsyncImage(model = "https://wantuch.pk/$logo", contentDescription = null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
             } else {
                 Icon(Icons.Default.School, null, tint = Color(0xFF3B82F6), modifier = Modifier.size(50.dp))
             }

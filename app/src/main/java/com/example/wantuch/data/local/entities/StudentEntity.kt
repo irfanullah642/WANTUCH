@@ -16,12 +16,19 @@ data class StudentEntity(
     val gender: String,
     val father_name: String,
     val marked: String,
+    val stats: String,
     val profile_pic: String?
 )
 
 fun StudentMember.toEntity(institutionId: Int): StudentEntity {
+    val studentId = when (id) {
+        is Double -> id.toInt()
+        is Int -> id
+        is String -> id.toIntOrNull() ?: 0
+        else -> 0
+    }
     return StudentEntity(
-        id = id,
+        id = studentId,
         institutionId = institutionId,
         name = name,
         username = username,
@@ -31,6 +38,7 @@ fun StudentMember.toEntity(institutionId: Int): StudentEntity {
         gender = gender,
         father_name = father_name,
         marked = marked,
+        stats = stats,
         profile_pic = profile_pic
     )
 }
@@ -46,6 +54,7 @@ fun StudentEntity.toDomain(): StudentMember {
         gender = gender,
         father_name = father_name,
         marked = marked,
+        stats = stats,
         profile_pic = profile_pic
     )
 }

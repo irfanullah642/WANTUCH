@@ -139,6 +139,21 @@ class WantuchRepository(private val baseUrl: String, private val dao: com.exampl
         api.genericGet(action, params)
     }
 
+    suspend fun saveStaff(fields: Map<String, String>): Result<BasicResponse> = runCatching {
+        api.saveStaff(fields)
+    }
+
+    suspend fun bulkSaveStaff(
+        instId: Int, names: String, role: String, gender: String, userType: String
+    ): Result<BasicResponse> = runCatching {
+        api.bulkSaveStaff(instId = instId, names = names, role = role, gender = gender, userType = userType)
+    }
+
+    suspend fun deleteStaff(staffId: Int, instId: Int): Result<BasicResponse> = runCatching {
+        api.deleteStaff(staffId = staffId, instId = instId)
+    }
+
+
     suspend fun fetchStaff(instId: Int): Result<StaffResponse> = try {
         val response = api.getStaff(instId = instId)
         if (response.status == "success") {
@@ -342,40 +357,9 @@ class WantuchRepository(private val baseUrl: String, private val dao: com.exampl
         api.verifyFace(institutionId = instId, photoBase64 = base64)
     }
     
-    suspend fun fetchQuestionPapers(
-        instId: Int,
-        classId: Int = 0,
-        subject: String = "",
-        year: String = "",
-        paperType: String = ""
-    ): Result<QuestionPaperResponse> = runCatching {
-        api.getQuestionPapers(
-            instId = instId,
-            classId = classId,
-            subject = subject,
-            year = year,
-            paperType = paperType
-        )
-    }
 
-    suspend fun saveQuestionPaper(
-        instId: Int, title: String, subject: String,
-        classId: Int, year: String, totalMarks: String, paperType: String
-    ): Result<BasicResponse> = runCatching {
-        api.saveQuestionPaper(
-            action = "SAVE_QUESTION_PAPER",
-            instId = instId, title = title, subject = subject,
-            classId = classId, year = year, totalMarks = totalMarks, paperType = paperType
-        )
-    }
 
-    suspend fun deleteQuestionPaper(paperId: Int, instId: Int): Result<BasicResponse> = runCatching {
-        api.deleteQuestionPaper(action = "DELETE_QUESTION_PAPER", paperId = paperId, instId = instId)
-    }
 
-    suspend fun saveSmartPaper(instId: Int, totalMarks: String, sectionsData: String): Result<BasicResponse> = runCatching {
-        api.saveSmartPaper(instId = instId, totalMarks = totalMarks, sectionsData = sectionsData)
-    }
 
     suspend fun getAttendanceRules(instId: Int) = runCatching { api.getAttendanceRules(instId = instId) }
     suspend fun saveAttendanceRules(instId: Int, fields: Map<String, String>) = runCatching {
@@ -459,7 +443,226 @@ class WantuchRepository(private val baseUrl: String, private val dao: com.exampl
     suspend fun completeTopic(instId: Int, subjectId: Int, topicName: String) = runCatching {
         api.completeTopic(instId, subjectId, topicName)
     }
+
+    // ── Missing Methods for Merged UI ───────────────────────────────────────
+
+    suspend fun fetchSubjects(instId: Int): Result<SubjectResponse> = runCatching {
+        api.getSubjects(instId = instId)
+    }
+
+    suspend fun getAwardListExams(instId: Int, classId: Int, sectionId: Int) = runCatching {
+        api.getAwardListExams(instId = instId, classId = classId, sectionId = sectionId)
+    }
+
+    suspend fun getAwardListStudents(instId: Int, examId: String, classId: Int, sectionId: Int) = runCatching {
+        api.getAwardListStudents(instId = instId, examId = examId, classId = classId, sectionId = sectionId)
+    }
+
+    suspend fun saveAwardListMarks(instId: Int, examId: String, marksJson: String) = runCatching {
+        api.saveAwardListMarks(instId = instId, examId = examId, marksJson = marksJson)
+    }
+
+    suspend fun deleteStudentAwardMark(instId: Int, examId: Int, studentId: Int) = runCatching {
+        api.deleteStudentAwardMark(institutionId = instId, examId = examId, studentId = studentId)
+    }
+
+    suspend fun deleteFullAwardList(instId: Int, examId: Int) = runCatching {
+        api.deleteFullAwardList(institutionId = instId, examId = examId)
+    }
+
+    suspend fun getExamHierarchyL1(instId: Int): Result<ExamHierarchyResponse> = runCatching {
+        api.getExamHierarchyL1(instId = instId)
+    }
+
+    suspend fun getExamHierarchyL2(instId: Int, type: String, semester: String, year: String): Result<ExamL2HierarchyResponse> = runCatching {
+        api.getExamHierarchyL2(instId = instId, type = type, semester = semester, year = year)
+    }
+
+    suspend fun deleteExamGroupL1(instId: Int, type: String, semester: String, year: String): Result<BasicResponse> = runCatching {
+        api.deleteExamGroupL1(instId = instId, type = type, semester = semester, year = year)
+    }
+
+    suspend fun deleteExamGroupL2(instId: Int, type: String, semester: String, year: String, classId: Int, sectionId: Int): Result<BasicResponse> = runCatching {
+        api.deleteExamGroupL2(instId = instId, type = type, semester = semester, year = year, classId = classId, sectionId = sectionId)
+    }
+
+    suspend fun createExam(type: String, semester: String, year: String, classId: Int, sectionId: Int, subjectsJson: String, instId: Int): Result<BasicResponse> = runCatching {
+        api.createExam(institutionId = instId, type = type, semester = semester, year = year, classId = classId, sectionId = sectionId, subjectsJson = subjectsJson)
+    }
+
+    suspend fun quickScheduleExam(type: String, year: String, text: String, instId: Int): Result<BasicResponse> = runCatching {
+        api.quickScheduleExam(type = type, year = year, text = text, institutionId = instId)
+    }
+
+    suspend fun getRollNoSlips(examType: String, classId: Int, instId: Int): Result<RollNoSlipResponse> = runCatching {
+        api.getRollNoSlips(examType = examType, classId = classId, institutionId = instId)
+    }
+
+    suspend fun fetchNotices(instId: Int): Result<NoticeResponse> = runCatching {
+        api.getNotices(instId = instId)
+    }
+
+    suspend fun saveNotice(fields: Map<String, String>, instId: Int) = runCatching {
+        api.saveNotice(fields = fields, instId = instId)
+    }
+
+    suspend fun deleteNotice(id: Int, instId: Int) = runCatching {
+        api.deleteNotice(id = id, instId = instId)
+    }
+
+    suspend fun classAction(action: String, instId: Int, id: Int?, classId: Int?, name: String?) = runCatching {
+        api.classAction(action = action, instId = instId, id = id, classId = classId, name = name)
+    }
+
+    suspend fun subjectAction(action: String, instId: Int, id: Int?, name: String?, type: String?) = runCatching {
+        api.subjectAction(action = action, instId = instId, id = id, name = name, type = type)
+    }
+
+    suspend fun getConsolidatedResult(instId: Int, classId: Int, sectionId: Int, examType: String, year: String, roll: String? = null, userId: Int? = null, role: String? = null) = runCatching {
+        api.getConsolidatedResult(instId = instId, classId = classId, sectionId = sectionId, examType = examType, year = year, roll = roll, userId = userId, role = role)
+    }
+
+    suspend fun getFullResultCard(instId: Int, classId: Int, sectionId: Int, year: String, roll: String? = null, userId: Int? = null, role: String? = null) = runCatching {
+        api.getFullResultCard(instId = instId, classId = classId, sectionId = sectionId, year = year, roll = roll, userId = userId, role = role)
+    }
+
+    suspend fun getTopperAnalytics(instId: Int, type: String, classId: Int? = null, sectionId: Int? = null) = runCatching {
+        api.getTopperAnalytics(instId = instId, type = type, classId = classId, sectionId = sectionId)
+    }
+
+    suspend fun getSchoolAnalytics(instId: Int, classId: Int? = null, sectionId: Int? = null) = runCatching {
+        api.getSchoolAnalytics(instId = instId, type = "school_performance", classId = classId, sectionId = sectionId)
+    }
+
+    suspend fun getStaffAnalytics(instId: Int, classId: Int? = null, sectionId: Int? = null) = runCatching {
+        api.getStaffAnalytics(instId = instId, type = "staff_performance", classId = classId, sectionId = sectionId)
+    }
+
+    suspend fun getTrendAnalytics(instId: Int, classId: Int? = null, sectionId: Int? = null) = runCatching {
+        api.getTrendAnalytics(instId = instId, type = "trends", classId = classId, sectionId = sectionId)
+    }
+
+    suspend fun getHallStaffList(instId: Int) = runCatching { api.getHallStaffList(instId) }
+    suspend fun getHallSubjects(instId: Int, date: String, shift: String) = runCatching { api.getHallSubjects(instId, date, shift) }
+    suspend fun generateHallView(instId: Int, date: String, shift: String, subjectId: String, roomsJson: String, staffJson: String) = runCatching {
+        api.generateHallView(instId, date, shift, subjectId, roomsJson, staffJson)
+    }
+
+    // ── Timetable & Substitution (from WANTUCH-3) ───────────────────────────────
+
+    suspend fun fetchTimetableMetadata(instId: Int): Result<TimetableMetadataResponse> = runCatching {
+        api.getTimetableMetadata(instId = instId)
+    }
+
+    suspend fun fetchTimetable(instId: Int, classId: Int = 0, sectionId: Int = 0, day: String = "") = runCatching {
+        api.getTimetable(instId = instId, classId = classId, sectionId = sectionId, day = day)
+    }
+
+    suspend fun fetchSubstitutionData(instId: Int, version: Int = 0) = runCatching {
+        api.getSubstitutionData(instId = instId, version = version)
+    }
+
+    suspend fun assignSubstitution(instId: Int, ttId: Int, origSid: Int, subSid: Int, isPaid: Int) = runCatching {
+        api.assignSubstitution(instId = instId, ttId = ttId, origSid = origSid, subSid = subSid, isPaid = isPaid)
+    }
+
+    suspend fun removeSubstitution(instId: Int, ttId: Int) = runCatching {
+        api.removeSubstitution(instId = instId, ttId = ttId)
+    }
+
+    suspend fun fetchTimetableManagementSummary(instId: Int) = runCatching {
+        api.getTimetableManagementSummary(instId = instId)
+    }
+
+    suspend fun fetchArchive(instId: Int, version: Int, level: String, staffId: Int, classId: Int = 0, sectionId: Int = 0) = runCatching {
+        api.getTimetableArchive(instId = instId, version = version, level = level, staffId = staffId, classId = classId, sectionId = sectionId)
+    }
+
+    suspend fun fetchWizardData(instId: Int) = runCatching {
+        api.getWizardData(instId = instId)
+    }
+
+    suspend fun saveTimetableSlot(
+        instId: Int, id: Int = 0,
+        staffId: Int, subjectId: Int, classId: Int, sectionId: Int,
+        day: String, startTime: String, endTime: String,
+        periodNo: Int, version: Int = 1, actType: String = "lesson"
+    ) = runCatching {
+        api.saveTimetableSlot(
+            instId = instId, id = id,
+            staffId = staffId, subjectId = subjectId,
+            classId = classId, sectionId = sectionId,
+            day = day, startTime = startTime, endTime = endTime,
+            periodNo = periodNo, version = version, actType = actType
+        )
+    }
+
+    suspend fun deleteTimetableSlot(instId: Int, id: Int) = runCatching {
+        api.deleteTimetableSlot(instId = instId, id = id)
+    }
+
+    // ── ADM / WDL Module (from WANTUCH-3) ──────────────────────────────────────
+
+    suspend fun fetchAdmWdlFresh(instId: Int, q: String = "", cls: String = "", limit: Int = 200) = runCatching {
+        api.getAdmWdlFresh(instId = instId, q = q, cls = cls, limit = limit)
+    }
+
+    suspend fun fetchAdmWdlOld(instId: Int, q: String = "", limit: Int = 200) = runCatching {
+        api.getAdmWdlOld(instId = instId, q = q, limit = limit)
+    }
+
+    suspend fun saveAdmWdlFresh(instId: Int, fields: Map<String, String>) = runCatching {
+        api.saveAdmWdlFresh(instId = instId, fields = fields)
+    }
+
+    suspend fun saveAdmWdlOld(instId: Int, fields: Map<String, String>) = runCatching {
+        api.saveAdmWdlOld(instId = instId, fields = fields)
+    }
+
+    suspend fun withdrawStudent(instId: Int, studentId: Int, admNo: String, withDate: String, withClass: String, slcStatus: String) = runCatching {
+        api.withdrawStudent(instId = instId, studentId = studentId, admNo = admNo, withDate = withDate, withClass = withClass, slcStatus = slcStatus)
+    }
+
+    suspend fun deleteAdmEntry(instId: Int, id: Int, source: String) = runCatching {
+        api.deleteAdmEntry(instId = instId, id = id, source = source)
+    }
+
+    suspend fun searchCertStudents(instId: Int, q: String) = runCatching {
+        api.searchCertStudents(instId = instId, q = q)
+    }
+
+    // ── Smart ID Card & Profile Upload (from WANTUCH-4) ───────────────────────
+
+    suspend fun uploadProfilePic(userId: Int, base64: String) = runCatching {
+        api.uploadProfilePic(userId = userId, base64Image = base64)
+    }
+
+    suspend fun generateIdCard(userId: Int, userType: String, instId: Int) = runCatching {
+        api.generateIdCard(userId = userId, userType = userType, instId = instId)
+    }
+
+    // ── Question Papers (from WANTUCH-4) ─────────────────────────────────────────
+
+    suspend fun fetchQuestionPapers(instId: Int, classId: Int, subject: String, year: String, paperType: String): Result<QuestionPaperResponse> = runCatching {
+        api.getQuestionPapers(instId = instId, classId = classId, subject = subject, year = year, paperType = paperType)
+    }
+
+    suspend fun saveQuestionPaper(instId: Int, title: String, subject: String, classId: Int, year: String, totalMarks: String, paperType: String): kotlin.Result<BasicResponse> = runCatching {
+        api.saveQuestionPaper(instId = instId, title = title, subject = subject, classId = classId, year = year, totalMarks = totalMarks, paperType = paperType)
+    }
+
+    suspend fun deleteQuestionPaper(paperId: Int, instId: Int): kotlin.Result<BasicResponse> = runCatching {
+        api.deleteQuestionPaper(paperId = paperId, instId = instId)
+    }
+
+    suspend fun saveSmartPaper(instId: Int, title: String, subject: String, totalMarks: String, sectionsData: String) = runCatching {
+        api.saveSmartPaper(instId = instId, title = title, subject = subject, totalMarks = totalMarks, sectionsData = sectionsData)
+    }
+    suspend fun saveLeaveAppeal(instId: Int, userId: Int, fromDate: String, toDate: String, leaveType: String, reason: String) = runCatching {
+        api.saveLeaveAppeal(instId = instId, userId = userId, fromDate = fromDate, toDate = toDate, leaveType = leaveType, reason = reason)
+    }
 }
+
 
 class ProgressRequestBody(
     private val contentType: okhttp3.MediaType?,

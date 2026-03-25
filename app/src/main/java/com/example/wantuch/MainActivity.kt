@@ -78,7 +78,9 @@ enum class EduFlowState {
     STAFF, STAFF_PROFILE, STUDENTS, STUDENT_PROFILE, 
     MY_PROFILE, FEE_MANAGEMENT, STUDENT_FEE_DETAIL, ATTENDANCE_MANAGEMENT,
     REPORTS_DASHBOARD, QUESTION_PAPERS, QUESTION_PAPER_BUILDER, SYLLABUS,
-    HOMEWORK, DATABASE_MANAGEMENT, PROMOTION, STUDY_PLAN
+    HOMEWORK, DATABASE_MANAGEMENT, PROMOTION, STUDY_PLAN,
+    NOTICES, CLASSES, SUBJECTS, EXAMS, 
+    TIMETABLE, SUBSTITUTION, ADM_WDL, SMART_ID_CARD
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -143,7 +145,34 @@ fun WantuchApp(vm: WantuchViewModel = viewModel()) {
             HomeScreen(items = appList, onLock = { showHome = false }, onAppClick = { app ->
                 selectedApp = app
                 if (app.type in listOf("School","College","University","Madrasa")) {
-                    eduModalType = app.type
+                    val saved = vm.getSavedData()
+                    val isLogged = saved["is_logged_in"] as? Boolean ?: false
+                    val remember = saved["remember"] as? Boolean ?: false
+                    val instType = saved["inst_type"] as? String ?: ""
+                    val lastInstId = saved["last_inst"] as? Int ?: 0
+                    val lastRole = saved["role"] as? String ?: ""
+
+                    if (remember && isLogged && instType == app.type && lastInstId != 0 && lastRole.isNotEmpty()) {
+                        // Restore session
+                        showEduFlow = true
+                        val lowerRole = lastRole.lowercase()
+                        if (lowerRole == "student") {
+                            eduFlowState = EduFlowState.STUDENT_DASHBOARD
+                        } else if (lowerRole == "parent") {
+                            eduFlowState = EduFlowState.PARENT_DASHBOARD
+                        } else {
+                            // Staff/Admin, reload dashboard
+                            vm.selectInstitution(lastInstId) {
+                                eduFlowState = EduFlowState.DASHBOARD
+                            }
+                            // Call again even if callback doesn't run (offline case)
+                            if (eduFlowState == EduFlowState.SELECTOR) {
+                                eduFlowState = EduFlowState.DASHBOARD
+                            }
+                        }
+                    } else {
+                        eduModalType = app.type
+                    }
                 } else if (app.type == "gen") {
                     genLoginVisible = true
                 }
@@ -208,53 +237,145 @@ fun WantuchApp(vm: WantuchViewModel = viewModel()) {
                         currentStaffId = id
                         profileBackState = EduFlowState.STUDENT_DASHBOARD
                         eduFlowState = EduFlowState.MY_PROFILE
+                    },
+                    onOpenNotices = { eduFlowState = EduFlowState.NOTICES },
+                    onOpenSubjects = { eduFlowState = EduFlowState.SUBJECTS },
+                    onOpenExams = { eduFlowState = EduFlowState.EXAMS },
+                    onOpenTimetable = { eduFlowState = EduFlowState.TIMETABLE },
+                    onOpenAttendance = { eduFlowState = EduFlowState.ATTENDANCE_MANAGEMENT },
+                    onOpenClasses = { eduFlowState = EduFlowState.CLASSES },
+                    onOpenFee = { id ->
+                        currentStudentId = id
+                        profileBackState = EduFlowState.STUDENT_DASHBOARD
+                        eduFlowState = EduFlowState.STUDENT_FEE_DETAIL
+                    },
+                    onOpenSmartIDCard = { eduFlowState = EduFlowState.SMART_ID_CARD },
+                    onOpenWeb = { url -> webViewUrl = url },
+                    onLogout = {
+                        vm.logout()
+                        showEduFlow = false
+                        eduFlowState = EduFlowState.SELECTOR
                     }
                 )
                 EduFlowState.SELECTOR -> SchoolSelectorScreen(vm, onBack = { showEduFlow = false }, onInstitutionSelected = { eduFlowState = EduFlowState.DASHBOARD })
-                EduFlowState.DASHBOARD -> EducationDashboardScreen(
-                    viewModel = vm,
-                    onBack = { eduFlowState = EduFlowState.SELECTOR },
-                    onOpenWeb = { url -> webViewUrl = url },
-                    onOpenStaff = { eduFlowState = EduFlowState.STAFF },
-                    onOpenStudents = { eduFlowState = EduFlowState.STUDENTS },
-                    onOpenProfile = { id ->
-                        currentStaffId = id
-                        profileBackState = EduFlowState.DASHBOARD
-                        eduFlowState = EduFlowState.STAFF_PROFILE
-                    },
-                    onOpenMyProfile = { id ->
-                        currentStaffId = id
-                        profileBackState = EduFlowState.DASHBOARD
-                        eduFlowState = EduFlowState.MY_PROFILE
-                    },
-                    onOpenFee = {
-                        eduFlowState = EduFlowState.FEE_MANAGEMENT
-                    },
-                    onOpenAttendance = {
-                        eduFlowState = EduFlowState.ATTENDANCE_MANAGEMENT
-                    },
-                    onOpenQuestionPapers = {
-                        eduFlowState = EduFlowState.QUESTION_PAPERS
-                    },
-                    onOpenReports = {
-                        eduFlowState = EduFlowState.REPORTS_DASHBOARD
-                    },
-                    onOpenSyllabus = {
-                        eduFlowState = EduFlowState.SYLLABUS
-                    },
-                    onOpenHomework = {
-                        eduFlowState = EduFlowState.HOMEWORK
-                    },
-                    onOpenPromotion = {
-                        eduFlowState = EduFlowState.PROMOTION
-                    },
-                    onOpenDatabase = {
-                        eduFlowState = EduFlowState.DATABASE_MANAGEMENT
-                    },
-                    onOpenStudyPlan = {
-                        eduFlowState = EduFlowState.STUDY_PLAN
+                EduFlowState.DASHBOARD -> {
+                    val dashboardData by vm.dashboardData.collectAsState()
+                    val role = dashboardData?.role?.lowercase() ?: ""
+
+                    if (role == "student") {
+                        StudentDashboardScreen(
+                            viewModel = vm,
+                            onBack = { eduFlowState = EduFlowState.SELECTOR },
+                            onOpenSyllabus = { eduFlowState = EduFlowState.SYLLABUS },
+                            onOpenHomework = { eduFlowState = EduFlowState.HOMEWORK },
+                            onOpenStudyPlan = { eduFlowState = EduFlowState.STUDY_PLAN },
+                            onOpenMyProfile = { id ->
+                                currentStaffId = id
+                                profileBackState = EduFlowState.DASHBOARD
+                                eduFlowState = EduFlowState.MY_PROFILE
+                            },
+                            onOpenNotices = { eduFlowState = EduFlowState.NOTICES },
+                            onOpenSubjects = { eduFlowState = EduFlowState.SUBJECTS },
+                            onOpenExams = { eduFlowState = EduFlowState.EXAMS },
+                            onOpenTimetable = { eduFlowState = EduFlowState.TIMETABLE },
+                            onOpenAttendance = { eduFlowState = EduFlowState.ATTENDANCE_MANAGEMENT },
+                            onOpenClasses = { eduFlowState = EduFlowState.CLASSES },
+                            onOpenFee = { id ->
+                                currentStudentId = id
+                                profileBackState = EduFlowState.DASHBOARD
+                                eduFlowState = EduFlowState.STUDENT_FEE_DETAIL
+                            },
+                            onOpenSmartIDCard = { eduFlowState = EduFlowState.SMART_ID_CARD },
+                            onOpenWeb = { url -> webViewUrl = url },
+                            onLogout = {
+                                vm.logout()
+                                showEduFlow = false
+                                eduFlowState = EduFlowState.SELECTOR
+                            }
+                        )
+                    } else {
+                        EducationDashboardScreen(
+                            viewModel = vm,
+                            onBack = { eduFlowState = EduFlowState.SELECTOR },
+                            onOpenWeb = { url -> webViewUrl = url },
+                            onOpenStaff = { eduFlowState = EduFlowState.STAFF },
+                            onLogout = {
+                                vm.logout()
+                                showEduFlow = false
+                                eduFlowState = EduFlowState.SELECTOR
+                            },
+                            onOpenStudents = { eduFlowState = EduFlowState.STUDENTS },
+                            onOpenProfile = { id ->
+                                currentStaffId = id
+                                profileBackState = EduFlowState.DASHBOARD
+                                eduFlowState = EduFlowState.STAFF_PROFILE
+                            },
+                            onOpenMyProfile = { id ->
+                                currentStaffId = id
+                                profileBackState = EduFlowState.DASHBOARD
+                                eduFlowState = EduFlowState.MY_PROFILE
+                            },
+                            onOpenFee = {
+                                val userRole = dashboardData?.role?.lowercase() ?: ""
+                                if (userRole == "student") {
+                                    currentStudentId = dashboardData?.user_id
+                                    profileBackState = EduFlowState.DASHBOARD
+                                    eduFlowState = EduFlowState.STUDENT_FEE_DETAIL
+                                } else {
+                                    eduFlowState = EduFlowState.FEE_MANAGEMENT
+                                }
+                            },
+                            onOpenAttendance = {
+                                eduFlowState = EduFlowState.ATTENDANCE_MANAGEMENT
+                            },
+                            onOpenQuestionPapers = {
+                                eduFlowState = EduFlowState.QUESTION_PAPERS
+                            },
+                            onOpenReports = {
+                                eduFlowState = EduFlowState.REPORTS_DASHBOARD
+                            },
+                            onOpenSyllabus = {
+                                eduFlowState = EduFlowState.SYLLABUS
+                            },
+                            onOpenHomework = {
+                                eduFlowState = EduFlowState.HOMEWORK
+                            },
+                            onOpenPromotion = {
+                                eduFlowState = EduFlowState.PROMOTION
+                            },
+                            onOpenDatabase = {
+                                eduFlowState = EduFlowState.DATABASE_MANAGEMENT
+                            },
+                            onOpenStudyPlan = {
+                                eduFlowState = EduFlowState.STUDY_PLAN
+                            },
+                            onOpenNotices = {
+                                eduFlowState = EduFlowState.NOTICES
+                            },
+                            onOpenClasses = {
+                                eduFlowState = EduFlowState.CLASSES
+                            },
+                            onOpenSubjects = {
+                                eduFlowState = EduFlowState.SUBJECTS
+                            },
+                            onOpenExams = {
+                                eduFlowState = EduFlowState.EXAMS
+                            },
+                            onOpenTimetable = {
+                                eduFlowState = EduFlowState.TIMETABLE
+                            },
+                            onOpenAdmWdl = {
+                                eduFlowState = EduFlowState.ADM_WDL
+                            },
+                            onOpenSmartIDCard = {
+                                eduFlowState = EduFlowState.SMART_ID_CARD
+                            },
+                            onOpenSubstitution = {
+                                eduFlowState = EduFlowState.SUBSTITUTION
+                            }
+                        )
                     }
-                )
+                }
                 EduFlowState.PROMOTION -> PromotionScreen(
                     viewModel = vm,
                     onBack = { eduFlowState = EduFlowState.DASHBOARD }
@@ -280,6 +401,7 @@ fun WantuchApp(vm: WantuchViewModel = viewModel()) {
                     onBack = { eduFlowState = EduFlowState.DASHBOARD },
                     onOpenStudentFee = { id ->
                         currentStudentId = id
+                        profileBackState = EduFlowState.FEE_MANAGEMENT
                         eduFlowState = EduFlowState.STUDENT_FEE_DETAIL
                     }
                 )
@@ -291,7 +413,7 @@ fun WantuchApp(vm: WantuchViewModel = viewModel()) {
                     StudentFeeDetailScreen(
                         studentId = id,
                         viewModel = vm,
-                        onBack = { eduFlowState = EduFlowState.FEE_MANAGEMENT }
+                        onBack = { eduFlowState = profileBackState }
                     )
                 }
                 EduFlowState.STAFF -> StaffManagementScreen(
@@ -351,6 +473,7 @@ fun WantuchApp(vm: WantuchViewModel = viewModel()) {
                     onOpenQuestionPapers = { eduFlowState = EduFlowState.QUESTION_PAPERS },
                     onOpenAnswerPapers = { webViewUrl = "https://wantuch.pk/modules/education/answer_papers.php" },
                     onOpenBulkExams = { webViewUrl = "https://wantuch.pk/modules/education/bulk_exam_papers.php" },
+                    onOpenSmartIDCard = { eduFlowState = EduFlowState.SMART_ID_CARD },
                     onOpenWeb = { url -> webViewUrl = url }
                 )
                 EduFlowState.QUESTION_PAPER_BUILDER -> {
@@ -360,6 +483,8 @@ fun WantuchApp(vm: WantuchViewModel = viewModel()) {
                         onBack = { eduFlowState = EduFlowState.QUESTION_PAPERS },
                         onSave = { title, subject, totalMarks, sections ->
                             vm.saveSmartPaper(
+                                title = title,
+                                subject = subject,
                                 totalMarks = totalMarks,
                                 sections = sections,
                                 onSuccess = { filePath, message ->
@@ -390,6 +515,41 @@ fun WantuchApp(vm: WantuchViewModel = viewModel()) {
                         }
                     )
                 }
+                EduFlowState.NOTICES -> NoticesScreen(
+                    viewModel = vm,
+                    onBack = { eduFlowState = EduFlowState.DASHBOARD }
+                )
+                EduFlowState.CLASSES -> ClassesScreen(
+                    viewModel = vm,
+                    onBack = { eduFlowState = EduFlowState.DASHBOARD }
+                )
+                EduFlowState.SUBJECTS -> SubjectsScreen(
+                    viewModel = vm,
+                    onBack = { eduFlowState = EduFlowState.DASHBOARD }
+                )
+                EduFlowState.EXAMS -> ExamsScreen(
+                    viewModel = vm,
+                    openWeb = { url -> webViewUrl = url },
+                    onBack = { eduFlowState = EduFlowState.DASHBOARD }
+                )
+                EduFlowState.TIMETABLE -> TimetableScreen(
+                    viewModel = vm,
+                    onBack = { eduFlowState = EduFlowState.DASHBOARD },
+                    onOpenSubstitution = { eduFlowState = EduFlowState.SUBSTITUTION }
+                )
+                EduFlowState.SUBSTITUTION -> SubstitutionManagementScreen(
+                    viewModel = vm,
+                    onBack = { eduFlowState = EduFlowState.TIMETABLE }
+                )
+                EduFlowState.ADM_WDL -> AdmWdlScreen(
+                    viewModel = vm,
+                    onBack = { eduFlowState = EduFlowState.DASHBOARD }
+                )
+                EduFlowState.SMART_ID_CARD -> SmartIDCardScreen(
+                    viewModel = vm,
+                    onBack = { eduFlowState = EduFlowState.DASHBOARD },
+                    onOpenWeb = { url -> webViewUrl = url }
+                )
             }
         }
 

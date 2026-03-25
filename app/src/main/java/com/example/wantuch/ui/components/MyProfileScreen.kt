@@ -1,6 +1,7 @@
 package com.example.wantuch.ui.components
 
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -93,9 +94,11 @@ fun MyProfileScreen(
     val profile by viewModel.staffProfile.collectAsState()
     val isDark by viewModel.isDarkTheme.collectAsState()
     var selectedTab by remember { mutableIntStateOf(0) }
+    val userRole by viewModel.userRole.collectAsState()
     val context = LocalContext.current
 
     LaunchedEffect(staffId) {
+        viewModel.updateRole()
         viewModel.fetchStaffProfile(staffId)
     }
 
@@ -118,7 +121,7 @@ fun MyProfileScreen(
                     Box(Modifier.background(Color(0xFF3B82F6).copy(0.1f), RoundedCornerShape(30.dp)).padding(horizontal = 15.dp, vertical = 6.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (!profile?.institution?.get("logo")?.toString().isNullOrEmpty()) {
-                                AsyncImage(model = "https://wantuch.pk/${profile?.institution?.get("logo")}", contentDescription = null, modifier = Modifier.size(16.dp).clip(CircleShape))
+                                AsyncImage(model = "https://www.wantuch.pk/${profile?.institution?.get("logo")}", contentDescription = null, modifier = Modifier.size(16.dp).clip(CircleShape))
                                 Spacer(Modifier.width(8.dp))
                             }
                             Text(profile?.institution?.get("name")?.toString()?.uppercase() ?: "WANTUCH", color = textColor, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
@@ -150,8 +153,44 @@ fun MyProfileScreen(
                     if (selectedTab == 0) {
                         StaffCloudTab(data, isDark, viewModel, staffId)
                     } else {
-                        InstitutionHubGrid(data, isDark) { section ->
-                            Toast.makeText(context, "Node Section: $section", Toast.LENGTH_SHORT).show()
+                        // Institution Node tab — with its own sub-navigation
+                        var activeInstSection by remember { mutableStateOf<String?>(null) }
+
+                        BackHandler(enabled = activeInstSection != null) {
+                            activeInstSection = null
+                        }
+
+                        if (activeInstSection != null) {
+                            when (activeInstSection) {
+                                "Profile" -> InstitutionProfileDetail(data.institution, isDark) { fields ->
+                                    viewModel.updateInstitutionProfile(fields,
+                                        onSuccess = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() },
+                                        onError = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
+                                    )
+                                }
+                                "Posts" -> ProfileInstPostsList(data, isDark, userRole,
+                                    onSave = { fields -> viewModel.saveInstitutionNode("POST", staffId, fields, {}, { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }) },
+                                    onDelete = { id -> viewModel.deleteInstitutionNode("POST", staffId, id, {}, { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }) }
+                                )
+                                "Assets" -> ProfileInstAssetsList(data, isDark, userRole,
+                                    onSave = { fields -> viewModel.saveInstitutionNode("ASSET", staffId, fields, {}, { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }) },
+                                    onDelete = { id -> viewModel.deleteInstitutionNode("ASSET", staffId, id, {}, { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }) }
+                                )
+                                "Funds" -> ProfileInstFundsList(data, isDark, userRole,
+                                    onSave = { fields -> viewModel.saveInstitutionNode("FUND", staffId, fields, {}, { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }) },
+                                    onDelete = { id -> viewModel.deleteInstitutionNode("FUND", staffId, id, {}, { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }) }
+                                )
+                                "Bank Nodes" -> ProfileInstBankList(data, isDark, userRole,
+                                    onSave = { fields -> viewModel.saveInstitutionNode("BANK", staffId, fields, {}, { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }) },
+                                    onDelete = { id -> viewModel.deleteInstitutionNode("BANK", staffId, id, {}, { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }) }
+                                )
+                                "Schedules" -> ProfileInstTimetableList(data, isDark, userRole)
+                                else -> PlaceholderSection(activeInstSection ?: "", isDark)
+                            }
+                        } else {
+                            InstitutionHubGrid(data, isDark) { section ->
+                                activeInstSection = section
+                            }
                         }
                     }
                 } ?: Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator(color = Color(0xFF3B82F6)) }
@@ -799,7 +838,7 @@ fun PlaceholderSection(title: String, isDark: Boolean) {
 }
 
 @Composable
-fun ProfileInstTimetableList(data: StaffProfileResponse, isDark: Boolean) {
+fun ProfileInstTimetableList(data: StaffProfileResponse, isDark: Boolean, userRole: String) {
     val items = data.inst_timetable ?: emptyList()
 
     // Group by Class + Section
@@ -880,7 +919,7 @@ fun InstitutionProfileDetail(inst: Map<String, Any?>?, isDark: Boolean, onSave: 
         Box(Modifier.size(100.dp).background(cardColor, RoundedCornerShape(30.dp)).padding(10.dp), Alignment.Center) {
             val logo = inst?.get("logo_path")?.toString()
             if (!logo.isNullOrEmpty()) {
-                AsyncImage(model = "https://wantuch.pk/$logo", contentDescription = null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+                AsyncImage(model = "https://www.wantuch.pk/$logo", contentDescription = null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
             } else {
                 Icon(Icons.Default.School, null, tint = Color(0xFF3B82F6), modifier = Modifier.size(50.dp))
             }
@@ -931,7 +970,7 @@ fun InstitutionProfileDetail(inst: Map<String, Any?>?, isDark: Boolean, onSave: 
 }
 
 @Composable
-fun ProfileInstPostsList(data: StaffProfileResponse, isDark: Boolean, onSave: (Map<String, String>) -> Unit, onDelete: (Int) -> Unit) {
+fun ProfileInstPostsList(data: StaffProfileResponse, isDark: Boolean, userRole: String, onSave: (Map<String, String>) -> Unit, onDelete: (Int) -> Unit) {
     val items = data.inst_posts ?: emptyList()
     var editingNode by remember { mutableStateOf<Map<String, String>?>(null) }
     var isAdding by remember { mutableStateOf(false) }
@@ -994,7 +1033,7 @@ fun InstPostCard(p: Map<String, String>, isDark: Boolean, onEdit: () -> Unit, on
 }
 
 @Composable
-fun ProfileInstBankList(data: StaffProfileResponse, isDark: Boolean, onSave: (Map<String, String>) -> Unit, onDelete: (Int) -> Unit) {
+fun ProfileInstBankList(data: StaffProfileResponse, isDark: Boolean, userRole: String, onSave: (Map<String, String>) -> Unit, onDelete: (Int) -> Unit) {
     val items = data.inst_bank ?: emptyList()
     var editingNode by remember { mutableStateOf<Map<String, String>?>(null) }
     var isAdding by remember { mutableStateOf(false) }
@@ -1048,7 +1087,7 @@ fun InstBankCard(b: Map<String, String>, isDark: Boolean, onEdit: () -> Unit, on
 }
 
 @Composable
-fun ProfileInstAssetsList(data: StaffProfileResponse, isDark: Boolean, onSave: (Map<String, String>) -> Unit, onDelete: (Int) -> Unit) {
+fun ProfileInstAssetsList(data: StaffProfileResponse, isDark: Boolean, userRole: String, onSave: (Map<String, String>) -> Unit, onDelete: (Int) -> Unit) {
     val items = data.inst_assets ?: emptyList()
     var editingNode by remember { mutableStateOf<Map<String, String>?>(null) }
     var isAdding by remember { mutableStateOf(false) }
@@ -1074,20 +1113,22 @@ fun ProfileInstAssetsList(data: StaffProfileResponse, isDark: Boolean, onSave: (
     }
 
     Column(Modifier.verticalScroll(rememberScrollState())) {
-        AddNodeButton("ADD ASSET NODE", isDark) { isAdding = true }
+        if (userRole != "Student") {
+            AddNodeButton("ADD ASSET NODE", isDark) { isAdding = true }
+        }
         items.forEach { node ->
             val nMap = node.mapValues { it.value?.toString() ?: "" }
-            InstAssetCard(nMap, isDark, onEdit = { editingNode = nMap }, onDelete = { onDelete(nMap["id"]?.toInt() ?: 0) })
+            InstAssetCard(nMap, isDark, userRole, onEdit = { if(userRole != "Student") editingNode = nMap }, onDelete = { onDelete(nMap["id"]?.toInt() ?: 0) })
         }
         Spacer(Modifier.height(100.dp))
     }
 }
 
 @Composable
-fun InstAssetCard(a: Map<String, String>, isDark: Boolean, onEdit: () -> Unit, onDelete: () -> Unit) {
+fun InstAssetCard(a: Map<String, String>, isDark: Boolean, userRole: String, onEdit: () -> Unit, onDelete: () -> Unit) {
     val cardColor = if (isDark) Color(0xFF1E293B) else Color.White
     val textColor = if (isDark) Color.White else Color.Black
-    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp).background(cardColor, RoundedCornerShape(16.dp)).clickable { onEdit() }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp).background(cardColor, RoundedCornerShape(16.dp)).clickable { if(userRole != "Student") onEdit() }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(40.dp).background(Color(0xFF8B5CF6).copy(0.1f), CircleShape), Alignment.Center) {
             Icon(Icons.Default.Build, null, tint = Color(0xFF8B5CF6), modifier = Modifier.size(18.dp))
         }
@@ -1102,12 +1143,14 @@ fun InstAssetCard(a: Map<String, String>, isDark: Boolean, onEdit: () -> Unit, o
             }
             Text("Functional: ${a["functional_qty"]} | Non-F: ${a["non_functional_qty"]}", color = Color.Gray, fontSize = 11.sp)
         }
-        ActionIcons(isDark, onEdit = onEdit, onDelete = onDelete)
+        if (userRole != "Student") {
+            ActionIcons(isDark, onEdit = onEdit, onDelete = onDelete)
+        }
     }
 }
 
 @Composable
-fun ProfileInstFundsList(data: StaffProfileResponse, isDark: Boolean, onSave: (Map<String, String>) -> Unit, onDelete: (Int) -> Unit) {
+fun ProfileInstFundsList(data: StaffProfileResponse, isDark: Boolean, userRole: String, onSave: (Map<String, String>) -> Unit, onDelete: (Int) -> Unit) {
     val items = data.inst_funds ?: emptyList()
     var editingNode by remember { mutableStateOf<Map<String, String>?>(null) }
     var isAdding by remember { mutableStateOf(false) }
@@ -1136,20 +1179,22 @@ fun ProfileInstFundsList(data: StaffProfileResponse, isDark: Boolean, onSave: (M
     }
 
     Column(Modifier.verticalScroll(rememberScrollState())) {
-        AddNodeButton("ADD FUND NODE", isDark) { isAdding = true }
+        if (userRole != "Student") {
+            AddNodeButton("ADD FUND NODE", isDark) { isAdding = true }
+        }
         items.forEach { node ->
             val nMap = node.mapValues { it.value?.toString() ?: "" }
-            InstFundCard(nMap, isDark, onEdit = { editingNode = nMap }, onDelete = { onDelete(nMap["id"]?.toInt() ?: 0) })
+            InstFundCard(nMap, isDark, userRole, onEdit = { if(userRole != "Student") editingNode = nMap }, onDelete = { onDelete(nMap["id"]?.toInt() ?: 0) })
         }
         Spacer(Modifier.height(100.dp))
     }
 }
 
 @Composable
-fun InstFundCard(f: Map<String, String>, isDark: Boolean, onEdit: () -> Unit, onDelete: () -> Unit) {
+fun InstFundCard(f: Map<String, String>, isDark: Boolean, userRole: String, onEdit: () -> Unit, onDelete: () -> Unit) {
     val cardColor = if (isDark) Color(0xFF1E293B) else Color.White
     val textColor = if (isDark) Color.White else Color.Black
-    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp).background(cardColor, RoundedCornerShape(16.dp)).clickable { onEdit() }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp).background(cardColor, RoundedCornerShape(16.dp)).clickable { if(userRole != "Student") onEdit() }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(40.dp).background(Color(0xFF10B981).copy(0.1f), CircleShape), Alignment.Center) {
             Icon(Icons.Default.Payments, null, tint = Color(0xFF10B981), modifier = Modifier.size(18.dp))
         }
@@ -1158,7 +1203,9 @@ fun InstFundCard(f: Map<String, String>, isDark: Boolean, onEdit: () -> Unit, on
             Text(f["name"] ?: "FUND", color = textColor, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             Text("A/C: ${f["account_number"]} | Rs. ${f["amount"]} (${f["type"]})", color = Color.Gray, fontSize = 11.sp)
         }
-        ActionIcons(isDark, onEdit = onEdit, onDelete = onDelete)
+        if (userRole != "Student") {
+            ActionIcons(isDark, onEdit = onEdit, onDelete = onDelete)
+        }
     }
 }
 

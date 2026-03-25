@@ -2,7 +2,7 @@ package com.example.wantuch.ui.components
 
 import android.app.DownloadManager
 import android.content.Context
-import android.net.Uri
+import androidx.core.net.toUri
 import android.os.Environment
 import android.widget.Toast
 import androidx.compose.animation.*
@@ -71,7 +71,7 @@ fun QuestionPaperScreen(
     val context = LocalContext.current
 
     // Filter state
-    var selectedClassId by remember { mutableStateOf(0) }
+    var selectedClassId by remember { mutableIntStateOf(0) }
     var selectedClassName by remember { mutableStateOf("All Classes") }
     var selectedSubject by remember { mutableStateOf("") }
     var selectedYear by remember { mutableStateOf("") }
@@ -474,7 +474,7 @@ private fun QPPaperCard(paper: QuestionPaper, isDark: Boolean, onOpenWeb: (Strin
                                     val fileName = if (rawName.endsWith(".pdf", ignoreCase = true)) rawName 
                                                   else "${paper.title.replace(" ", "_").take(20)}.pdf"
                                     
-                                    val request = DownloadManager.Request(Uri.parse(fileUrl))
+                                    val request = DownloadManager.Request(fileUrl.toUri())
                                         .setTitle(paper.title)
                                         .setDescription("Downloading Question Paper PDF...")
                                         .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)

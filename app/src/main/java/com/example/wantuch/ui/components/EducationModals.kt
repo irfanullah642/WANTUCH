@@ -24,6 +24,7 @@ import com.example.wantuch.AccentPurple
 import com.example.wantuch.domain.model.Institution
 import com.example.wantuch.ui.viewmodel.WantuchViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EduLoginModal(
     institutionType: String,
@@ -36,18 +37,26 @@ fun EduLoginModal(
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var cnic by remember { mutableStateOf("") }
-    var selectedInst by remember { mutableStateOf(0) }
+    var selectedInstId by remember { mutableStateOf(0) }
+    var selectedInstName by remember { mutableStateOf("Select $institutionType") }
     var showPass by remember { mutableStateOf(false) }
     var rememberMe by remember { mutableStateOf(false) }
+    var dropdownExpanded by remember { mutableStateOf(false) }
 
     val savedData = remember { viewModel.getSavedData() }
-    
+    val institutions by viewModel.institutions.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val errorMsg by viewModel.errorMsg.collectAsState()
+
     LaunchedEffect(Unit) {
+        // Always load context for better UX
+        selectedInstId = savedData["last_inst"] as? Int ?: 0
+        selectedRole = savedData["role"] as? String ?: ""
+
         (savedData["remember"] as? Boolean)?.let { remember ->
             if (remember) {
                 username = savedData["user"] as? String ?: ""
                 password = savedData["pass"] as? String ?: ""
-                selectedInst = savedData["last_inst"] as? Int ?: 0
                 rememberMe = true
             }
         }
@@ -55,14 +64,19 @@ fun EduLoginModal(
             if (remember) {
                 cnic = savedData["cnic"] as? String ?: ""
                 password = savedData["parent_pass"] as? String ?: ""
+                selectedRole = "parent"
                 rememberMe = true
             }
         }
     }
 
-    val institutions by viewModel.institutions.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
-    val errorMsg by viewModel.errorMsg.collectAsState()
+    LaunchedEffect(institutions, selectedInstId) {
+        if (selectedInstId != 0 && institutions.isNotEmpty()) {
+            institutions.find { (it.id.toString().toDoubleOrNull()?.toInt() ?: 0) == selectedInstId }?.let {
+                selectedInstName = it.name
+            }
+        }
+    }
 
     LaunchedEffect(step) {
         if (step == "INST" && selectedRole != "parent") {
@@ -86,7 +100,7 @@ fun EduLoginModal(
                 }
                 Spacer(Modifier.height(20.dp))
 
-                if (errorMsg.isNotEmpty()) {
+                if (errorMsg.isNotEmpty() && institutions.isEmpty()) {
                     Column(Modifier.fillMaxWidth().background(Color(0xFFE74C3C).copy(0.15f)).border(1.dp, Color(0xFFE74C3C).copy(0.4f), RoundedCornerShape(12.dp)).padding(12.dp)) {
                         Text(errorMsg, color = Color(0xFFE74C3C), fontSize = 12.sp)
                         Spacer(Modifier.height(8.dp))
@@ -112,7 +126,7 @@ fun EduLoginModal(
                             Triple("staff", "Staff", Icons.Default.People),
                             Triple("student", "Student", Icons.Default.School),
                             Triple("parent", "Parent", Icons.Default.FamilyRestroom),
-                            Triple("super_admin", "Super Admin", Icons.Default.AdminPanelSettings)
+                            Triple("super_admin", "Super Admin", Icons.Default.ManageAccounts)
                         )
                         roles.forEach { (key, label, icon) ->
                             Button(
@@ -128,30 +142,59 @@ fun EduLoginModal(
                         }
                     }
                     "INST" -> {
-                        if (isLoading) {
-                            Box(Modifier.fillMaxWidth().height(200.dp), Alignment.Center) { CircularProgressIndicator(color = Color(0xFF1ABC9C)) }
+                        if (isLoading && institutions.isEmpty()) {
+                            Box(Modifier.fillMaxWidth().height(100.dp), Alignment.Center) { CircularProgressIndicator(color = Color(0xFF1ABC9C)) }
                         } else {
-                            Column(Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState())) {
-                                institutions.forEach { inst ->
-                                    val instId = inst.id.toString().toDoubleOrNull()?.toInt() ?: 0
-                                    val sel = selectedInst == instId
-                                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { selectedInst = instId }
-                                        .background(if (sel) Color(0xFF1ABC9C).copy(0.15f) else Color.Transparent).padding(14.dp),
-                                        verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(if (sel) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked, null,
-                                            tint = if (sel) Color(0xFF1ABC9C) else Color.White.copy(0.3f))
-                                        Spacer(Modifier.width(16.dp))
-                                        Text(inst.name, color = Color.White, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal)
+                            Text("Institution Name", color = Color.White.copy(0.7f), fontSize = 14.sp, modifier = Modifier.padding(bottom = 8.dp))
+                            
+                            ExposedDropdownMenuBox(
+                                expanded = dropdownExpanded,
+                                onExpandedChange = { dropdownExpanded = it },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                OutlinedTextField(
+                                    value = selectedInstName,
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownExpanded) },
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = Color.White,
+                                        unfocusedTextColor = Color.White,
+                                        focusedBorderColor = Color(0xFF1ABC9C),
+                                        unfocusedBorderColor = Color.White.copy(0.2f),
+                                        focusedPlaceholderColor = Color.White.copy(0.3f),
+                                        unfocusedPlaceholderColor = Color.White.copy(0.3f)
+                                    ),
+                                    modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable, true),
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+
+                                ExposedDropdownMenu(
+                                    expanded = dropdownExpanded,
+                                    onDismissRequest = { dropdownExpanded = false },
+                                    modifier = Modifier.background(Color(0xFF1E293B))
+                                ) {
+                                    institutions.forEach { inst ->
+                                        DropdownMenuItem(
+                                            text = { Text(inst.name, color = Color.White) },
+                                            onClick = {
+                                                selectedInstId = inst.id.toString().toDoubleOrNull()?.toInt() ?: 0
+                                                selectedInstName = inst.name
+                                                dropdownExpanded = false
+                                            }
+                                        )
                                     }
                                 }
-                                if (institutions.isEmpty()) {
-                                    Text("No institutions found.", color = Color.White.copy(0.5f), modifier = Modifier.padding(20.dp))
-                                }
                             }
-                            Spacer(Modifier.height(16.dp))
+
+                            if (institutions.isEmpty() && !isLoading) {
+                                Text("No institutions found. (Check Connection)", color = Color(0xFFE74C3C), fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
+                            }
+
+                            Spacer(Modifier.height(24.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 BackBtn { step = "ROLE" }
-                                EduActionBtn("Next", Color(0xFF1ABC9C), Modifier.weight(1f), enabled = selectedInst != 0) { step = "LOGIN" }
+                                EduActionBtn("Next", Color(0xFF1ABC9C), Modifier.weight(1f), enabled = selectedInstId != 0) { step = "LOGIN" }
                             }
                         }
                     }
@@ -169,8 +212,8 @@ fun EduLoginModal(
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 BackBtn { step = "INST" }
                                 EduActionBtn(if (isLoading) "Checking..." else "Login", Color(0xFF1ABC9C), Modifier.weight(1f), enabled = !isLoading) {
-                                    viewModel.loginInstitution(selectedInst, username, password, selectedRole, rememberMe) { url ->
-                                        if (url != null) onSuccess(selectedRole)  // Pass role, not URL
+                                    viewModel.loginInstitution(selectedInstId, username, password, selectedRole, rememberMe) { url ->
+                                        if (url != null) onSuccess(url)
                                     }
                                 }
                             }
@@ -181,22 +224,17 @@ fun EduLoginModal(
                             EduTextField(cnic, { cnic = it }, "CNIC (35202-xxxxxxx-x)", Icons.Default.AssignmentInd)
                             EduTextField(password, { password = it }, "Password", Icons.Default.Lock, isPassword = true, showPass = showPass, onTogglePass = { showPass = !showPass })
                             
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Checkbox(checked = rememberMe, onCheckedChange = { rememberMe = it }, 
-                                        colors = CheckboxDefaults.colors(uncheckedColor = Color.White.copy(0.4f), checkedColor = Color(0xFFEC4899)))
-                                    Text("Remember Me", color = Color.White.copy(0.6f), fontSize = 14.sp)
-                                }
-                                TextButton(onClick = { /* Step to forgot password */ }) {
-                                    Text("Forgot?", color = Color(0xFFEC4899), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(checked = rememberMe, onCheckedChange = { rememberMe = it }, 
+                                    colors = CheckboxDefaults.colors(uncheckedColor = Color.White.copy(0.4f), checkedColor = Color(0xFFEC4899)))
+                                Text("Remember Me", color = Color.White.copy(0.6f), fontSize = 14.sp)
                             }
 
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 BackBtn { step = "ROLE" }
                                 EduActionBtn(if (isLoading) "Authenticating..." else "Parent Login", Color(0xFFEC4899), Modifier.weight(1f), enabled = !isLoading) {
                                     viewModel.loginParent(cnic, password, rememberMe) { url ->
-                                        if (url != null) onSuccess("parent")  // Always parent role
+                                        if (url != null) onSuccess(url)
                                     }
                                 }
                             }

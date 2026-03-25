@@ -14,6 +14,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.SharingStarted
 import com.example.wantuch.domain.model.*
 import com.example.wantuch.data.local.entities.*
 import kotlinx.coroutines.launch
@@ -57,14 +60,70 @@ class WantuchViewModel(application: Application) : AndroidViewModel(application)
     private val _staffData = MutableStateFlow<StaffResponse?>(null)
     val staffData = _staffData.asStateFlow()
 
+    val staffList = _staffData.map { 
+        (it?.teaching_staff ?: emptyList<com.example.wantuch.domain.model.StaffMember>()) + (it?.non_teaching_staff ?: emptyList<com.example.wantuch.domain.model.StaffMember>()) 
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList<com.example.wantuch.domain.model.StaffMember>())
+
     private val _staffProfile = MutableStateFlow<StaffProfileResponse?>(null)
     val staffProfile = _staffProfile.asStateFlow()
+
+    private val _subjects = MutableStateFlow<SubjectResponse?>(null)
+    val subjects = _subjects.asStateFlow()
 
     private val _studentsData = MutableStateFlow<StudentResponse?>(null)
     val studentsData = _studentsData.asStateFlow()
 
+    val students = _studentsData.map { 
+        it?.students ?: emptyList<com.example.wantuch.domain.model.StudentMember>() 
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList<com.example.wantuch.domain.model.StudentMember>())
+
     private val _promotionData = MutableStateFlow<PromotionResponse?>(null)
     val promotionData = _promotionData.asStateFlow()
+
+    private val _examGroups = MutableStateFlow<List<ExamL1Item>>(emptyList())
+    val examGroups = _examGroups.asStateFlow()
+
+    private val _examGroupsL2 = MutableStateFlow<List<ExamL2Item>>(emptyList())
+    val examGroupsL2 = _examGroupsL2.asStateFlow()
+
+    private val _rollNoSlips = MutableStateFlow<RollNoSlipResponse?>(null)
+    val rollNoSlips = _rollNoSlips.asStateFlow()
+
+    private val _noticesData = MutableStateFlow<NoticeResponse?>(null)
+    val noticesData = _noticesData.asStateFlow()
+
+    private val _admFreshData = MutableStateFlow<AdmWdlResponse?>(null)
+    val admFreshData = _admFreshData.asStateFlow()
+
+    private val _admOldData = MutableStateFlow<AdmWdlResponse?>(null)
+    val admOldData = _admOldData.asStateFlow()
+
+    private val _certSearchData = MutableStateFlow<AdmWdlResponse?>(null)
+    val certSearchData = _certSearchData.asStateFlow()
+
+    private val _timetableData = MutableStateFlow<TimetableResponse?>(null)
+    val timetableData = _timetableData.asStateFlow()
+
+    private val _timetableMetadata = MutableStateFlow<TimetableMetadataResponse?>(null)
+    val timetableMetadata = _timetableMetadata.asStateFlow()
+
+    private val _substitutionData = MutableStateFlow<SubstitutionResponse?>(null)
+    val substitutionData = _substitutionData.asStateFlow()
+
+    private val _managementSummary = MutableStateFlow<TimetableManagementSummary?>(null)
+    val managementSummary = _managementSummary.asStateFlow()
+
+    private val _timetableArchive = MutableStateFlow<TimetableArchiveResponse?>(null)
+    val timetableArchive = _timetableArchive.asStateFlow()
+
+    private val _wizardData = MutableStateFlow<WizardPreRequisites?>(null)
+    val wizardData = _wizardData.asStateFlow()
+
+    private val _questionPapers = MutableStateFlow<QuestionPaperResponse?>(null)
+    val questionPapers = _questionPapers.asStateFlow()
+
+    private val _generatedIdCardUrl = MutableStateFlow<String?>(null)
+    val generatedIdCardUrl = _generatedIdCardUrl.asStateFlow()
 
     // Last enrolled user mapping for fingerprint simulation
     private val _lastEnrolledUser = MutableStateFlow<Pair<Int, String>?>(null)
@@ -237,6 +296,13 @@ class WantuchViewModel(application: Application) : AndroidViewModel(application)
     private val _schoolStructure = MutableStateFlow<SchoolStructureResponse?>(null)
     val schoolStructure = _schoolStructure.asStateFlow()
 
+    private val _userRole = MutableStateFlow(prefs.getString("role", "Student") ?: "Student")
+    val userRole = _userRole.asStateFlow()
+
+    fun updateRole() {
+        _userRole.value = prefs.getString("role", "Student") ?: "Student"
+    }
+
     private val _isDarkTheme = MutableStateFlow(true)
     val isDarkTheme = _isDarkTheme.asStateFlow()
 
@@ -278,6 +344,7 @@ class WantuchViewModel(application: Application) : AndroidViewModel(application)
     val unreadCounts = mutableMapOf<String, Int>()
 
     fun fetchInstitutions(type: String) {
+        prefs.edit().putString("current_request_type", type).apply()
         viewModelScope.launch {
             _isLoading.value = true
             _errorMsg.value = ""
@@ -300,17 +367,25 @@ class WantuchViewModel(application: Application) : AndroidViewModel(application)
                 if (result.isSuccess) {
                     val resp = result.getOrNull()
                     if (resp?.status == "success") {
+                        // Always save institution context for better selection experience
+                        prefs.edit().apply {
+                            putInt("last_inst", instId)
+                            putString("role", role)
+                            putString("inst_type", prefs.getString("current_request_type", "School"))
+                            apply()
+                        }
+
                         if (remember) {
                             prefs.edit().apply {
                                 putString("user", user)
                                 putString("pass", pass)
-                                putInt("last_inst", instId)
-                                putString("role", role)
                                 putBoolean("remember", true)
+                                putBoolean("is_logged_in", true)
                                 apply()
                             }
                         } else {
                             prefs.edit().remove("user").remove("pass").remove("remember").apply()
+                            prefs.edit().putBoolean("is_logged_in", true).apply()
                         }
                         onResult(resp.redirect ?: "modules/education/dashboard.php")
                     } else {
@@ -328,6 +403,11 @@ class WantuchViewModel(application: Application) : AndroidViewModel(application)
                 _isLoading.value = false
             }
         }
+    }
+
+    fun logout() {
+        // Clear only the session flag, keep user/pass for pre-fill
+        prefs.edit().putBoolean("is_logged_in", false).apply()
     }
 
     fun loginParent(cnic: String, pass: String, remember: Boolean, onResult: (String?) -> Unit) {
@@ -425,6 +505,87 @@ class WantuchViewModel(application: Application) : AndroidViewModel(application)
         val lastId = prefs.getInt("last_inst", 0)
         if (lastId != 0) {
             selectInstitution(lastId) {}
+        }
+    }
+
+    fun saveStaff(fields: Map<String, String>, onSuccess: (String) -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val mutableFields = fields.toMutableMap()
+                val lastId = prefs.getInt("last_inst", 0)
+                mutableFields["institution_id"] = lastId.toString()
+                
+                val result = repository.saveStaff(mutableFields)
+                if (result.isSuccess) {
+                    val resp = result.getOrNull()
+                    if (resp?.status == "success") {
+                        onSuccess(resp.message ?: "Staff saved successfully")
+                        fetchStaff()
+                    } else {
+                        onError(resp?.message ?: "Failed to save staff")
+                    }
+                } else {
+                    onError(result.exceptionOrNull()?.message ?: "Error saving staff")
+                }
+            } catch (e: Exception) {
+                onError("Crash: ${e.message}")
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun bulkSaveStaff(
+        namesText: String, role: String, gender: String, userType: String,
+        onSuccess: (String) -> Unit, onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val lastId = prefs.getInt("last_inst", 0)
+                val result = repository.bulkSaveStaff(lastId, namesText, role, gender, userType)
+                if (result.isSuccess) {
+                    val resp = result.getOrNull()
+                    if (resp?.status == "success") {
+                        onSuccess(resp.message ?: "Staff successfully added in bulk")
+                        fetchStaff()
+                    } else {
+                        onError(resp?.message ?: "Failed to bulk add staff")
+                    }
+                } else {
+                    onError(result.exceptionOrNull()?.message ?: "Error bulk adding staff")
+                }
+            } catch (e: Exception) {
+                onError("Crash: ${e.message}")
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun deleteStaff(staffId: Int, onSuccess: (String) -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val lastId = prefs.getInt("last_inst", 0)
+                val result = repository.deleteStaff(staffId, lastId)
+                if (result.isSuccess) {
+                    val resp = result.getOrNull()
+                    if (resp?.status == "success") {
+                        onSuccess(resp.message ?: "Staff deleted successfully")
+                        fetchStaff()
+                    } else {
+                        onError(resp?.message ?: "Failed to delete staff")
+                    }
+                } else {
+                    onError(result.exceptionOrNull()?.message ?: "Error deleting staff")
+                }
+            } catch (e: Exception) {
+                onError("Crash: ${e.message}")
+            } finally {
+                _isLoading.value = false
+            }
         }
     }
 
@@ -662,9 +823,11 @@ class WantuchViewModel(application: Application) : AndroidViewModel(application)
             "last_inst" to prefs.getInt("last_inst", 0),
             "role" to prefs.getString("role", ""),
             "remember" to prefs.getBoolean("remember", false),
+            "inst_type" to prefs.getString("inst_type", ""),
             "cnic" to prefs.getString("cnic", ""),
             "parent_pass" to prefs.getString("parent_pass", ""),
-            "remember_parent" to prefs.getBoolean("remember_parent", false)
+            "remember_parent" to prefs.getBoolean("remember_parent", false),
+            "is_logged_in" to prefs.getBoolean("is_logged_in", false)
         )
     }
 
@@ -1033,22 +1196,16 @@ class WantuchViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    // ── Question Papers ───────────────────────────────────────────────────────
-
-    private val _questionPapers = MutableStateFlow<QuestionPaperResponse?>(null)
-    val questionPapers = _questionPapers.asStateFlow()
-
     fun fetchQuestionPapers(classId: Int = 0, subject: String = "", year: String = "", paperType: String = "") {
         viewModelScope.launch {
             try {
                 _isLoading.value = true
-                _errorMsg.value = ""
-                val lastId = prefs.getInt("last_inst", 0)
-                val result = repository.fetchQuestionPapers(lastId, classId, subject, year, paperType)
-                if (result.isSuccess) {
-                    _questionPapers.value = result.getOrNull()
+                val instId = getInstitutionId()
+                val resultData: kotlin.Result<QuestionPaperResponse> = repository.fetchQuestionPapers(instId, classId, subject, year, paperType)
+                if (resultData.isSuccess) {
+                    _questionPapers.value = resultData.getOrNull()
                 } else {
-                    _errorMsg.value = "Papers Load Error: ${result.exceptionOrNull()?.message}"
+                    _errorMsg.value = resultData.exceptionOrNull()?.message ?: "Papers Load Error"
                 }
             } catch (e: Exception) {
                 _errorMsg.value = "Papers Crash: ${e.message}"
@@ -1066,13 +1223,18 @@ class WantuchViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             try {
                 _isLoading.value = true
-                val lastId = prefs.getInt("last_inst", 0)
-                val result = repository.saveQuestionPaper(lastId, title, subject, classId, year, totalMarks, paperType)
-                if (result.isSuccess && result.getOrNull()?.status == "success") {
-                    onSuccess(result.getOrNull()?.message ?: "Paper saved successfully")
-                    fetchQuestionPapers()
+                val instId = getInstitutionId()
+                val saveRes: kotlin.Result<BasicResponse> = repository.saveQuestionPaper(instId, title, subject, classId, year, totalMarks, paperType)
+                if (saveRes.isSuccess) {
+                    val resp = saveRes.getOrNull()
+                    if (resp?.status == "success") {
+                        onSuccess(resp.message ?: "Paper saved successfully")
+                        fetchQuestionPapers()
+                    } else {
+                        onError(resp?.message ?: "Failed to save paper")
+                    }
                 } else {
-                    onError(result.getOrNull()?.message ?: "Failed to save paper")
+                    onError(saveRes.exceptionOrNull()?.message ?: "Error")
                 }
             } catch (e: Exception) {
                 onError("Crash: ${e.message}")
@@ -1086,72 +1248,21 @@ class WantuchViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             try {
                 _isLoading.value = true
-                val lastId = prefs.getInt("last_inst", 0)
-                val result = repository.deleteQuestionPaper(paperId, lastId)
-                if (result.isSuccess && result.getOrNull()?.status == "success") {
-                    onSuccess(result.getOrNull()?.message ?: "Deleted")
-                    fetchQuestionPapers()
+                val instId = getInstitutionId()
+                val delRes: kotlin.Result<BasicResponse> = repository.deleteQuestionPaper(paperId, instId)
+                if (delRes.isSuccess) {
+                    val resp = delRes.getOrNull()
+                    if (resp?.status == "success") {
+                        onSuccess(resp.message ?: "Deleted")
+                        fetchQuestionPapers()
+                    } else {
+                        onError(resp?.message ?: "Failed to delete")
+                    }
                 } else {
-                    onError(result.getOrNull()?.message ?: "Failed")
+                    onError(delRes.exceptionOrNull()?.message ?: "Error")
                 }
             } catch (e: Exception) {
                 onError("Crash: ${e.message}")
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    fun saveSmartPaper(
-        totalMarks: String,
-        sections: List<com.example.wantuch.ui.components.Section>,
-        onSuccess: (String, String) -> Unit,
-        onError: (String) -> Unit
-    ) {
-        viewModelScope.launch {
-            try {
-                _isLoading.value = true
-                val lastId = prefs.getInt("last_inst", 0)
-
-                // 1. Prepare Sections JSON
-                val sectionsArray = org.json.JSONArray()
-                sections.forEach { section ->
-                    val sectionObj = org.json.JSONObject()
-                    sectionObj.put("title", section.name)
-                    sectionObj.put("marks", section.allocated_marks)
-
-                    val questionsArray = org.json.JSONArray()
-                    section.questions.forEach { question ->
-                        if (question.text.isNotBlank()) {
-                            val questionObj = org.json.JSONObject()
-                            questionObj.put("text", question.text)
-                            questionObj.put("marks", question.marks)
-                            questionsArray.put(questionObj)
-                        }
-                    }
-                    sectionObj.put("questions", questionsArray)
-                    sectionsArray.put(sectionObj)
-                }
-
-                val sectionsJson = sectionsArray.toString()
-
-                // 2. Call Repository
-                val result = repository.saveSmartPaper(lastId, totalMarks, sectionsJson)
-
-                if (result.isSuccess) {
-                    val resp = result.getOrNull()
-                    if (resp?.status == "success") {
-                        val filePath = resp.file_path ?: ""
-                        onSuccess(filePath, resp.message ?: "Question paper PDF generated successfully.")
-                        fetchQuestionPapers()
-                    } else {
-                        onError(resp?.message ?: "Backend failed to generate PDF")
-                    }
-                } else {
-                    onError(result.exceptionOrNull()?.message ?: "Network error")
-                }
-            } catch (e: Exception) {
-                onError("App Crash: ${e.message}")
             } finally {
                 _isLoading.value = false
             }
@@ -1767,4 +1878,703 @@ class WantuchViewModel(application: Application) : AndroidViewModel(application)
             } catch (e: Exception) {}
         }
     }
+
+    // ── Missing Methods for Merged UI ───────────────────────────────────────
+
+    fun fetchSubjects() {
+        updateRole()
+        viewModelScope.launch {
+            try {
+                val lastId = prefs.getInt("last_inst", 0)
+                if (lastId != 0) {
+                    val result = repository.fetchSubjects(lastId)
+                    if (result.isSuccess) {
+                        _subjects.value = result.getOrNull()
+                    }
+                }
+            } catch (e: Exception) { println(e.message) }
+        }
+    }
+
+    fun getAwardListExams(classId: Int, sectionId: Int, onSuccess: (AwardListExamsResponse) -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val lastId = prefs.getInt("last_inst", 0)
+                val result = repository.getAwardListExams(lastId, classId, sectionId)
+                if (result.isSuccess) onSuccess(result.getOrNull()!!) else onError("Failed")
+            } catch (e: Exception) { onError(e.message ?: "Crash") }
+        }
+    }
+
+    fun getAwardListStudents(examId: String, classId: Int, sectionId: Int, onSuccess: (AwardListStudentsResponse) -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val lastId = prefs.getInt("last_inst", 0)
+                val result = repository.getAwardListStudents(lastId, examId, classId, sectionId)
+                if (result.isSuccess) onSuccess(result.getOrNull()!!) else onError("Failed")
+            } catch (e: Exception) { onError(e.message ?: "Crash") }
+        }
+    }
+
+    fun saveAwardListMarks(examId: String, marksJson: String, onSuccess: (String) -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val lastId = prefs.getInt("last_inst", 0)
+                val result = repository.saveAwardListMarks(lastId, examId, marksJson)
+                if (result.isSuccess && result.getOrNull()?.status == "success") onSuccess("Marks Saved") else onError("Failed")
+            } catch (e: Exception) { onError(e.message ?: "Crash") } finally { _isLoading.value = false }
+        }
+    }
+
+    fun deleteStudentAwardMark(examId: Int, studentId: Int, onSuccess: (String) -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val lastId = prefs.getInt("last_inst", 0)
+                val result = repository.deleteStudentAwardMark(lastId, examId, studentId)
+                if (result.isSuccess && result.getOrNull()?.status == "success") onSuccess("Deleted") else onError("Failed")
+            } catch (e: Exception) { onError(e.message ?: "Crash") }
+        }
+    }
+
+    fun deleteFullAwardList(examId: Int, onSuccess: (String) -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val lastId = prefs.getInt("last_inst", 0)
+                val result = repository.deleteFullAwardList(lastId, examId)
+                if (result.isSuccess && result.getOrNull()?.status == "success") onSuccess("Deleted") else onError("Failed")
+            } catch (e: Exception) { onError(e.message ?: "Crash") }
+        }
+    }
+
+    fun fetchExamGroups(onError: (String) -> Unit = {}) {
+        viewModelScope.launch {
+            try {
+                val lastId = prefs.getInt("last_inst", 0)
+                val result = repository.getExamHierarchyL1(lastId)
+                if (result.isSuccess) {
+                    _examGroups.value = result.getOrNull()?.data ?: emptyList()
+                } else {
+                    onError(result.exceptionOrNull()?.message ?: "Failed")
+                }
+            } catch (e: Exception) { onError(e.message ?: "Crash") }
+        }
+    }
+
+    fun fetchExamGroupsL2(type: String, semester: String, year: String) {
+        viewModelScope.launch {
+            try {
+                val lastId = prefs.getInt("last_inst", 0)
+                val result = repository.getExamHierarchyL2(lastId, type, semester, year)
+                if (result.isSuccess) {
+                    _examGroupsL2.value = result.getOrNull()?.data ?: emptyList()
+                }
+            } catch (e: Exception) {}
+        }
+    }
+
+    fun clearExamGroupsL2() {
+        _examGroupsL2.value = emptyList()
+    }
+
+    fun deleteExamGroup(type: String, semester: String, year: String, onSuccess: (String) -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val lastId = prefs.getInt("last_inst", 0)
+                val result = repository.deleteExamGroupL1(lastId, type, semester, year)
+                if (result.isSuccess && result.getOrNull()?.status == "success") onSuccess("Deleted") else onError("Failed")
+            } catch (e: Exception) { onError(e.message ?: "Crash") }
+        }
+    }
+
+    fun deleteExamGroupL2(type: String, semester: String, year: String, classId: Int, sectionId: Int, onSuccess: (String) -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val lastId = prefs.getInt("last_inst", 0)
+                val result = repository.deleteExamGroupL2(lastId, type, semester, year, classId, sectionId)
+                if (result.isSuccess && result.getOrNull()?.status == "success") onSuccess("Deleted") else onError("Failed")
+            } catch (e: Exception) { onError(e.message ?: "Crash") }
+        }
+    }
+
+    fun createExam(type: String, semester: String, year: String, classId: Int, sectionId: Int, subjectsJson: String, onSuccess: (String) -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val lastId = prefs.getInt("last_inst", 0)
+                val result = repository.createExam(type, semester, year, classId, sectionId, subjectsJson, lastId)
+                if (result.isSuccess && result.getOrNull()?.status == "success") onSuccess(result.getOrNull()?.message ?: "Scheduled") else onError("Failed To Schedule")
+            } catch (e: Exception) { onError(e.message ?: "Crash") } finally { _isLoading.value = false }
+        }
+    }
+
+    fun quickScheduleExam(type: String, year: String, text: String, onSuccess: (String) -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val lastId = prefs.getInt("last_inst", 0)
+                val result = repository.quickScheduleExam(type, year, text, lastId)
+                if (result.isSuccess && result.getOrNull()?.status == "success") onSuccess(result.getOrNull()?.message ?: "Quick Scheduled") else onError("Failed To Schedule")
+            } catch (e: Exception) { onError(e.message ?: "Crash") } finally { _isLoading.value = false }
+        }
+    }
+
+    fun fetchRollNoSlips(examType: String, classId: Int, onError: (String) -> Unit = {}) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val lastId = prefs.getInt("last_inst", 0)
+                val result = repository.getRollNoSlips(examType, classId, lastId)
+                if (result.isSuccess) {
+                    _rollNoSlips.value = result.getOrNull()
+                } else {
+                    onError(result.getOrNull()?.status ?: "Failed")
+                }
+            } catch (e: Exception) { onError(e.message ?: "Crash") } finally { _isLoading.value = false }
+        }
+    }
+
+    fun clearRollNoSlips() {
+        _rollNoSlips.value = null
+    }
+
+    fun fetchNotices() {
+        updateRole()
+        Log.d("WantuchNOTICE", "FETCH NOTICES - ROLE IS: ${prefs.getString("role", "Student")}")
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val lastId = prefs.getInt("last_inst", 0)
+                val result = repository.fetchNotices(lastId)
+                if (result.isSuccess) {
+                    _noticesData.value = result.getOrNull()
+                } else {
+                    _errorMsg.value = result.getOrNull()?.message ?: "Failed"
+                }
+            } catch (e: Exception) { _errorMsg.value = "Crash" } finally { _isLoading.value = false }
+        }
+    }
+
+    fun saveNotice(noticeData: Map<String, String>, onSuccess: (String) -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val lastId = prefs.getInt("last_inst", 0)
+                val result = repository.saveNotice(noticeData, lastId)
+                if (result.isSuccess && result.getOrNull()?.status == "success") onSuccess("Notice Saved") else onError("Failed")
+            } catch (e: Exception) { onError(e.message ?: "Crash") } finally { _isLoading.value = false }
+        }
+    }
+
+    fun deleteNotice(noticeId: Int, onSuccess: (String) -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val lastId = prefs.getInt("last_inst", 0)
+                val result = repository.deleteNotice(noticeId, lastId)
+                if (result.isSuccess && result.getOrNull()?.status == "success") onSuccess("Notice Deleted") else onError("Failed")
+            } catch (e: Exception) { onError(e.message ?: "Crash") } finally { _isLoading.value = false }
+        }
+    }
+
+    fun classAction(action: String, id: Int? = null, classId: Int? = null, name: String? = null, onSuccess: (String) -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val lastId = prefs.getInt("last_inst", 0)
+                val result = repository.classAction(action, lastId, id, classId, name)
+                if (result.isSuccess && result.getOrNull()?.status == "success") onSuccess(result.getOrNull()?.message ?: "Success") else onError(result.getOrNull()?.message ?: "Failed")
+            } catch (e: Exception) { onError(e.message ?: "Crash") } finally { _isLoading.value = false }
+        }
+    }
+
+    fun subjectAction(action: String, id: Int? = null, name: String? = null, type: String? = null, onSuccess: (String) -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val lastId = prefs.getInt("last_inst", 0)
+                val result = repository.subjectAction(action, lastId, id, name, type)
+                if (result.isSuccess && result.getOrNull()?.status == "success") onSuccess(result.getOrNull()?.message ?: "Success") else onError(result.getOrNull()?.message ?: "Failed")
+            } catch (e: Exception) { onError(e.message ?: "Crash") } finally { _isLoading.value = false }
+        }
+    }
+
+    fun getConsolidatedResult(classId: Int, sectionId: Int, examType: String, year: String, roll: String? = null, userId: Int? = null, role: String? = null, onSuccess: (ConsolidatedResultResponse) -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val lastId = prefs.getInt("last_inst", 0)
+                val result = repository.getConsolidatedResult(lastId, classId, sectionId, examType, year, roll, userId, role)
+                if (result.isSuccess) onSuccess(result.getOrNull()!!) else onError("Failed to load result")
+            } catch (e: Exception) { onError(e.message ?: "Crash") } finally { _isLoading.value = false }
+        }
+    }
+
+    fun getFullResultCard(classId: Int, sectionId: Int, year: String, roll: String? = null, userId: Int? = null, role: String? = null, onSuccess: (FullResultCardResponse) -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val lastId = prefs.getInt("last_inst", 0)
+                val result = repository.getFullResultCard(lastId, classId, sectionId, year, roll, userId, role)
+                if (result.isSuccess) onSuccess(result.getOrNull()!!) else onError("Failed to load full result card")
+            } catch (e: Exception) { onError(e.message ?: "Crash") } finally { _isLoading.value = false }
+        }
+    }
+
+    fun getTopperAnalytics(type: String, classId: Int? = null, sectionId: Int? = null, onSuccess: (TopperAnalyticsResponse) -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val lastId = prefs.getInt("last_inst", 0)
+                val result = repository.getTopperAnalytics(lastId, type, classId, sectionId)
+                if (result.isSuccess) onSuccess(result.getOrNull()!!) else onError("Failed to load topper analytics")
+            } catch (e: Exception) { onError(e.message ?: "Crash") } finally { _isLoading.value = false }
+        }
+    }
+
+    fun getSchoolAnalytics(classId: Int? = null, sectionId: Int? = null, onSuccess: (SchoolAnalyticsResponse) -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val lastId = prefs.getInt("last_inst", 0)
+                val result = repository.getSchoolAnalytics(lastId, classId, sectionId)
+                if (result.isSuccess) onSuccess(result.getOrNull()!!) else onError("Failed to load school analytics")
+            } catch (e: Exception) { onError(e.message ?: "Crash") } finally { _isLoading.value = false }
+        }
+    }
+
+    fun getStaffAnalytics(classId: Int? = null, sectionId: Int? = null, onSuccess: (StaffAnalyticsResponse) -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val lastId = prefs.getInt("last_inst", 0)
+                val result = repository.getStaffAnalytics(lastId, classId, sectionId)
+                if (result.isSuccess) onSuccess(result.getOrNull()!!) else onError("Failed to load staff analytics")
+            } catch (e: Exception) { onError(e.message ?: "Crash") } finally { _isLoading.value = false }
+        }
+    }
+
+    fun getTrendAnalytics(classId: Int? = null, sectionId: Int? = null, onSuccess: (TrendAnalyticsResponse) -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val lastId = prefs.getInt("last_inst", 0)
+                val result = repository.getTrendAnalytics(lastId, classId, sectionId)
+                if (result.isSuccess) onSuccess(result.getOrNull()!!) else onError("Failed to load trend analytics")
+            } catch (e: Exception) { onError(e.message ?: "Crash") } finally { _isLoading.value = false }
+        }
+    }
+
+    fun getHallStaffList(onSuccess: (List<HallStaff>) -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val lastId = prefs.getInt("last_inst", 0)
+                val result = repository.getHallStaffList(lastId)
+                if (result.isSuccess) onSuccess(result.getOrNull()!!) else onError("Failed")
+            } catch (e: Exception) { onError(e.message ?: "Crash") }
+        }
+    }
+
+    fun getHallSubjects(date: String, shift: String, onSuccess: (List<HallSubject>) -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val lastId = prefs.getInt("last_inst", 0)
+                val result = repository.getHallSubjects(lastId, date, shift)
+                if (result.isSuccess) onSuccess(result.getOrNull()!!) else onError("Failed")
+            } catch (e: Exception) { onError(e.message ?: "Crash") }
+        }
+    }
+
+    fun generateHallView(date: String, shift: String, subjectId: String, roomsJson: String, staffJson: String, onSuccess: (ResponseBody) -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val lastId = prefs.getInt("last_inst", 0)
+                val result = repository.generateHallView(lastId, date, shift, subjectId, roomsJson, staffJson)
+                if (result.isSuccess) onSuccess(result.getOrNull()!!) else onError("Failed to generate view")
+            } catch (e: Exception) { onError(e.message ?: "Crash") } finally { _isLoading.value = false }
+        }
+    }
+
+    // ── Timetable & Substitution (from WANTUCH-3) ───────────────────────────────
+
+    fun fetchTimetableMetadata() {
+        viewModelScope.launch {
+            try {
+                val lastId = prefs.getInt("last_inst", 0)
+                repository.fetchTimetableMetadata(lastId).onSuccess {
+                    _timetableMetadata.value = it
+                }
+            } catch (e: Exception) {}
+        }
+    }
+
+    fun fetchTimetable(classId: Int = 0, sectionId: Int = 0, day: String = "") {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val lastId = prefs.getInt("last_inst", 0)
+                repository.fetchTimetable(lastId, classId, sectionId, day).onSuccess {
+                    _timetableData.value = it
+                }.onFailure {
+                    _errorMsg.value = it.message ?: "Failed to load timetable"
+                }
+            } catch (e: Exception) {
+                _errorMsg.value = e.message ?: "Crash"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun fetchSubstitutionData(version: Int = 0) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val lastId = prefs.getInt("last_inst", 0)
+                repository.fetchSubstitutionData(lastId, version).onSuccess {
+                    _substitutionData.value = it
+                }
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun assignSubstitution(ttId: Int, origSid: Int, subSid: Int, isPaid: Int, version: Int = 0) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val lastId = prefs.getInt("last_inst", 0)
+                repository.assignSubstitution(lastId, ttId, origSid, subSid, isPaid).onSuccess {
+                    fetchSubstitutionData(version)
+                }
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun removeSubstitution(ttId: Int, version: Int = 0) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val lastId = prefs.getInt("last_inst", 0)
+                repository.removeSubstitution(lastId, ttId).onSuccess {
+                    fetchSubstitutionData(version)
+                }
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun fetchManagementSummary() {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val lastId = prefs.getInt("last_inst", 0)
+                repository.fetchTimetableManagementSummary(lastId).onSuccess {
+                    _managementSummary.value = it
+                }
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun fetchTimetableArchive(version: Int = 0, level: String = "ALL", staffId: Int = 0, classId: Int = 0, sectionId: Int = 0) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val lastId = prefs.getInt("last_inst", 0)
+                repository.fetchArchive(lastId, version, level, staffId, classId, sectionId).onSuccess {
+                    _timetableArchive.value = it
+                }.onFailure {
+                    _errorMsg.value = it.message ?: "Failed to load archive"
+                }
+            } catch (e: Exception) {
+                _errorMsg.value = e.message ?: "Crash"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun fetchWizardData() {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val lastId = prefs.getInt("last_inst", 0)
+                repository.fetchWizardData(lastId).onSuccess {
+                    _wizardData.value = it
+                }
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun saveTimetableSlot(
+        staffId: Int, subjectId: Int, classId: Int, sectionId: Int,
+        day: String, startTime: String, endTime: String,
+        periodNo: Int, version: Int = 1,
+        onResult: (Boolean, String) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val instId = prefs.getInt("last_inst", 0)
+                repository.saveTimetableSlot(
+                    instId = instId, staffId = staffId, subjectId = subjectId,
+                    classId = classId, sectionId = sectionId,
+                    day = day, startTime = startTime, endTime = endTime,
+                    periodNo = periodNo, version = version
+                ).onSuccess { resp ->
+                    onResult(resp.status == "success", resp.message ?: "Saved")
+                    fetchTimetableArchive()
+                }.onFailure {
+                    onResult(false, it.message ?: "Error")
+                }
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun deleteTimetableSlot(slotId: Int, onResult: (Boolean, String) -> Unit = { _, _ -> }) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val instId = prefs.getInt("last_inst", 0)
+                repository.deleteTimetableSlot(instId, slotId).onSuccess { resp ->
+                    onResult(resp.status == "success", resp.message ?: "Deleted")
+                    fetchTimetableArchive()
+                }.onFailure {
+                    onResult(false, it.message ?: "Error")
+                }
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    // ── ADM / WDL Module (from WANTUCH-3) ──────────────────────────────────────
+
+    fun loadAdmFresh(q: String = "", cls: String = "", limit: Int = 200) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val instId = prefs.getInt("last_inst", 0)
+                repository.fetchAdmWdlFresh(instId, q, cls, limit).onSuccess {
+                    _admFreshData.value = it
+                }.onFailure {
+                    _errorMsg.value = it.message ?: "Failed to load fresh records"
+                }
+            } finally { _isLoading.value = false }
+        }
+    }
+
+    fun loadAdmOld(q: String = "", limit: Int = 200) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val instId = prefs.getInt("last_inst", 0)
+                repository.fetchAdmWdlOld(instId, q, limit).onSuccess {
+                    _admOldData.value = it
+                }.onFailure {
+                    _errorMsg.value = it.message ?: "Failed to load old records"
+                }
+            } finally { _isLoading.value = false }
+        }
+    }
+
+    fun saveAdmFresh(fields: Map<String, String>, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val instId = prefs.getInt("last_inst", 0)
+                repository.saveAdmWdlFresh(instId, fields).onSuccess { resp ->
+                    val ok = resp.status == "success"
+                    onResult(ok, resp.message ?: if (ok) "Saved" else "Failed")
+                    if (ok) loadAdmFresh()
+                }.onFailure { onResult(false, it.message ?: "Error") }
+            } finally { _isLoading.value = false }
+        }
+    }
+
+    fun saveAdmOld(fields: Map<String, String>, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val instId = prefs.getInt("last_inst", 0)
+                repository.saveAdmWdlOld(instId, fields).onSuccess { resp ->
+                    val ok = resp.status == "success"
+                    onResult(ok, resp.message ?: if (ok) "Saved" else "Failed")
+                    if (ok) loadAdmOld()
+                }.onFailure { onResult(false, it.message ?: "Error") }
+            } finally { _isLoading.value = false }
+        }
+    }
+
+    fun withdrawStudentAdm(studentId: Int, admNo: String, withDate: String, withClass: String, slcStatus: String, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val instId = prefs.getInt("last_inst", 0)
+                repository.withdrawStudent(instId, studentId, admNo, withDate, withClass, slcStatus).onSuccess { resp ->
+                    val ok = resp.status == "success"
+                    onResult(ok, resp.message ?: if (ok) "Withdrawn" else "Failed")
+                    if (ok) loadAdmFresh()
+                }.onFailure { onResult(false, it.message ?: "Error") }
+            } finally { _isLoading.value = false }
+        }
+    }
+
+    fun deleteAdmEntry(id: Int, source: String, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val instId = prefs.getInt("last_inst", 0)
+                repository.deleteAdmEntry(instId, id, source).onSuccess { resp ->
+                    val ok = resp.status == "success"
+                    onResult(ok, resp.message ?: if (ok) "Deleted" else "Failed")
+                    if (ok) { if (source == "old") loadAdmOld() else loadAdmFresh() }
+                }.onFailure { onResult(false, it.message ?: "Error") }
+            } finally { _isLoading.value = false }
+        }
+    }
+
+    fun searchCertStudents(q: String) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val instId = prefs.getInt("last_inst", 0)
+                repository.searchCertStudents(instId, q).onSuccess {
+                    _certSearchData.value = it
+                }.onFailure {
+                    _errorMsg.value = it.message ?: "Search failed"
+                }
+            } finally { _isLoading.value = false }
+        }
+    }
+
+    fun clearCertSearch() { _certSearchData.value = null }
+
+
+
+    fun saveSmartPaper(
+        title: String,
+        subject: String,
+        totalMarks: String,
+        sections: List<com.example.wantuch.ui.components.Section>,
+        onSuccess: (filePath: String, message: String) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val lastId = prefs.getInt("last_inst", 0)
+
+                // Build sections_data JSON: [{name, allocated_marks, questions: [{text, marks}]}]
+                val jsonArray = org.json.JSONArray()
+                for (sec in sections) {
+                    val sectionObj = org.json.JSONObject()
+                    sectionObj.put("name", sec.name)
+                    sectionObj.put("allocated_marks", sec.allocated_marks)
+                    val questionsArr = org.json.JSONArray()
+                    for (q in sec.questions) {
+                        if (q.text.isNotBlank()) {
+                            val qObj = org.json.JSONObject()
+                            qObj.put("text", q.text)
+                            qObj.put("marks", q.marks)
+                            questionsArr.put(qObj)
+                        }
+                    }
+                    sectionObj.put("questions", questionsArr)
+                    jsonArray.put(sectionObj)
+                }
+
+                repository.saveSmartPaper(lastId, title, subject, totalMarks, jsonArray.toString()).onSuccess { resp ->
+                    if (resp.status == "success") {
+                        val filePath = resp.file_path ?: ""
+                        onSuccess(filePath, resp.message ?: "Paper saved & PDF generated!")
+                        fetchQuestionPapers()
+                    } else {
+                        onError(resp.message ?: "Failed to generate paper")
+                    }
+                }.onFailure {
+                    onError(it.message ?: "Error")
+                }
+            } catch (e: Exception) {
+                onError("Crash: ${e.message}")
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun uploadProfilePic(userId: Int, base64: String, onSuccess: (String) -> Unit) {
+        viewModelScope.launch {
+            repository.uploadProfilePic(userId, base64).onSuccess {
+                if (it.status == "success") onSuccess(it.filename ?: "")
+            }
+        }
+    }
+
+    fun generateIdCard(userId: Int, userType: String, onSuccess: (String) -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val instId = prefs.getInt("last_inst", 0)
+                repository.generateIdCard(userId, userType, instId).onSuccess { resp ->
+                    if (resp.status == "success") {
+                        val path = resp.card_path ?: ""
+                        _generatedIdCardUrl.value = path
+                        onSuccess(path)
+                    } else {
+                        onError(resp.message ?: "ID Generation Failed")
+                    }
+                }.onFailure {
+                    onError(it.message ?: "Error")
+                }
+            } catch (e: Exception) {
+                onError(e.message ?: "Unknown Error")
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun fetchStaffProfileWithCallback(staffId: Int, onResult: (StaffProfileResponse?) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val lastId = prefs.getInt("last_inst", 0)
+                repository.fetchStaffProfile(staffId, lastId).onSuccess { onResult(it) }.onFailure { onResult(null) }
+            } catch (e: Exception) { onResult(null) }
+        }
+    }
+
+    fun fetchStudentProfileWithCallback(studentId: Int, onResult: (StudentProfileResponse?) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val lastId = prefs.getInt("last_inst", 0)
+                repository.fetchStudentProfile(studentId, lastId).onSuccess { onResult(it) }.onFailure { onResult(null) }
+            } catch (e: Exception) { onResult(null) }
+        }
+    }
+    fun submitLeaveAppeal(instId: Int, userId: Int, fromDate: String, toDate: String, leaveType: String, reason: String, onComplete: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val result = repository.saveLeaveAppeal(instId, userId, fromDate, toDate, leaveType, reason)
+                onComplete(result.isSuccess && result.getOrNull()?.status == "success")
+            } catch (e: Exception) {
+                onComplete(false)
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
 }
+

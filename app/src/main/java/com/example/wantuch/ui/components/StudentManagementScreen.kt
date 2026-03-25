@@ -28,6 +28,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
@@ -115,7 +118,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -140,6 +142,7 @@ fun StudentManagementScreen(
 ) {
     val data by viewModel.studentsData.collectAsState()
     val structure by viewModel.schoolStructure.collectAsState()
+    val dashboardData by viewModel.dashboardData.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val isDark by viewModel.isDarkTheme.collectAsState()
 
@@ -150,8 +153,8 @@ fun StudentManagementScreen(
     var showAddModal by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        // No default fetch as per user request
         viewModel.fetchSchoolStructure()
+        viewModel.fetchStudents(0, 0) // Load all students immediately to show accurate totals
     }
 
     val bgColor = if (isDark) Color(0xFF0F172A) else Color(0xFFF1F5F9)
@@ -221,14 +224,17 @@ fun StudentManagementScreen(
                     contentPadding = PaddingValues(15.dp, 10.dp, 15.dp, 100.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Quick Stats Row
+                    // Quick Stats Row — always visible, uses live data or dashboard fallback
                     item {
-                        data?.stats?.let { stats ->
-                            Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                StudentHeaderStat("TOTAL", stats["total"]?.toString() ?: "0", Color(0xFF6366F1), isDark, Modifier.weight(1f))
-                                StudentHeaderStat("PRESENT", stats["present"]?.toString() ?: "0", Color(0xFF10B981), isDark, Modifier.weight(1f))
-                                StudentHeaderStat("ABSENT", stats["absent"]?.toString() ?: "0", Color(0xFFEF4444), isDark, Modifier.weight(1f))
-                            }
+                        val totalStudents = data?.stats?.get("total")?.toString()
+                            ?: dashboardData?.stats?.get("students")?.toString()?.toDoubleOrNull()?.toInt()?.toString()
+                            ?: "0"
+                        val presentStudents = data?.stats?.get("present")?.toString() ?: "0"
+                        val absentStudents = data?.stats?.get("absent")?.toString() ?: "0"
+                        Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            StudentHeaderStat("TOTAL", totalStudents, Color(0xFF6366F1), isDark, Modifier.weight(1f))
+                            StudentHeaderStat("PRESENT", presentStudents, Color(0xFF10B981), isDark, Modifier.weight(1f))
+                            StudentHeaderStat("ABSENT", absentStudents, Color(0xFFEF4444), isDark, Modifier.weight(1f))
                         }
                     }
 
@@ -242,13 +248,7 @@ fun StudentManagementScreen(
                     }
 
                     items(students) { student ->
-                        val studentId = when(val id = student.id) {
-                            is Double -> id.toInt()
-                            is Int -> id
-                            is String -> id.toIntOrNull() ?: 0
-                            else -> 0
-                        }
-                        StudentListCard(student, isDark) { onOpenProfile(studentId) }
+                        StudentListCard(student, isDark) { onOpenProfile((student.id as? Number)?.toInt() ?: 0) }
                     }
                 }
             }
@@ -432,7 +432,7 @@ fun StudentProfileScreen(
                             Text(profile?.basic?.get("full_name")?.toString() ?: "Loading...", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Black)
                             Spacer(Modifier.height(4.dp))
                             Text("${profile?.basic?.get("class_name")} • ${profile?.basic?.get("section_name")}", color = Color.White.copy(0.8f), fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                            Text("ROLL NO: ${profile?.basic?.get("class_no")}", color = Color.White.copy(0.6f), fontSize = 11.sp, fontWeight = FontWeight.Black)
+                            Text("CLASS NO: ${profile?.basic?.get("class_no")}", color = Color.White.copy(0.6f), fontSize = 11.sp, fontWeight = FontWeight.Black)
                         }
                     }
                 }
@@ -533,33 +533,54 @@ fun StudentProfileScreen(
 }
 
 @Composable
-fun StudentIdentityForm(basic: Map<String, Any?>, isDark: Boolean, onUpdate: (Map<String, String>) -> Unit) {
+fun StudentIdentityForm(basic: Map<String, Any?>, isDark: Boolean, isStaff: Boolean = false, onUpdate: (Map<String, String>) -> Unit) {
     val formState = remember { mutableStateMapOf<String, String>() }
 
     LaunchedEffect(basic) {
         formState.clear()
         basic.forEach { (k, v) -> formState[k] = v?.toString() ?: "" }
+        
+        // Auto-bridge father_cnic to parent_cnic for backwards compatibility with raw JSON
+        if (!isStaff) {
+            val fCnic = basic["father_cnic"]?.toString()?.takeIf { it.isNotBlank() }
+            if (fCnic != null) formState["parent_cnic_no"] = fCnic
+        }
     }
 
     Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(15.dp)) {
         ProfileDataSection("Identity & Account", isDark) {
+            val currentPass = formState["password"] ?: formState["password_plain"] ?: ""
             ProfileEditableField("Full Name", formState["full_name"], isDark) { formState["full_name"] = it }
             ProfileEditableField("Username", formState["username"], isDark) { formState["username"] = it }
-            ProfileEditableField("Password", formState["password_plain"] ?: "", isDark) { formState["password_plain"] = it }
+            ProfileEditableField("Password", currentPass, isDark) { 
+                formState["password"] = it
+                formState["password_plain"] = it
+            }
             ProfileEditableField("Father Name", formState["father_name"], isDark) { formState["father_name"] = it }
             ProfileDropdownField("Gender", formState["gender"], listOf("Male", "Female"), isDark) { formState["gender"] = it }
         }
 
         ProfileDataSection("Record Details", isDark) {
-            ProfileEditableField("Admission No", formState["adm_no"], isDark) { formState["adm_no"] = it }
-            ProfileDateField("Admission Date", formState["date_of_admission"], isDark) { formState["date_of_admission"] = it }
-            ProfileEditableField("Class No / Roll No", formState["class_no"], isDark) { formState["class_no"] = it }
-            ProfileDropdownField("Status", formState["status"], listOf("active", "struck_off", "withdrawn", "graduated"), isDark) { formState["status"] = it }
+            if (isStaff) {
+                ProfileDateField("Date of Birth", formState["dob"], isDark) { formState["dob"] = it }
+                ProfileEditableField("CNIC", formState["cnic"], isDark) { formState["cnic"] = it }
+                ProfileEditableField("Tribe / Cast", formState["tribe"], isDark) { formState["tribe"] = it }
+                ProfileDropdownField("Status", formState["status"], listOf("active", "resigned", "suspended"), isDark) { formState["status"] = it }
+            } else {
+                ProfileEditableField("Admission No", formState["adm_no"], isDark) { formState["adm_no"] = it }
+                ProfileDateField("Admission Date", formState["date_of_admission"], isDark) { formState["date_of_admission"] = it }
+                ProfileEditableField("Class No / Roll No", formState["class_no"], isDark) { formState["class_no"] = it }
+                ProfileDropdownField("Status", formState["status"], listOf("active", "struck_off", "withdrawn", "graduated"), isDark) { formState["status"] = it }
+            }
         }
 
         ProfileDataSection("Contact & Social", isDark) {
             ProfileEditableField("WhatsApp", formState["whatsapp_no"], isDark) { formState["whatsapp_no"] = it }
-            ProfileEditableField("Parent CNIC", formState["parent_cnic_no"], isDark) { formState["parent_cnic_no"] = it }
+            if (isStaff) {
+                ProfileEditableField("Facebook Link", formState["facebook_link"], isDark) { formState["facebook_link"] = it }
+            } else {
+                ProfileEditableField("Parent CNIC", formState["parent_cnic_no"], isDark) { formState["parent_cnic_no"] = it }
+            }
             ProfileEditableField("Residential Address", formState["address"], isDark) { formState["address"] = it }
         }
 
@@ -569,7 +590,7 @@ fun StudentIdentityForm(basic: Map<String, Any?>, isDark: Boolean, onUpdate: (Ma
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6)),
             shape = RoundedCornerShape(16.dp)
         ) {
-            Text("SAVE STUDENT UPDATES", fontWeight = FontWeight.Black)
+            Text(if (isStaff) "SAVE STAFF UPDATES" else "SAVE STUDENT UPDATES", fontWeight = FontWeight.Black)
         }
 
         Spacer(Modifier.height(100.dp))
@@ -1278,7 +1299,11 @@ fun EnrollStudentModal(
                             onClick = {
                                 if (selectedClassId == 0) { Toast.makeText(context, "Select Class", Toast.LENGTH_SHORT).show(); return@Button }
                                 viewModel.bulkSaveStudents(selectedClassId, selectedSectionId, namesText, selectedGender,
-                                    onSuccess = { Toast.makeText(context, it, Toast.LENGTH_LONG).show(); onDismiss() },
+                                    onSuccess = { 
+                                        Toast.makeText(context, "record successfully saved", Toast.LENGTH_LONG).show()
+                                        onDismiss()
+                                        viewModel.fetchStudents() // force global refresh to show new students
+                                    },
                                     onError = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
                                 )
                             },
@@ -1294,11 +1319,18 @@ fun EnrollStudentModal(
                     StudentIdentityForm(emptyMap(), isDark) { fields ->
                         if (selectedClassId == 0) { Toast.makeText(context, "Select Class", Toast.LENGTH_SHORT).show(); return@StudentIdentityForm }
                         val fullFields = fields.toMutableMap()
+                        fullFields["assigned_class_id"] = selectedClassId.toString()
+                        fullFields["assigned_section_id"] = selectedSectionId.toString()
                         fullFields["class_id"] = selectedClassId.toString()
                         fullFields["section_id"] = selectedSectionId.toString()
+                        fullFields["user_type"] = "student"
 
                         viewModel.saveStudent(fullFields,
-                            onSuccess = { Toast.makeText(context, it, Toast.LENGTH_LONG).show(); onDismiss() },
+                            onSuccess = { 
+                                Toast.makeText(context, "record successfully saved", Toast.LENGTH_LONG).show()
+                                onDismiss()
+                                viewModel.fetchStudents() // force global refresh
+                            },
                             onError = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
                         )
                     }
@@ -1313,7 +1345,7 @@ fun PremiumTextField(
     value: String,
     onValueChange: (String) -> Unit,
     placeholder: String,
-    icon: ImageVector?,
+    icon: ImageVector,
     isDark: Boolean,
     modifier: Modifier = Modifier,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
@@ -1324,9 +1356,8 @@ fun PremiumTextField(
         onValueChange = onValueChange,
         modifier = modifier.fillMaxWidth(),
         placeholder = { Text(placeholder, fontSize = 14.sp, color = if(isDark) Color.White.copy(0.4f) else Color.Gray) },
-        leadingIcon = icon?.let { { Icon(it, null, tint = Color(0xFF3B82F6), modifier = Modifier.size(20.dp)) } },
+        leadingIcon = { Icon(icon, null, tint = Color(0xFF3B82F6), modifier = Modifier.size(20.dp)) },
         shape = RoundedCornerShape(12.dp),
-        visualTransformation = if (isPassword) androidx.compose.ui.text.input.PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
         colors = OutlinedTextFieldDefaults.colors(
             focusedTextColor = if(isDark) Color.White else Color.Black,
             unfocusedTextColor = if(isDark) Color.White else Color.Black,
@@ -1335,7 +1366,8 @@ fun PremiumTextField(
             focusedContainerColor = if(isDark) Color(0xFF1E293B) else Color.White,
             unfocusedContainerColor = if(isDark) Color(0xFF1E293B) else Color.White
         ),
-        keyboardOptions = keyboardOptions,
+        keyboardOptions = if (isPassword) KeyboardOptions(keyboardType = KeyboardType.Password) else keyboardOptions,
+        visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
         singleLine = true
     )
 }
@@ -3178,6 +3210,7 @@ fun StudentFeeDetailScreen(studentId: Int, viewModel: WantuchViewModel, onBack: 
     val cardColor = if (isDark) Color(0xFF1E293B) else Color.White
     val textColor = if (isDark) Color.White else Color.Black
     val labelColor = if (isDark) Color.White.copy(0.6f) else Color.Black.copy(0.6f)
+    val userRole by viewModel.userRole.collectAsState()
     val instId = viewModel.getSavedData()["last_inst"] as? Int ?: 0
 
     val ledgerData = remember { mutableStateListOf<JSONObject>() }
@@ -3188,17 +3221,30 @@ fun StudentFeeDetailScreen(studentId: Int, viewModel: WantuchViewModel, onBack: 
     val selectedFeeEntry = remember { mutableStateOf<JSONObject?>(null) }
     val isLoading = remember { mutableStateOf(true) }
 
+    val now = java.util.Calendar.getInstance()
+    var monthFilter by remember { mutableStateOf(java.text.SimpleDateFormat("MMMM", java.util.Locale.US).format(now.time)) }
+    var yearFilter by remember { mutableStateOf(java.text.SimpleDateFormat("yyyy", java.util.Locale.US).format(now.time)) }
+    var typeFilter by remember { mutableStateOf("All Types") }
+    val monthsList = listOf("All", "Unpaid", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
+
     fun refresh() {
         isLoading.value = true
-        viewModel.safeApiCall("GET_STUDENT_FEE_LEDGER", mapOf("student_id" to studentId.toString(), "institution_id" to instId.toString())) { json ->
+        val params = mapOf(
+            "student_id" to studentId.toString(),
+            "institution_id" to instId.toString(),
+            "month" to monthFilter,
+            "year" to yearFilter
+        )
+        viewModel.safeApiCall("GET_STUDENT_FEE_LEDGER", params) { json ->
             isLoading.value = false
             ledgerData.clear()
             json?.optJSONArray("ledger")?.let { arr ->
                 for (i in 0 until arr.length()) ledgerData.add(arr.getJSONObject(i))
             }
-            // Fix: API returns key 'student', not 'basic'
-            studentInfo.value = json?.optJSONObject("student")
-            // Load fee types from same response (already included in ledger endpoint)
+            val studentObj = json?.optJSONObject("student_info")
+            if (studentObj != null) {
+                studentInfo.value = studentObj
+            }
             feeTypes.clear()
             json?.optJSONArray("fee_types")?.let { arr ->
                 for (i in 0 until arr.length()) feeTypes.add(arr.getJSONObject(i))
@@ -3206,13 +3252,23 @@ fun StudentFeeDetailScreen(studentId: Int, viewModel: WantuchViewModel, onBack: 
         }
     }
 
-    LaunchedEffect(studentId) {
+    val errorMsg by viewModel.errorMsg.collectAsState()
+    val context = LocalContext.current
+    LaunchedEffect(errorMsg) {
+        if (errorMsg.isNotEmpty()) {
+            Toast.makeText(context, errorMsg, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    LaunchedEffect(studentId, monthFilter, yearFilter) {
         refresh()
-        viewModel.safeApiCall("GET_PAYMENT_METADATA", mapOf("institution_id" to instId.toString())) { json ->
-            methods.clear()
-            banks.clear()
-            json?.optJSONArray("methods")?.let { arr -> for (i in 0 until arr.length()) methods.add(arr.getString(i)) }
-            json?.optJSONArray("banks")?.let { arr -> for (i in 0 until arr.length()) banks.add(arr.getString(i)) }
+        if (methods.isEmpty()) {
+            viewModel.safeApiCall("GET_PAYMENT_METADATA", mapOf("institution_id" to instId.toString())) { json ->
+                methods.clear()
+                banks.clear()
+                json?.optJSONArray("methods")?.let { arr -> for (i in 0 until arr.length()) methods.add(arr.getString(i)) }
+                json?.optJSONArray("banks")?.let { arr -> for (i in 0 until arr.length()) banks.add(arr.getString(i)) }
+            }
         }
     }
 
@@ -3234,39 +3290,60 @@ fun StudentFeeDetailScreen(studentId: Int, viewModel: WantuchViewModel, onBack: 
         Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState())) {
             // Student Header
             studentInfo.value?.let { info ->
-                StudentDetailHeader(info, ledgerData, isDark)
+                StudentDetailHeader(info, ledgerData, isDark, userRole)
             }
 
             Spacer(Modifier.height(16.dp))
 
             // Add Fee Section
-            AddFeeSection(studentId, instId, feeTypes, viewModel, isDark) { refresh() }
+            // Add Fee / Filter Section
+            if (userRole != "Student") {
+                AddFeeSection(
+                    studentId = studentId,
+                    instId = instId,
+                    feeTypes = feeTypes,
+                    viewModel = viewModel,
+                    isDark = isDark,
+                    month = monthFilter,
+                    year = yearFilter,
+                    selectedType = typeFilter,
+                    onMonthChange = { monthFilter = it },
+                    onYearChange = { yearFilter = it },
+                    onTypeChange = { typeFilter = it },
+                    onDone = { refresh() }
+                )
+            }
 
             Spacer(Modifier.height(16.dp))
 
-            // Ledger List
-            Column(Modifier.padding(horizontal = 16.dp)) {
-                ledgerData.forEach { entry ->
-                    FeeEntryItem(
-                        entry = entry,
-                        viewModel = viewModel,
-                        isDark = isDark,
-                        onCollect = { selectedFeeEntry.value = it },
-                        onDone = { refresh() }
-                    )
-                    Spacer(Modifier.height(8.dp))
-                }
+            // Ledger List aggregation with filtering
+            val filteredLedger = ledgerData.filter { item ->
+                typeFilter == "All Types" || item.optString("fee_type") == typeFilter
+            }
 
-                if (ledgerData.isEmpty() && !isLoading.value) {
+            Column(Modifier.padding(horizontal = 16.dp)) {
+                if (filteredLedger.isNotEmpty()) {
+                    val label = when {
+                        monthFilter == "All" -> "ALL RECORDS"
+                        monthFilter == "Unpaid" -> "OUTSTANDING ARREARS & UNPAID"
+                        else -> "LEDGER FOR ${monthFilter.uppercase()} ${yearFilter.uppercase()} (Cumulative)"
+                    }
+                    Text(label, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = labelColor, modifier = Modifier.padding(bottom = 8.dp))
+                    filteredLedger.forEach { entry ->
+                        FeeEntryItem(entry, viewModel, isDark, userRole, { selectedFeeEntry.value = it }, { refresh() })
+                        Spacer(Modifier.height(8.dp))
+                    }
+                } else if (!isLoading.value) {
                     Box(Modifier.fillMaxWidth().padding(40.dp), Alignment.Center) {
-                        Text("No fee records found for this student", color = labelColor, fontSize = 12.sp)
+                        val emptyLabel = if (monthFilter == "Unpaid") "No unpaid fees found" else "No matching records found"
+                        Text(emptyLabel, color = labelColor, fontSize = 12.sp)
                     }
                 }
             }
 
             // MASS PAYMENT BOX
             val totalUnpaid = ledgerData.filter { it.optString("Status") == "Unpaid" }.sumOf { it.optDouble("amount") }
-            if (totalUnpaid > 0 && !isLoading.value) {
+            if (totalUnpaid > 0 && !isLoading.value && userRole != "Student") {
                 Spacer(Modifier.height(16.dp))
                 Surface(
                     color = if (isDark) Color(0xFF1E293B) else Color.White,
@@ -3325,7 +3402,7 @@ fun StudentFeeDetailScreen(studentId: Int, viewModel: WantuchViewModel, onBack: 
 }
 
 @Composable
-fun StudentDetailHeader(info: JSONObject, ledger: List<JSONObject>, isDark: Boolean) {
+fun StudentDetailHeader(info: JSONObject, ledger: List<JSONObject>, isDark: Boolean, userRole: String) {
     val cardColor = if (isDark) Color(0xFF1E293B) else Color.White
     val textColor = if (isDark) Color.White else Color.Black
     val labelColor = if (isDark) Color.White.copy(0.6f) else Color.Black.copy(0.6f)
@@ -3342,9 +3419,17 @@ fun StudentDetailHeader(info: JSONObject, ledger: List<JSONObject>, isDark: Bool
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(60.dp).clip(CircleShape).background(Color(0xFF3B82F6).copy(0.1f)), Alignment.Center) {
-                    val pic = info.optString("profile_pic")
-                    if (pic.isNotEmpty()) {
-                        AsyncImage(model = pic, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                    val rawPic = info.optString("profile_pic")
+                    val picUrl = if (rawPic.startsWith("http")) rawPic 
+                                else if (rawPic.isNotEmpty() && rawPic != "user.png") {
+                                    if (rawPic.startsWith("uploads/")) "https://wantuch.pk/$rawPic"
+                                    else if (rawPic.contains("/")) "https://wantuch.pk/assets/$rawPic"
+                                    else "https://wantuch.pk/uploads/students/$rawPic"
+                                }
+                                else ""
+
+                    if (picUrl.isNotEmpty()) {
+                        AsyncImage(model = picUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                     } else {
                         Text(info.optString("full_name").take(2).uppercase(), color = Color(0xFF3B82F6), fontWeight = FontWeight.Black, fontSize = 20.sp)
                     }
@@ -3352,7 +3437,6 @@ fun StudentDetailHeader(info: JSONObject, ledger: List<JSONObject>, isDark: Bool
                 Spacer(Modifier.width(16.dp))
                 Column(Modifier.weight(1f)) {
                     Text(info.optString("full_name"), color = textColor, fontSize = 18.sp, fontWeight = FontWeight.Black)
-                    Text("Roll: ${info.optString("roll_number")}", color = labelColor, fontSize = 12.sp)
                     Text("${info.optString("class_name")} - ${info.optString("section_name")}", color = labelColor, fontSize = 11.sp)
                 }
 
@@ -3362,25 +3446,27 @@ fun StudentDetailHeader(info: JSONObject, ledger: List<JSONObject>, isDark: Bool
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
+            if (userRole != "Student") {
+                Spacer(Modifier.height(16.dp))
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                var payComplete by remember { mutableStateOf(false) }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("PAY COMPLETE?", color = labelColor, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.width(8.dp))
-                    Switch(checked = payComplete, onCheckedChange = { payComplete = it }, colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFF3B82F6)))
-                }
-                Spacer(Modifier.weight(1f))
-                Button(
-                    onClick = { /* Receipt */ },
-                    colors = ButtonDefaults.buttonColors(containerColor = if(isDark) Color(0xFF334155) else Color(0xFFE2E8F0)),
-                    shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    Icon(Icons.Default.Receipt, null, Modifier.size(16.dp), tint = textColor)
-                    Spacer(Modifier.width(8.dp))
-                    Text("RECEIPT", fontSize = 10.sp, fontWeight = FontWeight.Black, color = textColor)
+                    var payComplete by remember { mutableStateOf(false) }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("PAY COMPLETE?", color = labelColor, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.width(8.dp))
+                        Switch(checked = payComplete, onCheckedChange = { payComplete = it }, colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFF3B82F6)))
+                    }
+                    Spacer(Modifier.weight(1f))
+                    Button(
+                        onClick = { /* Receipt */ },
+                        colors = ButtonDefaults.buttonColors(containerColor = if(isDark) Color(0xFF334155) else Color(0xFFE2E8F0)),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Icon(Icons.Default.Receipt, null, Modifier.size(16.dp), tint = textColor)
+                        Spacer(Modifier.width(8.dp))
+                        Text("RECEIPT", fontSize = 10.sp, fontWeight = FontWeight.Black, color = textColor)
+                    }
                 }
             }
         }
@@ -3388,36 +3474,43 @@ fun StudentDetailHeader(info: JSONObject, ledger: List<JSONObject>, isDark: Bool
 }
 
 @Composable
-fun AddFeeSection(studentId: Int, instId: Int, feeTypes: List<JSONObject>, viewModel: WantuchViewModel, isDark: Boolean, onDone: () -> Unit) {
-    var month by remember { mutableStateOf(java.text.SimpleDateFormat("MMMM", java.util.Locale.getDefault()).format(java.util.Date())) }
-    var year by remember { mutableStateOf(java.text.SimpleDateFormat("yyyy", java.util.Locale.getDefault()).format(java.util.Date())) }
-    var selectedType by remember { mutableStateOf("Fee Type") }
-    var selectedTypeId by remember { mutableIntStateOf(0) }
+fun AddFeeSection(
+    studentId: Int,
+    instId: Int,
+    feeTypes: List<JSONObject>,
+    viewModel: WantuchViewModel,
+    isDark: Boolean,
+    month: String,
+    year: String,
+    selectedType: String,
+    onMonthChange: (String) -> Unit,
+    onYearChange: (String) -> Unit,
+    onTypeChange: (String) -> Unit,
+    onDone: () -> Unit
+) {
+    val typeOptions = remember(feeTypes.size) { listOf("All Types") + feeTypes.map { it.optString("type_name") } }
+    val typeMap = remember(feeTypes.size) { feeTypes.associate { it.optString("type_name") to it.optInt("id") } }
+
     var amount by remember { mutableStateOf("") }
 
-    val months = listOf("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
-    val years = (2022..2030).map { it.toString() }
-    val typeOptions = feeTypes.map { it.optString("type_name") }
-    val typeMap = feeTypes.associate { it.optString("type_name") to it.optInt("id") }
+    val months = listOf("All", "Unpaid", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
+    val years = listOf("All") + (2022..2030).map { it.toString() }
 
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(Modifier.weight(1f)) { DropdownSelector(month, months, Modifier.fillMaxWidth(), isDark) { month = it } }
-            Box(Modifier.weight(1f)) { DropdownSelector(year, years, Modifier.fillMaxWidth(), isDark) { year = it } }
+            Box(Modifier.weight(1f)) { DropdownSelector(month, months, Modifier.fillMaxWidth(), isDark, onMonthChange) }
+            Box(Modifier.weight(1f)) { DropdownSelector(year, years, Modifier.fillMaxWidth(), isDark, onYearChange) }
         }
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) {
-                DropdownSelector(selectedType, typeOptions, Modifier.fillMaxWidth(), isDark) {
-                    selectedType = it
-                    selectedTypeId = typeMap[it] ?: 0
-                }
+                DropdownSelector(selectedType, typeOptions, Modifier.fillMaxWidth(), isDark, onTypeChange)
             }
             PremiumTextField(
                 value = amount,
                 onValueChange = { amount = it },
                 placeholder = "Amount",
-                icon = Icons.Default.Edit,
+                icon = Icons.Default.Money,
                 isDark = isDark,
                 modifier = Modifier.weight(1f),
                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
@@ -3426,13 +3519,18 @@ fun AddFeeSection(studentId: Int, instId: Int, feeTypes: List<JSONObject>, viewM
         Spacer(Modifier.height(10.dp))
         Button(
             onClick = {
-                if (selectedTypeId > 0 && amount.isNotEmpty()) {
+                val finalType = if (selectedType == "All Types") "" else selectedType
+                val typeId = typeMap[finalType] ?: 0
+                val finalMonth = if (month == "All") java.text.SimpleDateFormat("MMMM", java.util.Locale.US).format(java.util.Date()) else month
+                val finalYear = if (year == "All") java.text.SimpleDateFormat("yyyy", java.util.Locale.US).format(java.util.Date()) else year
+
+                if (typeId > 0 && amount.isNotEmpty()) {
                     viewModel.safeApiCall("ADD_STUDENT_FEE", mapOf(
                         "student_id" to studentId.toString(),
                         "institution_id" to instId.toString(),
-                        "fee_type_id" to selectedTypeId.toString(),
-                        "month" to month,
-                        "year" to year,
+                        "fee_type_id" to typeId.toString(),
+                        "month" to finalMonth,
+                        "year" to finalYear,
                         "amount" to amount
                     )) { onDone() }
                 }
@@ -3447,14 +3545,19 @@ fun AddFeeSection(studentId: Int, instId: Int, feeTypes: List<JSONObject>, viewM
 }
 
 @Composable
-fun FeeEntryItem(entry: JSONObject, viewModel: WantuchViewModel, isDark: Boolean, onCollect: (JSONObject) -> Unit, onDone: () -> Unit) {
+fun FeeEntryItem(entry: JSONObject, viewModel: WantuchViewModel, isDark: Boolean, userRole: String, onCollect: (JSONObject) -> Unit, onDone: () -> Unit) {
     val cardColor = if (isDark) Color(0xFF1E293B) else Color.White
     val textColor = if (isDark) Color.White else Color.Black
     val labelColor = if (isDark) Color.White.copy(0.6f) else Color.Black.copy(0.6f)
 
-    val status = entry.optString("Status")
+    val isStatic = entry.optBoolean("is_static", false)
+    val status = if (isStatic) "Expected" else entry.optString("Status")
     val isPaid = status == "Paid"
-    val statusColor = if (isPaid) Color(0xFF10B981) else Color(0xFFEF4444)
+    val statusColor = when {
+        isPaid -> Color(0xFF10B981)
+        isStatic -> Color(0xFF3B82F6)
+        else -> Color(0xFFEF4444)
+    }
 
     Surface(
         Modifier.fillMaxWidth(),
@@ -3465,14 +3568,15 @@ fun FeeEntryItem(entry: JSONObject, viewModel: WantuchViewModel, isDark: Boolean
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(entry.optString("fee_type"), color = textColor, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                Text("${entry.optString("fee_month")} ${entry.optString("fee_year")}", color = labelColor, fontSize = 10.sp)
+                val subText = if (isStatic) "Not yet in database" else "${entry.optString("fee_month")} ${entry.optString("fee_year")}"
+                Text(subText, color = labelColor, fontSize = 10.sp)
             }
 
             Text(String.format("%,.0f", entry.optDouble("amount")), color = textColor, fontSize = 16.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(horizontal = 12.dp))
 
             Surface(
                 onClick = {
-                    if (!isPaid) {
+                    if (!isPaid && userRole != "Student") {
                         onCollect(entry)
                     }
                 },
@@ -3488,15 +3592,16 @@ fun FeeEntryItem(entry: JSONObject, viewModel: WantuchViewModel, isDark: Boolean
                 )
             }
 
-            Spacer(Modifier.width(8.dp))
-
-            IconButton(onClick = { /* Edit */ }, Modifier.size(30.dp)) {
-                Icon(Icons.Default.Edit, null, tint = labelColor, modifier = Modifier.size(16.dp))
-            }
-            IconButton(onClick = {
-                viewModel.safeApiCall("DELETE_STUDENT_FEE", mapOf("id" to entry.optString("id"))) { onDone() }
-            }, Modifier.size(30.dp)) {
-                Icon(Icons.Default.Delete, null, tint = Color(0xFFEF4444).copy(0.6f), modifier = Modifier.size(16.dp))
+            if (userRole != "Student" && !isStatic) {
+                Spacer(Modifier.width(8.dp))
+                IconButton(onClick = { /* Edit */ }, Modifier.size(30.dp)) {
+                    Icon(Icons.Default.Edit, null, tint = labelColor, modifier = Modifier.size(16.dp))
+                }
+                IconButton(onClick = {
+                    viewModel.safeApiCall("DELETE_STUDENT_FEE", mapOf("id" to entry.optString("id"))) { onDone() }
+                }, Modifier.size(30.dp)) {
+                    Icon(Icons.Default.Delete, null, tint = Color(0xFFEF4444).copy(0.6f), modifier = Modifier.size(16.dp))
+                }
             }
         }
     }
@@ -3585,13 +3690,22 @@ fun CollectionModal(
                                     if (json?.optString("status") == "success") onDone()
                                 }
                             } else {
-                                viewModel.safeApiCall("COLLECT_FEE", mapOf(
+                                val params = mutableMapOf(
                                     "id" to entry.optString("id"),
                                     "amount" to amount,
                                     "payment_method" to method,
                                     "bank_account" to bank,
-                                    "transaction_id" to transId
-                                )) { json ->
+                                    "transaction_id" to transId,
+                                    "institution_id" to entry.optString("institute_id") // ensure inst_id is passed
+                                )
+                                // If it's a static preview (ID 0), pass context
+                                if (entry.optString("id") == "0") {
+                                    params["student_id"] = entry.optString("student_id")
+                                    params["fee_month"] = entry.optString("fee_month")
+                                    params["fee_year"] = entry.optString("fee_year")
+                                    params["fee_type_id"] = entry.optString("fee_type_id")
+                                }
+                                viewModel.safeApiCall("COLLECT_FEE", params) { json ->
                                     isLoading = false
                                     if (json?.optString("status") == "success") onDone()
                                 }

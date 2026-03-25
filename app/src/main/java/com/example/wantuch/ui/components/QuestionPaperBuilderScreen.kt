@@ -26,7 +26,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.wantuch.ui.viewmodel.WantuchViewModel
-import kotlinx.coroutines.launch
 import java.util.UUID
 import kotlin.math.max
 
@@ -54,7 +53,6 @@ fun QuestionPaperBuilderScreen(
 ) {
     val isDark by viewModel.isDarkTheme.collectAsState()
     val bg = if (isDark) Color(0xFF0F172A) else Color(0xFFF1F5F9)
-    val scope = rememberCoroutineScope()
     
     // Paper metadata
     var paperTitle by remember { mutableStateOf("") }

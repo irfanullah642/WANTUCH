@@ -23,6 +23,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import com.example.wantuch.ui.viewmodel.WantuchViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -33,12 +35,32 @@ fun StudentDashboardScreen(
     onOpenSyllabus: () -> Unit = {},
     onOpenHomework: () -> Unit = {},
     onOpenStudyPlan: () -> Unit = {},
-    onOpenMyProfile: (Int) -> Unit = {}
+    onOpenMyProfile: (Int) -> Unit = {},
+    onOpenNotices: () -> Unit = {},
+    onOpenSubjects: () -> Unit = {},
+    onOpenExams: () -> Unit = {},
+    onOpenTimetable: () -> Unit = {},
+    onOpenAttendance: () -> Unit = {},
+    onOpenClasses: () -> Unit = {},
+    onOpenFee: (Int) -> Unit = {},
+    onOpenSmartIDCard: () -> Unit = {},
+    onOpenWeb: (String) -> Unit = {},
+    onLogout: () -> Unit = {}
 ) {
     BackHandler { onBack() }
 
     val isDark by viewModel.isDarkTheme.collectAsState()
     val dashboardData by viewModel.dashboardData.collectAsState()
+    val staffProfile by viewModel.staffProfile.collectAsState()
+
+    LaunchedEffect(dashboardData?.user_id) {
+        dashboardData?.user_id?.let { uid ->
+             // If profile isn't loaded or belongs to a different user, fetch fresh data
+             if (staffProfile == null || (staffProfile?.basic?.get("id")?.toString() != uid.toString())) {
+                 viewModel.fetchStaffProfile(uid)
+             }
+        }
+    }
 
     val bgColor = if (isDark) Color(0xFF0F172A) else Color(0xFFF1F5F9)
     val cardColor = if (isDark) Color(0xFF1E293B) else Color.White
@@ -83,60 +105,122 @@ fun StudentDashboardScreen(
                     .padding(16.dp)
             ) {
                 Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(
-                            onClick = onBack,
-                            modifier = Modifier
-                                .size(36.dp)
-                                .background(Color.White.copy(0.2f), CircleShape)
-                        ) {
-                            Icon(Icons.Default.ArrowBack, null, tint = Color.White, modifier = Modifier.size(18.dp))
-                        }
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)) {
+                    Row(Modifier.fillMaxWidth()) {
+                        // Top Left Area: Back Icon and then Title
+                        Column {
+                            IconButton(
+                                onClick = onBack,
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .background(Color.White.copy(0.2f), CircleShape)
+                            ) {
+                                Icon(Icons.Default.ArrowBack, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                            }
+                            
+                            Spacer(Modifier.height(8.dp))
+                            
                             Text(
                                 "STUDENT PORTAL",
                                 color = Color.White,
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Black
                             )
-                            Text(
-                                if (instName.isNotEmpty()) instName else "Education Dashboard",
-                                color = Color.White.copy(0.7f),
-                                fontSize = 12.sp
-                            )
+
+                            val fullName = dashboardData?.full_name ?: ""
+                            if (fullName.isNotEmpty()) {
+                                Text(
+                                    "Welcome back,",
+                                    color = Color.White.copy(0.7f),
+                                    fontSize = 13.sp
+                                )
+                                Text(
+                                    fullName,
+                                    color = Color.White,
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Black
+                                )
+                            }
                         }
-                        Box(
-                            Modifier
-                                .size(42.dp)
-                                .background(Color.White.copy(0.2f), CircleShape),
-                            Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Default.School,
-                                null,
-                                tint = Color.White,
-                                modifier = Modifier.size(22.dp)
-                            )
+
+                        Spacer(Modifier.weight(1f))
+
+                        // Top Right Area: Icons and then Profile Picture
+                        Column(horizontalAlignment = Alignment.End) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                IconButton(
+                                    onClick = { viewModel.toggleTheme() },
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .background(Color.White.copy(0.2f), CircleShape)
+                                ) {
+                                    Icon(
+                                        if (isDark) Icons.Default.WbSunny else Icons.Default.NightsStay,
+                                        null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+
+                                IconButton(
+                                    onClick = onLogout,
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .background(Color.White.copy(0.2f), CircleShape)
+                                ) {
+                                    Icon(
+                                        Icons.Default.PowerSettingsNew,
+                                        null,
+                                        tint = Color(0xFFEF4444),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+
+                            Spacer(Modifier.height(8.dp))
+
+                            val profilePic = staffProfile?.basic?.get("profile_pic")?.toString() ?: ""
+                            val rawPicInStats = (dashboardData?.stats?.get("profile_pic") ?: dashboardData?.stats?.get("pic") ?: dashboardData?.stats?.get("photo") ?: dashboardData?.stats?.get("user_pic") ?: dashboardData?.stats?.get("student_pic"))?.toString() ?: ""
+                            val rawPicRoot = dashboardData?.profile_pic ?: ""
+                            
+                            // Prefer the one from the profile as we know it works
+                            val rawPic = if (profilePic.isNotEmpty()) profilePic else if (rawPicRoot.isNotEmpty()) rawPicRoot else rawPicInStats
+
+                            val picUrl = if (rawPic.startsWith("http")) rawPic 
+                                        else if (rawPic.isNotEmpty() && rawPic != "user.png") {
+                                            if (rawPic.startsWith("uploads/")) "https://wantuch.pk/$rawPic"
+                                            else if (rawPic.contains("/")) "https://wantuch.pk/assets/$rawPic"
+                                            else "https://wantuch.pk/uploads/students/$rawPic"
+                                        }
+                                        else ""
+
+                            Box(
+                                Modifier
+                                    .size(96.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White.copy(0.15f))
+                                    .border(2.dp, Color.White.copy(0.4f), CircleShape),
+                                Alignment.Center
+                            ) {
+                                if (picUrl.isNotEmpty()) {
+                                    AsyncImage(
+                                        model = picUrl,
+                                        contentDescription = "Profile",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                } else {
+                                    Icon(
+                                        Icons.Default.Person,
+                                        null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(48.dp)
+                                    )
+                                }
+                            }
                         }
                     }
 
-                    Spacer(Modifier.height(14.dp))
-
-                    // Welcome message
-                    Text(
-                        "Welcome back,",
-                        color = Color.White.copy(0.7f),
-                        fontSize = 13.sp
-                    )
-                    Text(
-                        userName,
-                        color = Color.White,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Black
-                    )
-
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(8.dp))
 
                     // --- STUDENT STATS CARDS ---
                     Row(
@@ -145,25 +229,32 @@ fun StudentDashboardScreen(
                     ) {
                         StudentStatCard(
                             "ATTENDANCE",
-                            dashboardData?.stats?.get("attendance_per")?.toString() ?: "0%",
+                            dashboardData?.stats?.get("attendance_per")?.toString() ?: (if(dashboardData?.is_holiday == true) "HOLIDAY" else "PRESENT"),
                             Color(0xFF10B981),
                             isDark,
                             Modifier.weight(1f)
-                        )
+                        ) { onOpenAttendance() }
+                        
+                        val feeStatus = dashboardData?.stats?.get("fee_status")?.toString() ?: "N/A"
                         StudentStatCard(
                             "FEE STATUS",
-                            dashboardData?.stats?.get("fee_status")?.toString() ?: "N/A",
-                            if ((dashboardData?.stats?.get("fee_status")?.toString() ?: "").contains("UNPAID")) Color(0xFFEF4444) else Color(0xFF10B981),
+                            feeStatus.uppercase(),
+                            if (feeStatus.contains("UNPAID")) Color(0xFFEF4444) else Color(0xFF10B981),
                             isDark,
                             Modifier.weight(1f)
-                        )
+                        ) { 
+                            val userId = dashboardData?.user_id ?: 0
+                            onOpenFee(userId)
+                        }
+                        
+                        val myClass = dashboardData?.stats?.get("my_class")?.toString() ?: "N/A"
                         StudentStatCard(
                             "MY CLASS",
-                            dashboardData?.stats?.get("my_class")?.toString() ?: "N/A",
+                            myClass.uppercase(),
                             Color(0xFFF59E0B),
                             isDark,
                             Modifier.weight(1f)
-                        )
+                        ) { onOpenClasses() }
                     }
                 }
             }
@@ -197,14 +288,27 @@ fun StudentDashboardScreen(
                 ) {
                     // Navigate based on module id
                     when (mod.id) {
-                        "syllabus"   -> onOpenSyllabus()
-                        "homework"   -> onOpenHomework()
-                        "study_plan" -> onOpenStudyPlan()
-                        "profile"    -> {
+                        "syllabus", "syllabus_planner" -> onOpenSyllabus()
+                        "homework", "edu_assignments" -> onOpenHomework()
+                        "study_plan", "planner", "study_planner" -> onOpenStudyPlan()
+                        "notices" -> onOpenNotices()
+                        "subjects" -> onOpenSubjects()
+                        "exams" -> onOpenExams()
+                        "timetable" -> onOpenTimetable()
+                        "attendance" -> onOpenAttendance()
+                        "smart_id" -> onOpenSmartIDCard()
+                        "profile" -> {
                             val userId = dashboardData?.user_id ?: 0
                             onOpenMyProfile(userId)
                         }
-                        else -> { /* Coming soon */ }
+                        else -> {
+                            val baseUrl = "https://wantuch.pk/"
+                            val path = when(mod.id) {
+                                "inst_profile" -> "modules/education/profile.php?tab=inst"
+                                else -> "modules/education/dashboard.php"
+                            }
+                            onOpenWeb(baseUrl + path)
+                        }
                     }
                 }
             }
@@ -222,15 +326,18 @@ fun StudentModuleCard(
     onClick: () -> Unit
 ) {
     // Assign a unique accent color per module type
-    val accent = when (label) {
-        "My Profile"  -> Color(0xFF3B82F6)
-        "Notices"     -> Color(0xFFF59E0B)
-        "Timetable"   -> Color(0xFF10B981)
-        "Syllabus"    -> Color(0xFF8B5CF6)
-        "Homework"    -> Color(0xFFEC4899)
-        "My Exams"    -> Color(0xFFEF4444)
-        "Study Plan"  -> Color(0xFF06B6D4)
-        else          -> Color(0xFF3B82F6)
+    val accent = when {
+        label.contains("Profile", true)  -> Color(0xFF3B82F6)
+        label.contains("Notices", true)  -> Color(0xFFF59E0B)
+        label.contains("Timetable", true) -> Color(0xFF10B981)
+        label.contains("Syllabus", true)  -> Color(0xFF8B5CF6)
+        label.contains("Homework", true)  -> Color(0xFFEC4899)
+        label.contains("Exam", true)      -> Color(0xFFEF4444)
+        label.contains("Study Plan", true) -> Color(0xFF06B6D4)
+        label.contains("Subject", true)    -> Color(0xFF10B981)
+        label.contains("Transport", true)  -> Color(0xFF6366F1)
+        label.contains("ID", true)         -> Color(0xFF3B82F6)
+        else                               -> Color(0xFF3B82F6)
     }
 
     Card(
@@ -278,9 +385,11 @@ fun StudentStatCard(
     value: String,
     accent: Color,
     isDark: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit = {}
 ) {
     Card(
+        onClick = onClick,
         modifier = modifier.height(65.dp),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(

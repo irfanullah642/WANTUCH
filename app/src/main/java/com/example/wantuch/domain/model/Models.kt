@@ -16,7 +16,9 @@ data class PortfolioResponse(
 data class DashboardResponse(
     val status: String,
     val institution_name: String,
+    val institution_logo: String? = null,
     val full_name: String? = null,
+    val profile_pic: String? = null,
     val user_id: Int? = null,
     val role: String,
     val stats: Map<String, Any?>? = null,
@@ -148,7 +150,9 @@ data class BasicResponse(
     val status: String,
     val message: String? = null,
     val file_path: String? = null,
-    val paper_id: Int? = null
+    val paper_id: Int? = null,
+    val card_path: String? = null,
+    val filename: String? = null
 )
 
 // ── Question Papers ──────────────────────────────────────────────────────────
@@ -404,4 +408,388 @@ data class StudySubjectResponse(
     val status: String,
     val data: List<StudySubject>? = null,
     val message: String? = null
+)
+
+// ── Exams / Results / Analytics (from WANTUCH-2) ──────────────────────────
+
+data class ExamL1Item(
+    val exam_type: String,
+    val semester: String?,
+    val academic_year: String,
+    val exam_count: Int
+)
+
+data class ExamL2Item(
+    val class_id: Int,
+    val section_id: Int,
+    val class_name: String,
+    val section_name: String,
+    val subject_count: Int
+)
+
+data class ExamHierarchyResponse(
+    val status: String,
+    val message: String? = null,
+    val data: List<ExamL1Item> = emptyList()
+)
+
+data class ExamL2HierarchyResponse(
+    val status: String,
+    val message: String? = null,
+    val data: List<ExamL2Item> = emptyList()
+)
+
+data class RollNoSlipResponse(
+    val status: String,
+    val message: String? = null,
+    val schedule: List<RollNoSchedule> = emptyList(),
+    val students: List<RollNoStudent> = emptyList()
+)
+
+data class RollNoSchedule(
+    val subject_id: String? = null,
+    val exam_date: String,
+    val start_time: String,
+    val end_time: String? = null,
+    val total_marks: String? = null,
+    val sub_name: String
+)
+
+data class RollNoStudent(
+    val id: String,
+    val full_name: String,
+    val username: String,
+    val profile_pic: String? = null,
+    val cname: String,
+    val sname: String,
+    val has_dues: Boolean = false,
+    val balance: Double = 0.0
+)
+
+data class AwardListExam(
+    val id: String,
+    val exam_type: String,
+    val subject_name: String
+)
+
+data class AwardListExamsResponse(
+    val status: String,
+    val message: String? = null,
+    val exams: List<AwardListExam> = emptyList()
+)
+
+data class AwardListStudent(
+    val student_id: String,
+    val full_name: String?,
+    val roll_number: String?,
+    val marks: String? = null
+)
+
+data class AwardListStudentsResponse(
+    val status: String,
+    val message: String? = null,
+    val total_marks: String? = null,
+    val students: List<AwardListStudent> = emptyList()
+)
+
+data class ConsolidatedResultResponse(
+    val status: String,
+    val message: String? = null,
+    val data: List<ConsolidatedStudentResult> = emptyList()
+)
+
+data class ConsolidatedStudentResult(
+    val student_id: String,
+    val roll_number: String?,
+    val class_no: String?,
+    val full_name: String?,
+    val father_name: String?,
+    val profile_pic: String?,
+    val subjects: List<ConsolidatedSubject> = emptyList(),
+    val total_max: Double = 0.0,
+    val total_obtain: Any? = null,
+    val percentage: Double = 0.0,
+    val final_status: String?,
+    val failed_papers: Any? = null
+)
+
+data class ConsolidatedSubject(
+    val exam_id: String,
+    val subject: String,
+    val total: Double,
+    val obtained: Any?,
+    val pass_marks: Double,
+    val status: String
+)
+
+data class FullResultCardResponse(
+    val status: String,
+    val message: String? = null,
+    val data: List<FullResultStudent> = emptyList(),
+    val is_bulk: Boolean = false
+)
+
+data class FullResultStudent(
+    val student_id: String,
+    val roll_number: String?,
+    val class_no: String?,
+    val full_name: String?,
+    val father_name: String?,
+    val profile_pic: String?,
+    val report: List<FullResultReportGroup> = emptyList()
+)
+
+data class FullResultReportGroup(
+    val exam_type: String,
+    val subjects: List<FullResultSubject> = emptyList(),
+    val total_max: Double = 0.0,
+    val total_obtain: Any? = null,
+    val percentage: Any? = null
+)
+
+data class FullResultSubject(
+    val exam_id: String,
+    val subject: String,
+    val total: Double,
+    val obtained: Any?
+)
+
+data class TopperAnalyticsResponse(
+    val status: String,
+    val data: List<TopperStats> = emptyList(),
+    val message: String? = null
+)
+
+data class TopperStats(
+    val full_name: String,
+    val class_name: String? = null,
+    val roll_number: String? = null,
+    val class_no: String? = null,
+    val total_obtained: String? = null,
+    val total_max: String? = null,
+    val percentage: String? = null
+)
+
+data class SchoolAnalyticsResponse(
+    val status: String,
+    val data: SchoolStats? = null,
+    val message: String? = null
+)
+
+data class SchoolStats(
+    val total_students: String? = null,
+    val passed_entries: String? = null,
+    val failed_entries: String? = null,
+    val pass_rate: Double = 0.0
+)
+
+data class StaffAnalyticsResponse(
+    val status: String,
+    val data: List<StaffStats> = emptyList(),
+    val message: String? = null
+)
+
+data class StaffStats(
+    val class_name: String,
+    val total_students: String? = null,
+    val passed_entries: String? = null,
+    val failed_entries: String? = null,
+    val pass_rate: Double = 0.0
+)
+
+data class TrendAnalyticsResponse(
+    val status: String,
+    val data: List<TrendStats> = emptyList(),
+    val message: String? = null
+)
+
+data class TrendStats(
+    val exam_type: String,
+    val subject_performance: List<TrendSubject> = emptyList()
+)
+
+data class TrendSubject(
+    val subject: String,
+    val average: Double = 0.0,
+    val total: String? = null
+)
+
+data class HallStaff(
+    val id: String,
+    val full_name: String
+)
+
+data class HallSubject(
+    val id: String,
+    val name: String
+)
+
+data class SchoolSubject(
+    val id: Int,
+    val name: String,
+    val type: String
+)
+
+data class SubjectResponse(
+    val status: String,
+    val message: String? = null,
+    val subjects: List<SchoolSubject> = emptyList()
+)
+
+// ── Timetable & Substitution (from WANTUCH-3) ───────────────────────────────
+
+data class TimetableItem(
+    val class_id: Int,
+    val section_id: Int,
+    val class_name: String? = null,
+    val section_name: String? = null,
+    val sub_name: String? = null,
+    val cur_subject: String? = null,
+    val cur_teacher: String? = null,
+    val cur_start_time: String? = null,
+    val cur_end_time: String? = null,
+    val cur_type: String? = null,
+    val teacher_name: String? = null,
+    val start_time: String? = null,
+    val end_time: String? = null,
+    val live_status: String? = null,
+    val sub_teacher: String? = null,
+    val activity_type: String? = null,
+    val pno: Int? = null,
+    val cid: Int? = null,
+    val sid: Int? = null
+)
+
+data class TimetableResponse(
+    val status: String,
+    val mode: String? = null,
+    val items: List<TimetableItem>? = null
+)
+
+data class TimetableMetadataResponse(
+    val status: String,
+    val classes: List<SchoolClass>? = null,
+    val days: List<String>? = null
+)
+
+data class AbsentStaff(
+    val id: Int,
+    val full_name: String,
+    val status: String,
+    val periods: List<AbsentPeriod>? = null
+)
+
+data class AbsentPeriod(
+    val id: Int,
+    val period_number: Int,
+    val start_time: String,
+    val end_time: String,
+    val sub_name: String,
+    val class_name: String,
+    val sec_name: String,
+    val sub_sid: Int? = null,
+    val is_paid: Int? = null,
+    val sub_status: String? = null,
+    val sub_name_ext: String? = null,
+    val available_staff: List<AvailableStaff>? = null
+)
+
+data class AvailableStaff(
+    val id: Int,
+    val full_name: String
+)
+
+data class SubstitutionResponse(
+    val status: String,
+    val absent_staff: List<AbsentStaff>? = null
+)
+
+data class ManagementClass(
+    val cid: Int,
+    val cname: String,
+    val sid: Int,
+    val sname: String,
+    val slot_count: Int
+)
+
+data class ManagementGroup(
+    val id: Int,
+    val setting_value: String
+)
+
+data class TimetableManagementSummary(
+    val status: String,
+    val versions: List<TimetableManagementVersion>? = null,
+    val groups: List<ManagementGroup>? = null,
+    val classes: List<ManagementClass>? = null
+)
+
+data class TimetableManagementVersion(
+    val id: Int,
+    val label: String
+)
+
+data class ArchiveItem(
+    val id: Int? = null,
+    val class_id: Int? = null,
+    val section_id: Int? = null,
+    val staff_id: Int? = null,
+    val subject_id: Int? = null,
+    val day_of_week: String? = null,
+    val start_time: String? = null,
+    val end_time: String? = null,
+    val activity_type: String? = null,
+    val timetable_version: Int? = null,
+    val sub_name: String? = null,
+    val teacher_name: String? = null,
+    val class_name: String? = null,
+    val section_name: String? = null
+)
+
+data class TimetableArchiveResponse(
+    val status: String,
+    val items: List<ArchiveItem>? = null
+)
+
+data class WizardStaff(val id: Int, val name: String)
+data class WizardSubject(val id: Int, val name: String)
+data class WizardPreRequisites(
+    val status: String,
+    val staff: List<WizardStaff>? = null,
+    val subjects: List<WizardSubject>? = null
+)
+
+// ADM / WDL Module ─────────────────────────────────────────────────────────────
+data class AdmWdlRecord(
+    val id: Any? = null,
+    val adm_no: String? = null,
+    val name: String? = null,
+    val full_name: String? = null,
+    val father_name: String? = null,
+    val dob: String? = null,
+    val gender: String? = null,
+    val parent_cnic_no: String? = null,
+    val class_name: String? = null,
+    val section_name: String? = null,
+    val class_admission: String? = null,
+    val class_withdrawal: String? = null,
+    val admission_date: String? = null,
+    val date_admission: String? = null,
+    val date_withdrawal: String? = null,
+    val roll_number: String? = null,
+    val enrollment_status: String? = null,
+    val slc_status: String? = null,
+    val academic_year: String? = null
+) {
+    val displayName: String get() = full_name ?: name ?: "N/A"
+    val displayClass: String get() = class_name ?: class_admission ?: "N/A"
+    val displayAdmDate: String get() = admission_date ?: date_admission ?: ""
+    val idInt: Int get() = id?.toString()?.toDoubleOrNull()?.toInt() ?: 0
+}
+
+data class AdmWdlResponse(
+    val status: String,
+    val message: String? = null,
+    val data: List<AdmWdlRecord>? = null,
+    val count: Int? = null
 )

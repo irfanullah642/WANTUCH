@@ -1,138 +1,85 @@
 package com.example.wantuch.ui.components
 
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.clickable
-import androidx.compose.runtime.*
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.DeleteSweep
-import androidx.compose.material.icons.filled.EventNote
-import androidx.compose.material.icons.filled.NotificationsActive
-import androidx.compose.material.icons.filled.Print
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccessTime
-import androidx.compose.ui.layout.ContentScale
-import coil.compose.AsyncImage
+import androidx.biometric.BiometricManager
+import androidx.biometric.BiometricPrompt
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
-import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.face.FaceDetection
-import com.google.mlkit.vision.face.FaceDetectorOptions
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.*
+import androidx.compose.foundation.shape.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.content.ContextCompat
-import com.example.wantuch.domain.model.VerifyFaceResponse
-import java.util.concurrent.Executors
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Assignment
-import androidx.compose.material.icons.filled.CalendarToday
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Grid3x3
-import androidx.compose.material.icons.filled.MoveToInbox
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Send
-import androidx.compose.material.icons.filled.Sync
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Face
-import androidx.compose.material.icons.filled.Fingerprint
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Videocam
-import androidx.compose.material.icons.filled.PowerSettingsNew
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.PersonAdd
-import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.Computer
-import androidx.compose.material.icons.filled.WifiOff
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.FactCheck
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.*
-import androidx.compose.animation.core.*
-import androidx.compose.foundation.layout.heightIn
-import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import androidx.compose.ui.draw.*
+import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.biometric.BiometricPrompt
-import androidx.biometric.BiometricManager
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
-import androidx.compose.ui.draw.scale
-import androidx.compose.material.icons.filled.NotificationsActive
-import androidx.compose.material.icons.filled.SettingsSuggest
-import androidx.compose.material.icons.filled.Print
-import androidx.compose.material.icons.filled.Sync
-import androidx.compose.material.icons.filled.RocketLaunch
-import androidx.compose.material.icons.filled.Terminal
-import androidx.compose.material.icons.filled.RotateLeft
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Schedule
+import coil.compose.AsyncImage
 import com.example.wantuch.ui.viewmodel.WantuchViewModel
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.face.FaceDetection
+import com.google.mlkit.vision.face.FaceDetectorOptions
+import java.util.concurrent.Executors
+import org.json.JSONObject
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import androidx.lifecycle.viewModelScope
+import com.example.wantuch.domain.model.VerifyFaceResponse
 
+@Composable
+fun SmartActionButton(
+    label: String, 
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null, 
+    accent: Color, 
+    modifier: Modifier = Modifier, 
+    isFilled: Boolean = true, 
+    enabled: Boolean = true, 
+    onClick: () -> Unit = {}
+) {
+    Surface(
+        onClick = if (enabled) onClick else ({}),
+        color = when {
+            !enabled -> Color.Gray.copy(0.1f)
+            isFilled -> accent.copy(0.1f)
+            else -> Color.Transparent
+        },
+        shape = RoundedCornerShape(10.dp),
+        border = BorderStroke(1.dp, if (!enabled) Color.Gray.copy(0.3f) else accent.copy(if(isFilled) 0.5f else 0.3f)),
+        modifier = modifier.height(40.dp)
+    ) {
+        Row(Modifier.padding(horizontal = 12.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+            if (icon != null) {
+                Icon(icon, null, tint = if (enabled) accent else Color.Gray, modifier = Modifier.size(14.dp))
+                Spacer(Modifier.width(8.dp))
+            }
+            Text(label, color = if (enabled) accent else Color.Gray, fontSize = 9.sp, fontWeight = FontWeight.Black)
+        }
+    }
+}
 
 @Composable
 fun AttendanceManagementScreen(viewModel: WantuchViewModel, onBack: () -> Unit) {
+
     val isDark by viewModel.isDarkTheme.collectAsState()
     val bgColor = if (isDark) Color(0xFF0F172A) else Color(0xFFF8FAFC)
     val textColor = if (isDark) Color.White else Color(0xFF1E293B)
@@ -140,7 +87,11 @@ fun AttendanceManagementScreen(viewModel: WantuchViewModel, onBack: () -> Unit) 
     val labelColor = if (isDark) Color.White.copy(0.6f) else Color.Gray
 
     var selectedTopTab by remember { mutableIntStateOf(0) }
-    val topTabs = listOf("Attendance", "Monthly", "Rules", "L-appeals", "Status Admin")
+    val dashboardData by viewModel.dashboardData.collectAsState()
+    val isStudent = dashboardData?.role?.lowercase() ?: "" == "student"
+    
+    val allTopTabs = listOf("Attendance", "Monthly", "Rules", "L-appeals", "Status Admin")
+    val topTabs = if (isStudent) listOf("Attendance", "Monthly", "L-appeals") else allTopTabs
 
     Scaffold(
         containerColor = bgColor,
@@ -174,12 +125,15 @@ fun AttendanceManagementScreen(viewModel: WantuchViewModel, onBack: () -> Unit) 
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState())) {
             Spacer(Modifier.height(16.dp))
-            when (selectedTopTab) {
-                0 -> AttendanceMainTab(viewModel, isDark, textColor, labelColor, cardColor) { selectedTopTab = 4 }
-                1 -> MonthlyAttendanceTab(viewModel, isDark, textColor, labelColor, cardColor)
-                2 -> AttendanceRulesTab(viewModel, isDark, textColor, labelColor, cardColor)
-                3 -> LeaveAppealsTab(viewModel, isDark, textColor, labelColor, cardColor)
-                4 -> StatusAdminTab(viewModel, isDark, textColor, labelColor, cardColor)
+            when (topTabs.getOrNull(selectedTopTab)) {
+                "Attendance" -> AttendanceMainTab(viewModel, isDark, textColor, labelColor, cardColor) { 
+                    val adminIdx = topTabs.indexOf("Status Admin")
+                    if (adminIdx >= 0) selectedTopTab = adminIdx
+                }
+                "Monthly" -> MonthlyAttendanceTab(viewModel, isDark, textColor, labelColor, cardColor)
+                "Rules" -> AttendanceRulesTab(isDark, textColor, labelColor, cardColor)
+                "L-appeals" -> LeaveAppealsTab(viewModel, isDark, textColor, labelColor, cardColor)
+                "Status Admin" -> StatusAdminTab(viewModel, isDark, textColor, labelColor, cardColor)
             }
             Spacer(Modifier.height(100.dp))
         }
@@ -188,8 +142,12 @@ fun AttendanceManagementScreen(viewModel: WantuchViewModel, onBack: () -> Unit) 
 
 @Composable
 fun AttendanceMainTab(viewModel: WantuchViewModel, isDark: Boolean, textColor: Color, labelColor: Color, cardColor: Color, onStatusClick: () -> Unit) {
-    var subTab by remember { androidx.compose.runtime.mutableIntStateOf(0) }
-    val subTabs = listOf("Students", "Staff", "Manual", "Smart Attendance")
+    val dashboardData by viewModel.dashboardData.collectAsState()
+    val isStudent = dashboardData?.role?.lowercase() ?: "" == "student"
+
+    var subTab by remember { androidx.compose.runtime.mutableIntStateOf(if (isStudent) 3 else 0) }
+    val allSubTabs = listOf("Students", "Staff", "Manual", "Smart Attendance")
+    val subTabs = if (isStudent) listOf("Smart Attendance") else allSubTabs
 
     val structure by viewModel.schoolStructure.collectAsState()
     var selectedClassId by remember { androidx.compose.runtime.mutableIntStateOf(0) }
@@ -226,16 +184,17 @@ fun AttendanceMainTab(viewModel: WantuchViewModel, isDark: Boolean, textColor: C
         // Sub-tabs row
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             subTabs.forEachIndexed { i, t ->
+                val targetIdx = if(isStudent) 3 else i
                 Surface(
-                    onClick = { subTab = i },
-                    color = if(subTab == i) Color(0xFFFACC15) else if(isDark) Color.White.copy(0.05f) else Color.Black.copy(0.03f),
+                    onClick = { subTab = targetIdx },
+                    color = if(subTab == targetIdx) Color(0xFFFACC15) else if(isDark) Color.White.copy(0.05f) else Color.Black.copy(0.03f),
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.weight(1f).height(42.dp),
-                    border = BorderStroke(1.dp, if(subTab == i) Color(0xFFFACC15) else labelColor.copy(0.1f))
+                    border = BorderStroke(1.dp, if(subTab == targetIdx) Color(0xFFFACC15) else labelColor.copy(0.1f))
                 ) {
                     Box(Modifier.fillMaxSize(), Alignment.Center) {
                         val labelText = if(t == "Smart Attendance") "Smart" else t
-                        Text(t.uppercase(), color = if(subTab == i) Color(0xFF1E293B) else labelColor, fontSize = 8.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
+                        Text(t.uppercase(), color = if(subTab == targetIdx) Color(0xFF1E293B) else labelColor, fontSize = 8.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
                     }
                 }
             }
@@ -744,8 +703,12 @@ fun AttendanceMainTab(viewModel: WantuchViewModel, isDark: Boolean, textColor: C
 
 @Composable
 fun SmartAttendanceTab(viewModel: WantuchViewModel, isDark: Boolean, textColor: Color, labelColor: Color, cardColor: Color) {
+    val dashboardData by viewModel.dashboardData.collectAsState()
+    val isStudent = dashboardData?.role?.lowercase() ?: "" == "student"
+
     var smartSubTab by remember { androidx.compose.runtime.mutableIntStateOf(0) }
-    val tabs = listOf("Face Recognition", "Fingerprint", "Settings")
+    val allTabs = listOf("Face Recognition", "Fingerprint", "Settings")
+    val tabs = if (isStudent) listOf("Face Recognition") else allTabs
     
     val accentCyan = Color(0xFF06B6D4)
     val accentPurple = Color(0xFF6366F1)
@@ -754,9 +717,10 @@ fun SmartAttendanceTab(viewModel: WantuchViewModel, isDark: Boolean, textColor: 
         // Sub-sub tabs (Face, Fingerprint, Settings)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             tabs.forEachIndexed { i, t ->
-                val isSelected = smartSubTab == i
+                val targetIdx = if(isStudent) 0 else i
+                val isSelected = smartSubTab == targetIdx
                 Surface(
-                    onClick = { smartSubTab = i },
+                    onClick = { smartSubTab = targetIdx },
                     color = if (isSelected) accentCyan.copy(0.1f) else Color.Transparent,
                     shape = RoundedCornerShape(12.dp),
                     border = BorderStroke(1.dp, if (isSelected) accentCyan.copy(0.5f) else labelColor.copy(0.1f)),
@@ -765,7 +729,7 @@ fun SmartAttendanceTab(viewModel: WantuchViewModel, isDark: Boolean, textColor: 
                     Box(Modifier.fillMaxSize(), Alignment.Center) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                imageVector = when(i) {
+                                imageVector = when(targetIdx) {
                                     0 -> Icons.Default.Face
                                     1 -> Icons.Default.Fingerprint
                                     else -> Icons.Default.Settings
@@ -909,12 +873,16 @@ fun FaceRecognitionSection(viewModel: WantuchViewModel, isDark: Boolean, textCol
                         }
                     }
                 }
-                
+                val dashboardData by viewModel.dashboardData.collectAsState()
+                val isStudent = dashboardData?.role?.lowercase() ?: "" == "student"
+
                 // Action Buttons
                 val context = androidx.compose.ui.platform.LocalContext.current
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    SmartActionButton("ENROLL NEW FACE", Icons.Default.PersonAdd, accentCyan, Modifier.weight(1.2f), onClick = { showEnrollModal = true })
-                    SmartActionButton("RESET SESSION", Icons.Default.Sync, accentCyan, Modifier.weight(1f), onClick = { viewModel.clearRecognizedSession() })
+                if (!isStudent) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        SmartActionButton("ENROLL NEW FACE", Icons.Default.PersonAdd, accentCyan, Modifier.weight(1.2f), onClick = { showEnrollModal = true })
+                        SmartActionButton("RESET SESSION", Icons.Default.Sync, accentCyan, Modifier.weight(1f), onClick = { viewModel.clearRecognizedSession() })
+                    }
                 }
                 
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -1711,29 +1679,6 @@ fun StatusIndicator(label: String, valStr: String, color: Color, isActive: Boole
     }
 }
 
-@Composable
-fun SmartActionButton(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector?, accent: Color, modifier: Modifier = Modifier, isFilled: Boolean = true, enabled: Boolean = true, onClick: () -> Unit = {}) {
-    Surface(
-        onClick = if (enabled) onClick else ({}),
-        color = when {
-            !enabled -> Color.Gray.copy(0.1f)
-            isFilled -> accent.copy(0.1f)
-            else -> Color.Transparent
-        },
-        shape = RoundedCornerShape(10.dp),
-        border = BorderStroke(1.dp, if (!enabled) Color.Gray.copy(0.3f) else accent.copy(if(isFilled) 0.5f else 0.3f)),
-        modifier = modifier.height(40.dp)
-    ) {
-        Row(Modifier.padding(horizontal = 12.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-            if (icon != null) {
-                Icon(icon, null, tint = if (enabled) accent else Color.Gray, modifier = Modifier.size(14.dp))
-                Spacer(Modifier.width(8.dp))
-            }
-            Text(label, color = if (enabled) accent else Color.Gray, fontSize = 9.sp, fontWeight = FontWeight.Black)
-        }
-    }
-}
-
 
 @Composable
 fun StaffAttendanceRow(
@@ -2011,6 +1956,9 @@ fun StudentAttendanceRow(
 
 @Composable
 fun MonthlyAttendanceTab(viewModel: WantuchViewModel, isDark: Boolean, textColor: Color, labelColor: Color, cardColor: Color) {
+    val dashboardData by viewModel.dashboardData.collectAsState()
+    val isDark by viewModel.isDarkTheme.collectAsState()
+    val isStudent = dashboardData?.role?.lowercase() ?: "" == "student"
     var subTab by remember { androidx.compose.runtime.mutableIntStateOf(0) }
     val structure by viewModel.schoolStructure.collectAsState()
     val studentLedger by viewModel.studentLedger.collectAsState()
@@ -2036,34 +1984,63 @@ fun MonthlyAttendanceTab(viewModel: WantuchViewModel, isDark: Boolean, textColor
         viewModel.fetchSchoolStructure()
     }
 
-    androidx.compose.runtime.LaunchedEffect(subTab, selectedClassId, selectedMonth, selectedYear) {
+    androidx.compose.runtime.LaunchedEffect(subTab, selectedClassId, selectedMonth, selectedYear, isStudent, instId, structure) {
         if (instId > 0) {
-            if (subTab == 0) {
+            if (isStudent) {
+                val myStudentId = (dashboardData?.stats?.get("student_id") ?: (dashboardData?.stats?.get("id") ?: (dashboardData?.stats?.get("sid") ?: (dashboardData?.user_id))))?.toString()?.toDoubleOrNull()?.toInt() ?: 0
+                if (myStudentId > 0) {
+                     viewModel.fetchStudentProfile(myStudentId)
+                }
+                
+                var studentClass = (dashboardData?.stats?.get("class_id") ?: (dashboardData?.stats?.get("curr_class") ?: (dashboardData?.stats?.get("st_class_id") ?: (dashboardData?.stats?.get("class") ?: (dashboardData?.stats?.get("my_class_id"))))))?.toString()?.toDoubleOrNull()?.toInt() ?: 0
+                
+                // Fallback: Find by NAME matching if ID is missing from stats
+                if (studentClass == 0 && structure != null) {
+                    val myClassName = dashboardData?.stats?.get("my_class")?.toString()?.trim() ?: ""
+                    if (myClassName.isNotEmpty()) {
+                        studentClass = structure?.classes?.find { 
+                            it.name.equals(myClassName, ignoreCase = true) || 
+                            it.name.contains(myClassName, ignoreCase = true) ||
+                            myClassName.contains(it.name, ignoreCase = true)
+                        }?.id ?: 0
+                    }
+                }
+
+                val effectiveClass = if (studentClass > 0) studentClass else selectedClassId
+                if (effectiveClass > 0) {
+                    viewModel.fetchMonthlyStudentLedger(instId, effectiveClass, selectedMonth, selectedYear)
+                }
+            } else if (subTab == 0) {
                 if (selectedClassId > 0) viewModel.fetchMonthlyStudentLedger(instId, selectedClassId, selectedMonth, selectedYear)
             } else {
                 viewModel.fetchMonthlyStaffLedger(instId, selectedMonth, selectedYear)
             }
         }
     }
-
+ 
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-        // Sub-tabs row
-        Row(Modifier.fillMaxWidth().height(50.dp).background(cardColor.copy(0.5f), RoundedCornerShape(12.dp)).padding(4.dp)) {
-            Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(8.dp)).background(if(subTab == 0) Color(0xFF3B82F6) else Color.Transparent).clickable { subTab = 0 }, Alignment.Center) {
-                Text("STUDENTS", color = if(subTab == 0) Color.White else labelColor, fontWeight = FontWeight.Black, fontSize = 11.sp)
+        if (!isStudent) {
+            // Sub-tabs row - HIDDEN FOR STUDENTS
+            Row(Modifier.fillMaxWidth().height(50.dp).background(cardColor.copy(0.5f), RoundedCornerShape(12.dp)).padding(4.dp)) {
+                Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(8.dp)).background(if(subTab == 0) Color(0xFF3B82F6) else Color.Transparent).clickable { subTab = 0 }, Alignment.Center) {
+                    Text("STUDENTS", color = if(subTab == 0) Color.White else labelColor, fontWeight = FontWeight.Black, fontSize = 11.sp)
+                }
+                Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(8.dp)).background(if(subTab == 1) Color(0xFF3B82F6) else Color.Transparent).clickable { subTab = 1 }, Alignment.Center) {
+                    Text("STAFF", color = if(subTab == 1) Color.White else labelColor, fontWeight = FontWeight.Black, fontSize = 11.sp)
+                }
             }
-            Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(8.dp)).background(if(subTab == 1) Color(0xFF3B82F6) else Color.Transparent).clickable { subTab = 1 }, Alignment.Center) {
-                Text("STAFF", color = if(subTab == 1) Color.White else labelColor, fontWeight = FontWeight.Black, fontSize = 11.sp)
-            }
+            Spacer(Modifier.height(24.dp))
         }
 
-        Spacer(Modifier.height(24.dp))
-        Text(if(subTab == 0) "STUDENT PERFORMANCE" else "STAFF MONTHLY PERFORMANCE", color = textColor, fontWeight = FontWeight.Black, fontSize = 14.sp)
+        Text(if(isStudent) "MY MONTHLY PERFORMANCE" else if(subTab == 0) "STUDENT PERFORMANCE" else "STAFF MONTHLY PERFORMANCE", color = textColor, fontWeight = FontWeight.Black, fontSize = 14.sp)
         Spacer(Modifier.height(16.dp))
 
-        // Filters Row
+        val studentClass = (dashboardData?.stats?.get("class_id") ?: (dashboardData?.stats?.get("curr_class") ?: (dashboardData?.stats?.get("st_class_id") ?: (dashboardData?.stats?.get("class") ?: (dashboardData?.stats?.get("my_class_id"))))))?.toString()?.toDoubleOrNull()?.toInt() ?: 
+                            (structure?.classes?.find { it.name.equals(dashboardData?.stats?.get("my_class")?.toString()?.trim() ?: "", ignoreCase = true) }?.id ?: 0)
+        
+        // Filters Row (Common for Staff and Students)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (subTab == 0) {
+            if (!isStudent && subTab == 0) {
                 Box(Modifier.weight(1.5f)) {
                     val selectedText = structure?.classes?.find { it.id == selectedClassId }?.name?.uppercase() ?: "SELECT CLASS"
                     Surface(onClick = { classExpanded = true }, color = cardColor.copy(0.5f), shape = RoundedCornerShape(10.dp), border = BorderStroke(1.dp, labelColor.copy(0.1f))) {
@@ -2077,6 +2054,13 @@ fun MonthlyAttendanceTab(viewModel: WantuchViewModel, isDark: Boolean, textColor
                         structure?.classes?.forEach { cls ->
                             androidx.compose.material3.DropdownMenuItem(text = { Text(cls.name.uppercase(), color = textColor, fontSize = 12.sp) }, onClick = { selectedClassId = cls.id; classExpanded = false })
                         }
+                    }
+                }
+            } else if (isStudent && studentClass > 0) {
+                // Student info card instead of class selector
+                Surface(Modifier.weight(1.5f), color = cardColor.copy(0.2f), shape = RoundedCornerShape(10.dp)) {
+                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("MY PERFORMANCE", color = textColor, fontSize = 11.sp, fontWeight = FontWeight.Black)
                     }
                 }
             }
@@ -2096,33 +2080,51 @@ fun MonthlyAttendanceTab(viewModel: WantuchViewModel, isDark: Boolean, textColor
                     }
                 }
             }
+            
+            Box(Modifier.weight(0.7f)) {
+                var expanded by remember { mutableStateOf(false) }
+                Surface(onClick = { expanded = true }, color = cardColor.copy(0.5f), shape = RoundedCornerShape(10.dp), border = BorderStroke(1.dp, labelColor.copy(0.1f))) {
+                    Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(selectedYear.toString(), color = textColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                androidx.compose.material3.DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, modifier = Modifier.background(cardColor)) {
+                    years.forEach { y ->
+                        androidx.compose.material3.DropdownMenuItem(text = { Text(y.toString(), color = textColor, fontSize = 11.sp) }, onClick = { selectedYear = y; expanded = false })
+                    }
+                }
+            }
         }
-
+        
         Spacer(Modifier.height(30.dp))
-        
-        // Ledger Header
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(if(subTab == 0) "STUDENT ATTENDANCE LEDGER" else "STAFF PERFORMANCE LEDGER", color = textColor, fontWeight = FontWeight.Black, fontSize = 14.sp)
-            Spacer(Modifier.weight(1f))
-            HeaderActionIcon(Icons.Default.Print, isDark) {}
-            Spacer(Modifier.width(8.dp))
-            HeaderActionIcon(Icons.Default.NotificationsActive, isDark) {}
-        }
-        
-        Spacer(Modifier.height(16.dp))
 
-        if (subTab == 0) {
-            StudentMonthlyLedger(
-                data = studentLedger,
-                isDark = isDark,
-                textColor = textColor,
-                labelColor = labelColor,
-                cardColor = cardColor,
-                onStudentClick = { s -> selectedStudentEditor = s },
-                onHolidayClick = { h -> selectedHolidayEditor = h }
-            )
+        if (isStudent) {
+            StudentCalendarView(viewModel, isDark, textColor, labelColor, cardColor, selectedMonth, selectedYear)
         } else {
-            StaffMonthlyLedger(staffLedger, isDark, textColor, labelColor, cardColor)
+            // Ledger Header
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(if(subTab == 0) "STUDENT ATTENDANCE LEDGER" else "STAFF PERFORMANCE LEDGER", color = textColor, fontWeight = FontWeight.Black, fontSize = 14.sp)
+                Spacer(Modifier.weight(1f))
+                HeaderActionIcon(Icons.Default.Print, isDark, {})
+                Spacer(Modifier.width(8.dp))
+                HeaderActionIcon(Icons.Default.NotificationsActive, isDark, {})
+            }
+            
+            Spacer(Modifier.height(16.dp))
+
+            if (subTab == 0) {
+                StudentMonthlyLedger(
+                    data = studentLedger,
+                    isDark = isDark,
+                    textColor = textColor,
+                    labelColor = labelColor,
+                    cardColor = cardColor,
+                    onStudentClick = { s -> selectedStudentEditor = s },
+                    onHolidayClick = { h -> selectedHolidayEditor = h }
+                )
+            } else {
+                StaffMonthlyLedger(staffLedger, isDark, textColor, labelColor, cardColor)
+            }
         }
     }
 
@@ -2546,48 +2548,42 @@ fun StaffMonthlyLedger(data: org.json.JSONObject?, isDark: Boolean, textColor: C
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun AttendanceRulesTab(viewModel: WantuchViewModel, isDark: Boolean, textColor: Color, labelColor: Color, cardColor: Color) {
-    val rulesMap by viewModel.attendanceRules.collectAsState()
-    
-    androidx.compose.runtime.LaunchedEffect(Unit) {
-        viewModel.fetchAttendanceRules()
-    }
-
+fun AttendanceRulesTab(isDark: Boolean, textColor: Color, labelColor: Color, cardColor: Color) {
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
         Text("Institutional Standards & Payout Rules", color = textColor, fontWeight = FontWeight.Black, fontSize = 16.sp)
 
         // Absence & Deduction Section
         RuleSectionCard("ABSENCE & DEDUCTION", isDark, labelColor, cardColor) {
-            RuleEntryRow("MONTHLY ABSENCE LIMIT", rulesMap?.get("monthly_absence_limit")?.toString() ?: "3", isDark, textColor, labelColor)
-            RuleEntryRow("FIXED PENALTY PER ABSENCE (RS)", rulesMap?.get("fixed_penalty")?.toString() ?: "0", isDark, textColor, labelColor)
+            RuleEntryRow("MONTHLY ABSENCE LIMIT", "3", isDark, textColor, labelColor)
+            RuleEntryRow("FIXED PENALTY PER ABSENCE (RS)", "0", isDark, textColor, labelColor)
             Text("* Automatic Logic: Beyond limit, system deducts 1 full day's pay (Salary / 30).", color = Color(0xFFEF4444), fontSize = 10.sp, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic)
         }
 
         // Teaching Bonus Section
         RuleSectionCard("TEACHING BONUS (RS PER EXTRA CLASS)", isDark, labelColor, cardColor) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                BonusCol("PRIMARY", rulesMap?.get("bonus_primary")?.toString() ?: "200", Modifier.weight(1f), isDark, textColor, labelColor)
-                BonusCol("MIDDLE", rulesMap?.get("bonus_middle")?.toString() ?: "300", Modifier.weight(1f), isDark, textColor, labelColor)
+                BonusCol("PRIMARY", "200", Modifier.weight(1f), isDark, textColor, labelColor)
+                BonusCol("MIDDLE", "300", Modifier.weight(1f), isDark, textColor, labelColor)
             }
             Spacer(Modifier.height(8.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                BonusCol("HIGH", rulesMap?.get("bonus_high")?.toString() ?: "400", Modifier.weight(1f), isDark, textColor, labelColor)
-                BonusCol("SECONDARY", rulesMap?.get("bonus_secondary")?.toString() ?: "500", Modifier.weight(1f), isDark, textColor, labelColor)
+                BonusCol("HIGH", "400", Modifier.weight(1f), isDark, textColor, labelColor)
+                BonusCol("SECONDARY", "500", Modifier.weight(1f), isDark, textColor, labelColor)
             }
         }
 
         // Fines Section
         RuleSectionCard("DISCIPLINARY FINES (RS)", isDark, labelColor, cardColor) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                FineBadge("HAIR CUT", rulesMap?.get("fine_haircut")?.toString() ?: "10", isDark)
-                FineBadge("REGISTER/BOOKS", rulesMap?.get("fine_books")?.toString() ?: "20", isDark)
-                FineBadge("RULES BREAK", rulesMap?.get("fine_rules")?.toString() ?: "30", isDark)
-                FineBadge("ATTENDANCE", rulesMap?.get("fine_attendance")?.toString() ?: "10", isDark)
+                FineBadge("HAIR CUT", "10", isDark)
+                FineBadge("REGISTER/BOOKS", "20", isDark)
+                FineBadge("RULES BREAK", "30", isDark)
+                FineBadge("ATTENDANCE", "10", isDark)
             }
         }
 
         Button(
-            onClick = { viewModel.fetchAttendanceRules() },
+            onClick = { /* Sync Rules */ },
             modifier = Modifier.fillMaxWidth().height(54.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6)),
             shape = RoundedCornerShape(12.dp)
@@ -2654,95 +2650,154 @@ fun FineBadge(label: String, value: String, isDark: Boolean) {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun LeaveAppealsTab(viewModel: WantuchViewModel, isDark: Boolean, textColor: Color, labelColor: Color, cardColor: Color) {
-    var subTab by remember { mutableIntStateOf(0) }
-    val appealsMap by viewModel.leaveAppeals.collectAsState()
-
-    androidx.compose.runtime.LaunchedEffect(Unit) {
-        viewModel.fetchLeaveAppeals()
+    val dashboardData by viewModel.dashboardData.collectAsState()
+    val isStudent = dashboardData?.role?.lowercase()?.contains("student") == true
+    val myUserIdRaw = dashboardData?.stats?.get("id") ?: dashboardData?.stats?.get("student_id") ?: dashboardData?.user_id
+    val myUserId = when(myUserIdRaw) {
+        is Int -> myUserIdRaw
+        is Double -> myUserIdRaw.toInt()
+        is String -> myUserIdRaw.toDoubleOrNull()?.toInt() ?: 0
+        else -> 0
     }
-
-    val staffAppeals = (appealsMap?.get("staff_requests") as? List<Map<String, Any?>>) ?: emptyList()
-    val studentAppeals = (appealsMap?.get("student_requests") as? List<Map<String, Any?>>) ?: emptyList()
-    val currentList = if (subTab == 0) staffAppeals else studentAppeals
+    val instId = viewModel.getInstitutionId()
+    
+    var subTab by rememberSaveable { mutableIntStateOf(0) }
+    val accentPurple = Color(0xFF6366F1)
 
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-        Text("PENDING LEAVE APPEALS", color = textColor, fontWeight = FontWeight.Black, fontSize = 16.sp)
+        Text(if(isStudent) "MY LEAVE APPEALS" else "PENDING LEAVE APPEALS", color = textColor, fontWeight = FontWeight.Black, fontSize = 16.sp)
         Spacer(Modifier.height(20.dp))
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            val tab1Label = if(isStudent) "HISTORY" else "STAFF REQUESTS"
+            val tab2Label = if(isStudent) "SUBMIT NEW" else "STUDENT REQUESTS"
+
             Box(Modifier.weight(1f)) {
                 Surface(
                     onClick = { subTab = 0 },
-                    color = if(subTab == 0) Color(0xFF6366F1) else cardColor,
+                    color = if(subTab == 0) accentPurple else cardColor,
                     shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, Color(0xFF6366F1).copy(0.2f))
+                    border = BorderStroke(1.dp, accentPurple.copy(0.2f))
                 ) {
-                    Box(Modifier.fillMaxWidth().height(42.dp), Alignment.Center) { Text("STAFF REQUESTS", color = if(subTab == 0) Color.White else labelColor, fontSize = 10.sp, fontWeight = FontWeight.Black) }
+                    Box(Modifier.fillMaxWidth().height(42.dp), Alignment.Center) { Text(tab1Label, color = if(subTab == 0) Color.White else labelColor, fontSize = 10.sp, fontWeight = FontWeight.Black) }
                 }
             }
             Box(Modifier.weight(1f)) {
                 Surface(
                     onClick = { subTab = 1 },
-                    color = if(subTab == 1) Color(0xFF6366F1) else cardColor,
+                    color = if(subTab == 1) accentPurple else cardColor,
                     shape = RoundedCornerShape(10.dp),
-                    border = BorderStroke(1.dp, Color(0xFF6366F1).copy(0.2f))
+                    border = BorderStroke(1.dp, accentPurple.copy(0.2f))
                 ) {
-                    Box(Modifier.fillMaxWidth().height(42.dp), Alignment.Center) { Text("STUDENT REQUESTS", color = if(subTab == 1) Color.White else labelColor, fontSize = 10.sp, fontWeight = FontWeight.Black) }
+                    Box(Modifier.fillMaxWidth().height(42.dp), Alignment.Center) { Text(tab2Label, color = if(subTab == 1) Color.White else labelColor, fontSize = 10.sp, fontWeight = FontWeight.Black) }
                 }
             }
         }
 
-        Spacer(Modifier.height(16.dp))
-        
-        if (currentList.isEmpty()) {
-            Box(Modifier.fillMaxWidth().weight(1f), Alignment.Center) {
+        Spacer(Modifier.height(24.dp))
+
+        if (isStudent && subTab == 1) {
+            val context = androidx.compose.ui.platform.LocalContext.current
+            fun showDatePicker(onDate: (String) -> Unit) { 
+                val current = java.util.Calendar.getInstance()
+                android.app.DatePickerDialog(context, {_,y,m,d -> 
+                    val c = java.util.Calendar.getInstance()
+                    c.set(y, m, d)
+                    onDate(java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(c.time)) 
+                }, current.get(java.util.Calendar.YEAR), current.get(java.util.Calendar.MONTH), current.get(java.util.Calendar.DAY_OF_MONTH)).show() 
+            }
+            var fromDate by remember { mutableStateOf("Choose start date...") }
+            var toDate by remember { mutableStateOf("Choose end date...") }
+            var reason by remember { mutableStateOf("") }
+            var leaveType by remember { mutableStateOf("SICK LEAVE") }
+            var typeExpanded by remember { mutableStateOf(false) }
+
+            Card(colors = CardDefaults.cardColors(containerColor = cardColor.copy(0.5f)), shape = RoundedCornerShape(16.dp)) {
+                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Text("APPEAL FOR LEAVE", color = textColor, fontSize = 14.sp, fontWeight = FontWeight.Black)
+                    
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Column(Modifier.weight(1f)) {
+                            Text("FROM DATE", color = labelColor, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(6.dp))
+                            Surface(onClick = { showDatePicker { fromDate = it } }, color = Color.Black.copy(0.1f), shape = RoundedCornerShape(10.dp), modifier = Modifier.fillMaxWidth().height(44.dp)) {
+                                Box(Modifier.fillMaxSize().padding(horizontal = 12.dp), Alignment.CenterStart) { Text(fromDate, color = if(fromDate.contains("-")) textColor else labelColor, fontSize = 11.sp) }
+                            }
+                        }
+                        Column(Modifier.weight(1f)) {
+                            Text("TO DATE", color = labelColor, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(6.dp))
+                            Surface(onClick = { showDatePicker { toDate = it } }, color = Color.Black.copy(0.1f), shape = RoundedCornerShape(10.dp), modifier = Modifier.fillMaxWidth().height(44.dp)) {
+                                Box(Modifier.fillMaxSize().padding(horizontal = 12.dp), Alignment.CenterStart) { Text(toDate, color = if(toDate.contains("-")) textColor else labelColor, fontSize = 11.sp) }
+                            }
+                        }
+                    }
+
+                    Column {
+                        Text("LEAVE TYPE", color = labelColor, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(6.dp))
+                        Box {
+                            Surface(onClick = { typeExpanded = true }, color = Color.Black.copy(0.1f), shape = RoundedCornerShape(10.dp), modifier = Modifier.fillMaxWidth().height(44.dp)) {
+                                Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(leaveType, color = textColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Spacer(Modifier.weight(1f))
+                                    Icon(Icons.Default.ArrowDropDown, null, tint = labelColor)
+                                }
+                            }
+                            androidx.compose.material3.DropdownMenu(expanded = typeExpanded, onDismissRequest = { typeExpanded = false }, modifier = Modifier.background(cardColor)) {
+                                listOf("SICK LEAVE", "CASUAL LEAVE", "EMERGENCY LEAVE", "OTHER").forEach { t ->
+                                    androidx.compose.material3.DropdownMenuItem(text = { Text(t, color = textColor, fontSize = 11.sp) }, onClick = { leaveType = t; typeExpanded = false })
+                                }
+                            }
+                        }
+                    }
+
+                    Column {
+                        Text("REASON FOR LEAVE", color = labelColor, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(6.dp))
+                        PremiumTextField(reason, { reason = it }, "Detailed reason...", Icons.Default.Edit, isDark)
+                    }
+
+                    Button(
+                        onClick = { 
+                            if (!fromDate.contains("-") || !toDate.contains("-") || reason.isBlank()) {
+                                android.widget.Toast.makeText(context, "Please fill all fields", android.widget.Toast.LENGTH_SHORT).show()
+                            } else {
+                                viewModel.submitLeaveAppeal(instId, myUserId, fromDate, toDate, leaveType, reason) { success ->
+                                    if(success) { 
+                                        android.widget.Toast.makeText(context, "Appeal Submitted Successfully", android.widget.Toast.LENGTH_SHORT).show()
+                                        fromDate = "Choose start date..."
+                                        toDate = "Choose end date..."
+                                        reason = ""
+                                        subTab = 0 
+                                    } else {
+                                        android.widget.Toast.makeText(context, "Submission Failed", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                } 
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = accentPurple),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth().height(50.dp)
+                    ) {
+                        Text("SUBMIT APPEAL", fontWeight = FontWeight.Black)
+                    }
+                }
+            }
+        }
+ else {
+            // LIST VIEW (History for Student, Pending for Admin)
+            Spacer(Modifier.height(60.dp))
+            Box(Modifier.fillMaxWidth(), Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Default.MoveToInbox, null, Modifier.size(64.dp), tint = labelColor.copy(0.2f))
                     Spacer(Modifier.height(16.dp))
-                    Text(if(subTab == 0) "No Pending Staff Appeals" else "No Pending Student Appeals", color = labelColor.copy(0.5f), fontWeight = FontWeight.Bold)
-                }
-            }
-        } else {
-            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                currentList.forEach { appeal ->
-                    AppealCard(appeal, viewModel, isDark, textColor, labelColor, cardColor)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun AppealCard(appeal: Map<String, Any?>, viewModel: WantuchViewModel, isDark: Boolean, textColor: Color, labelColor: Color, cardColor: Color) {
-    val id = (appeal["id"] as? Number)?.toInt() ?: 0
-    val name = appeal["name"]?.toString() ?: "Unknown"
-    val reason = appeal["reason"]?.toString() ?: ""
-    val dates = "${appeal["date_from"]} to ${appeal["date_to"]}"
-    val type = appeal["type"]?.toString() ?: "Sick"
-
-    Card(colors = CardDefaults.cardColors(containerColor = cardColor), shape = RoundedCornerShape(16.dp), border = BorderStroke(1.dp, labelColor.copy(0.1f))) {
-        Column(Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(Modifier.size(32.dp), shape = CircleShape, color = Color(0xFF6366F1).copy(0.1f)) {
-                    Box(contentAlignment = Alignment.Center) { Icon(Icons.Default.Person, null, tint = Color(0xFF6366F1), modifier = Modifier.size(16.dp)) }
-                }
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(name, color = textColor, fontWeight = FontWeight.Black, fontSize = 13.sp)
-                    Text(type, color = Color(0xFF6366F1), fontWeight = FontWeight.Bold, fontSize = 9.sp)
-                }
-            }
-            Spacer(Modifier.height(12.dp))
-            Text("Reason: $reason", color = labelColor, fontSize = 11.sp)
-            Text("Period: $dates", color = textColor.copy(0.8f), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-            
-            Spacer(Modifier.height(16.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Button(onClick = { viewModel.updateAppealStatus(id, "Approved") {} }, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)), shape = RoundedCornerShape(8.dp)) {
-                    Text("Approve", fontSize = 10.sp, fontWeight = FontWeight.Black)
-                }
-                androidx.compose.material3.OutlinedButton(onClick = { viewModel.updateAppealStatus(id, "Rejected") {} }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(8.dp), border = BorderStroke(1.dp, Color(0xFFEF4444))) {
-                    Text("Reject", color = Color(0xFFEF4444), fontSize = 10.sp, fontWeight = FontWeight.Black)
+                    val emptyMsg = when {
+                        isStudent -> "No recent leave appeals found"
+                        subTab == 0 -> "No Pending Staff Appeals"
+                        else -> "No Pending Student Appeals"
+                    }
+                    Text(emptyMsg, color = labelColor.copy(0.5f), fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -4068,3 +4123,261 @@ fun FingerprintEnrollmentModal(
         }
     }
 }
+
+@Composable
+fun StudentCalendarView(
+    viewModel: WantuchViewModel, 
+    isDark: Boolean, 
+    textColor: Color, 
+    labelColor: Color, 
+    cardColor: Color,
+    selectedMonth: String,
+    selectedYear: Int
+) {
+    val ledger by viewModel.studentLedger.collectAsState()
+    val dashboardData by viewModel.dashboardData.collectAsState()
+    
+    // Robust User identification for Student role
+    val myUserIdRaw = dashboardData?.stats?.get("id") ?: dashboardData?.stats?.get("student_id") ?: dashboardData?.user_id
+    val myUserId = when(myUserIdRaw) {
+        is Int -> myUserIdRaw
+        is Double -> myUserIdRaw.toInt()
+        is String -> myUserIdRaw.toDoubleOrNull()?.toInt() ?: 0
+        else -> 0
+    }
+    
+    // Find my record from ledger
+    val recordsArray = ledger?.optJSONArray("students") ?: (ledger?.optJSONArray("records") ?: (ledger?.optJSONArray("data") ?: (ledger?.optJSONObject("data")?.optJSONArray("students"))))
+    var myRecord: org.json.JSONObject? = null
+    
+    // Check if a single student profile is already loaded in ViewModel (backup)
+    val myProfile by viewModel.studentProfile.collectAsState()
+    val isMyProfile = (myProfile?.basic?.get("id") ?: myProfile?.basic?.get("student_id"))?.toString()?.toDoubleOrNull()?.toInt() == myUserId
+
+    if (recordsArray != null) {
+        val myName = dashboardData?.full_name?.trim() ?: ""
+        val myCno = (dashboardData?.stats?.get("class_no") ?: dashboardData?.stats?.get("roll_no"))?.toString()?.trim() ?: ""
+        
+        // If it's a student login and ledger has only one record, it's likely them
+        if (recordsArray.length() == 1) {
+             myRecord = recordsArray.optJSONObject(0)
+        } else {
+            for (i in 0 until recordsArray.length()) {
+                val record = recordsArray.optJSONObject(i)
+                val ridRaw = record?.opt("student_id") ?: (record?.opt("id") ?: (record?.opt("user_id") ?: (record?.opt("rid") ?: record?.opt("sid"))))
+                val rid = when(ridRaw) {
+                    is Double -> ridRaw.toInt()
+                    is Int -> ridRaw
+                    is String -> ridRaw.toDoubleOrNull()?.toInt() ?: 0
+                    else -> 0
+                }
+                
+                val recordName = record?.optString("name")?.trim() ?: record?.optString("full_name")?.trim() ?: ""
+                val recordCno = record?.optString("class_no")?.trim() ?: record?.optString("roll_no")?.trim() ?: ""
+                
+                // Aggressive check: ID matches OR (Name + ClassNo matches)
+                if ((rid != 0 && rid == myUserId) || (myCno.isNotEmpty() && recordCno == myCno && recordName.equals(myName, ignoreCase = true))) {
+                    myRecord = record
+                    break
+                }
+                
+                // Fallback: If names match (case insensitive) and myRecord is still null
+                if (myName.isNotEmpty() && recordName.equals(myName, ignoreCase = true) && myRecord == null) {
+                    myRecord = record
+                }
+            }
+        }
+    }
+ 
+    val monthsList = listOf("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
+    val mIdx = monthsList.indexOf(selectedMonth).coerceAtLeast(0)
+    
+    val calForGrid = java.util.Calendar.getInstance()
+    calForGrid.set(selectedYear, mIdx, 1)
+    val daysInMonth = calForGrid.getActualMaximum(java.util.Calendar.DAY_OF_MONTH)
+    val firstDayOfWeek = calForGrid.get(java.util.Calendar.DAY_OF_WEEK) - 1 // 0=Sun
+    
+    // FINAL FALLBACK: If ledger matching failed, but profile is loaded for this user, use profile stats
+    if (myRecord == null && isMyProfile && myProfile?.stats != null) {
+        myRecord = org.json.JSONObject(myProfile?.stats as Map<*, *>)
+    }
+
+    val stats = myRecord?.optJSONObject("stats") ?: (if(myRecord?.has("month") == true) myRecord else null)
+    val attendance = myRecord?.optJSONObject("attendance") ?: (if(myRecord?.has("calendar") == true) myRecord?.optJSONObject("calendar") else null)
+    val holidaysArray = ledger?.optJSONArray("holidays")
+
+    // Robust Stats retrieval
+    val stats_p = (stats?.optString("tm_att") ?: (stats?.optString("p") ?: (stats?.optString("present") ?: stats?.optString("present_monthly"))))
+    val stats_a = (stats?.optString("a") ?: (stats?.optString("absent") ?: stats?.optString("absent_monthly")))
+    val stats_l = (stats?.optString("l") ?: (stats?.optString("leave") ?: stats?.optString("leave_monthly")))
+    
+    // Manual calculation fallback if stats are missing but attendance exists
+    val (calcP, calcA, calcL) = attendance?.let { att ->
+        var p = 0; var a = 0; var l = 0
+        for (d in 1..daysInMonth) {
+            val s = att.optString(d.toString(), "")
+            when {
+                s == "P" || s == "Present" -> p++
+                s == "A" || s == "Absent" -> a++
+                s == "L" || s == "Leave" -> l++
+            }
+        }
+        Triple(p.toString(), a.toString(), l.toString())
+    } ?: Triple("0", "0", "0")
+
+    val pCount = if (stats_p == null || stats_p == "0" || stats_p == "") calcP else stats_p
+    val aCount = if (stats_a == null || stats_a == "0" || stats_a == "") calcA else stats_a
+    val lCount = if (stats_l == null || stats_l == "0" || stats_l == "") calcL else stats_l
+    
+    val ypCount = (stats?.optString("total_att") ?: (stats?.optString("y_p"))) ?: "0"
+    val yaCount = stats?.optString("y_a") ?: "0"
+    val ylCount = stats?.optString("y_l") ?: "0"
+    
+    val allTimeDays = (stats?.optString("total_days") ?: (stats?.optString("tm_days"))) ?: "0"
+
+    val weekDays = listOf("SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT")
+    
+    // Standardize month display
+    val displayMonth = selectedMonth.uppercase()
+    val displayYear = selectedYear
+    
+    Column(
+        Modifier.fillMaxWidth()
+    ) {
+        // Calendar Grid Card
+        Card(
+            colors = CardDefaults.cardColors(containerColor = cardColor.copy(0.4f)),
+            shape = RoundedCornerShape(24.dp),
+            border = BorderStroke(1.dp, Color.White.copy(0.05f)),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp)
+        ) {
+            Column(Modifier.padding(16.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    weekDays.forEach { day ->
+                        Text(day, modifier = Modifier.weight(1f), textAlign = TextAlign.Center, color = labelColor, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                    }
+                }
+                
+                Spacer(Modifier.height(16.dp))
+                
+                val rows = (daysInMonth + firstDayOfWeek + 6) / 7
+                for (r in 0 until rows) {
+                    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        for (c in 0 until 7) {
+                            val dayNum = r * 7 + c - firstDayOfWeek + 1
+                            if (dayNum in 1..daysInMonth) {
+                                val statusRaw = attendance?.optString(dayNum.toString()) ?: ""
+                                
+                                // Check if this day is a holiday from API
+                                var holidayName = ""
+                                if (holidaysArray != null) {
+                                    for (hIdx in 0 until holidaysArray.length()) {
+                                        val hObj = holidaysArray.optJSONObject(hIdx)
+                                        val fDate = hObj.optString("from_date")
+                                        val tDate = hObj.optString("to_date")
+                                        try {
+                                            val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+                                            val current = sdf.parse(String.format("%04d-%02d-%02d", selectedYear, mIdx + 1, dayNum))
+                                            val start = sdf.parse(fDate)
+                                            val end = sdf.parse(tDate)
+                                            if (current != null && !current.before(start) && !current.after(end)) {
+                                                holidayName = hObj.optString("name")
+                                                break
+                                            }
+                                        } catch (e: Exception) {}
+                                    }
+                                }
+
+                                val isSunday = c == 0
+                                val isFriday = c == 5
+                                
+                                val (bg, contentColor, symbol) = when {
+                                    holidayName.isNotEmpty() || statusRaw == "H" || statusRaw == "PH" || statusRaw == "Holiday" -> 
+                                        Triple(Color(0xFFEAB308).copy(0.2f), Color(0xFFEAB308), "H")
+                                    statusRaw == "P" || statusRaw == "Present" -> 
+                                        Triple(Color(0xFF10B981).copy(0.15f), Color(0xFF10B981), "P")
+                                    statusRaw == "A" || statusRaw == "Absent" -> 
+                                        Triple(Color(0xFFEF4444).copy(0.15f), Color(0xFFEF4444), "A")
+                                    statusRaw == "L" || statusRaw == "Leave" -> 
+                                        Triple(Color(0xFF3B82F6).copy(0.15f), Color(0xFF3B82F6), "L")
+                                    isSunday -> Triple(Color(0xFF7F1D1D).copy(0.15f), Color(0xFFFCA5A5), "") // Reddish for Sunday
+                                    isFriday -> Triple(Color(0xFF065F46).copy(0.15f), Color(0xFF6EE7B7), "") // Greenish for Friday
+                                    else -> Triple(Color.White.copy(0.03f), labelColor.copy(0.6f), "")
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .aspectRatio(1f)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(bg)
+                                        .border(0.5.dp, contentColor.copy(0.1f), RoundedCornerShape(10.dp)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(dayNum.toString(), color = contentColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        if (symbol.isNotEmpty()) {
+                                            Text(symbol, color = contentColor.copy(0.7f), fontSize = 7.sp, fontWeight = FontWeight.Black)
+                                        }
+                                    }
+                                }
+                            } else {
+                                Spacer(modifier = Modifier.weight(1f).aspectRatio(1f))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        Spacer(Modifier.height(24.dp))
+        Text("MONTHLY STATS", color = labelColor, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+        Spacer(Modifier.height(12.dp))
+        
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            MiniStatCard("PRESENT", pCount, Color(0xFF10B981), Modifier.weight(1f), isDark, cardColor)
+            MiniStatCard("ABSENT", aCount, Color(0xFFF43F5E), Modifier.weight(1f), isDark, cardColor)
+            MiniStatCard("LEAVE", lCount, Color(0xFFF59E0B), Modifier.weight(1f), isDark, cardColor)
+        }
+
+        Spacer(Modifier.height(32.dp))
+        Text("ACADEMIC YEAR", color = labelColor, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+        Spacer(Modifier.height(12.dp))
+        
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            MiniStatCard("PRESENT", ypCount, Color(0xFF10B981), Modifier.weight(1f), isDark, cardColor)
+            MiniStatCard("ABSENT", yaCount, Color(0xFFF43F5E), Modifier.weight(1f), isDark, cardColor)
+            MiniStatCard("LEAVE", ylCount, Color(0xFFF59E0B), Modifier.weight(1f), isDark, cardColor)
+        }
+
+        Spacer(Modifier.height(24.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth().height(80.dp),
+            colors = CardDefaults.cardColors(containerColor = cardColor.copy(0.4f)),
+            shape = RoundedCornerShape(20.dp),
+            border = BorderStroke(1.dp, Color.White.copy(0.05f))
+        ) {
+            Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.Center) {
+                Text("All Time Days", color = labelColor, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                Text(allTimeDays, color = Color(0xFF3B82F6), fontSize = 24.sp, fontWeight = FontWeight.Black)
+            }
+        }
+    }
+}
+
+@Composable
+fun MiniStatCard(label: String, value: String, color: Color, modifier: Modifier, isDark: Boolean, cardColor: Color) {
+    Card(
+        modifier = modifier.height(110.dp),
+        colors = CardDefaults.cardColors(containerColor = cardColor.copy(0.4f)),
+        shape = RoundedCornerShape(24.dp),
+        border = BorderStroke(1.dp, Color.White.copy(0.05f))
+    ) {
+        Column(Modifier.fillMaxSize().padding(14.dp), verticalArrangement = Arrangement.Center) {
+            Text(label, color = color.copy(0.7f), fontSize = 8.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 0.5.sp)
+            Spacer(Modifier.height(6.dp))
+            Text(value, color = color, fontSize = 26.sp, fontWeight = FontWeight.Black)
+        }
+    }
+}
+

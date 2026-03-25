@@ -2,8 +2,10 @@ package com.example.wantuch.ui.components
 
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,8 +22,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.AddCard
 import androidx.compose.material.icons.filled.AdminPanelSettings
@@ -58,8 +62,15 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -81,6 +92,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
 import com.example.wantuch.domain.model.StaffProfileResponse
 import com.example.wantuch.ui.viewmodel.WantuchViewModel
@@ -95,10 +107,13 @@ fun StaffManagementScreen(
     onOpenProfile: (Int) -> Unit
 ) {
     val staffData by viewModel.staffData.collectAsState()
+    val dashboardData by viewModel.dashboardData.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val isDark by viewModel.isDarkTheme.collectAsState()
+    val context = LocalContext.current
 
     var showActions by remember { mutableStateOf(false) }
+    var showAddModal by remember { mutableStateOf(false) }
     var selectedStaff by remember { mutableStateOf<com.example.wantuch.domain.model.StaffMember?>(null) }
     var subModalType by remember { mutableStateOf<String?>(null) } // "attendance" or "salary"
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -126,9 +141,28 @@ fun StaffManagementScreen(
                 IconButton(onClick = { viewModel.toggleTheme() }, Modifier.background(if (isDark) Color.White.copy(0.05f) else Color.Black.copy(0.05f), RoundedCornerShape(12.dp))) {
                     Icon(if(isDark) Icons.Default.LightMode else Icons.Default.DarkMode, null, tint = textColor)
                 }
+                Spacer(Modifier.width(8.dp))
+                IconButton(onClick = { showAddModal = true }, Modifier.background(Color(0xFF3B82F6), RoundedCornerShape(12.dp))) {
+                    Icon(Icons.Default.Add, null, tint = Color.White)
+                }
             }
 
             if (isLoading && staffData == null) {
+                // Show placeholder stats from dashboard while loading
+                val dashTotal = dashboardData?.stats?.get("staff")?.toString()?.toDoubleOrNull()?.toInt()?.toString() ?: "0"
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 20.dp)
+                        .background(cardColor, RoundedCornerShape(12.dp))
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    StaffPillStat("TOTAL", dashTotal, Color(0xFF3B82F6), isDark)
+                    StaffPillStat("PRESENT", "...", Color(0xFF10B981), isDark)
+                    StaffPillStat("ABSENT", "...", Color(0xFFEF4444), isDark)
+                    StaffPillStat("LEAVE", "...", Color(0xFF8B5CF6), isDark)
+                }
+                Spacer(Modifier.height(20.dp))
                 Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator(color = Color(0xFF3B82F6)) }
             } else {
                 staffData?.let { data ->
@@ -187,6 +221,14 @@ fun StaffManagementScreen(
                     }
                 }
             }
+        }
+        
+        if (showAddModal) {
+            EnrollStaffModal(
+                viewModel = viewModel,
+                isDark = isDark,
+                onDismiss = { showAddModal = false }
+            )
         }
     }
 }
@@ -323,21 +365,21 @@ fun StaffProfileScreen(
     }
 
     val tabs = listOf(
-        Triple("PROFILE", Icons.Default.AccountCircle, Color(0xFF3B82F6)),
+        Triple("PROFILE", Icons.Default.Cloud, Color(0xFF06B6D4)),
         Triple("ATTEN", Icons.Default.DateRange, Color(0xFF10B981)),
         Triple("SALARY", Icons.Default.Payments, Color(0xFFF59E0B)),
+        Triple("HOME WORKS", Icons.Default.MenuBook, Color(0xFF8B5CF6)),
+        Triple("SYLLABUS", Icons.Default.List, Color(0xFFEC4899)),
         Triple("ROLE", Icons.Default.Badge, Color(0xFF6366F1)),
-        Triple("DETAILS", Icons.Default.Description, Color(0xFFEC4899)),
-        Triple("CLOUD", Icons.Default.Cloud, Color(0xFF06B6D4)),
         Triple("BIO", Icons.Default.Fingerprint, Color(0xFF00F3FF)),
-        Triple("RESIGN", Icons.Default.ExitToApp, Color(0xFFEF4444))
+        Triple("ACCOUNT", Icons.Default.PowerSettingsNew, Color(0xFFEF4444))
     )
 
     val bgColor = if (isDark) Color(0xFF0F172A) else Color(0xFFF1F5F9)
     val cardColor = if (isDark) Color(0xFF1E293B) else Color.White
     val textColor = if (isDark) Color.White else Color(0xFF1E293B)
 
-    Box(Modifier.fillMaxSize().background(bgColor)) {
+    Box(Modifier.fillMaxSize().background(bgColor).clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { }) {
         Column(Modifier.fillMaxSize()) {
             // Header Section
             Box(Modifier.fillMaxWidth().height(220.dp)) {
@@ -350,9 +392,6 @@ fun StaffProfileScreen(
                             Icon(Icons.Default.ArrowBack, null, tint = Color.White)
                         }
                         Spacer(Modifier.weight(1f))
-                        IconButton(onClick = { }, Modifier.background(Color.Black.copy(0.1f), CircleShape)) {
-                            Icon(Icons.Default.MoreVert, null, tint = Color.White)
-                        }
                     }
 
                     Spacer(Modifier.height(15.dp))
@@ -406,12 +445,7 @@ fun StaffProfileScreen(
             } else {
                 Box(Modifier.weight(1f).padding(15.dp)) {
                     when (selectedTab) {
-                        0 -> StudentIdentityForm(profile?.basic ?: emptyMap(), isDark) { payload ->
-                            viewModel.updateStaffProfile(staffId, payload,
-                                onSuccess = { Toast.makeText(localContext, it, Toast.LENGTH_SHORT).show() },
-                                onError = { Toast.makeText(localContext, it, Toast.LENGTH_SHORT).show() }
-                            )
-                        }
+                        0 -> StaffCloudTab(profile ?: StaffProfileResponse(status="loading"), isDark, viewModel, staffId)
                         1 -> StaffAttendanceTab(profile?.stats ?: emptyMap(), isDark) { status, date ->
                             viewModel.markStaffAttendance(staffId, status, date) {
                                 Toast.makeText(localContext, "Attendance Marked!", Toast.LENGTH_SHORT).show()
@@ -423,16 +457,27 @@ fun StaffProfileScreen(
                                 onError = { Toast.makeText(localContext, it, Toast.LENGTH_SHORT).show() }
                             )
                         }
-                        3 -> StaffRoleTab(profile?.basic ?: emptyMap(), isDark)
-                        4 -> StaffDetailsTab(profile?.basic ?: emptyMap(), isDark)
-                        5 -> StaffCloudTab(profile ?: StaffProfileResponse(status="loading"), isDark, viewModel, staffId)
+                        3 -> StaffHomeworkTab(profile?.stats?.get("homeworks") as? Map<String, Any?> ?: emptyMap(), isDark)
+                        4 -> StaffSyllabusTab(profile?.stats?.get("syllabus") as? Map<String, Any?> ?: emptyMap(), isDark)
+                        5 -> StaffRoleTab(profile?.basic ?: emptyMap(), isDark)
                         6 -> StudentBiometricTab(profile?.basic ?: emptyMap(), isDark)
-                        7 -> StaffResignTab(profile?.basic ?: emptyMap(), isDark) { status ->
-                            viewModel.updateStaffStatus(staffId, status,
-                                onSuccess = { Toast.makeText(localContext, it, Toast.LENGTH_SHORT).show() },
-                                onError = { Toast.makeText(localContext, it, Toast.LENGTH_SHORT).show() }
-                            )
-                        }
+                        7 -> StaffStatusTab(profile?.basic ?: emptyMap(), isDark,
+                            onUpdateStatus = { status ->
+                                viewModel.updateStaffStatus(staffId, status,
+                                    onSuccess = { Toast.makeText(localContext, it, Toast.LENGTH_SHORT).show() },
+                                    onError = { Toast.makeText(localContext, it, Toast.LENGTH_SHORT).show() }
+                                )
+                            },
+                            onDelete = {
+                                viewModel.deleteStaff(staffId,
+                                    onSuccess = { 
+                                        Toast.makeText(localContext, it, Toast.LENGTH_SHORT).show()
+                                        onBack() 
+                                    },
+                                    onError = { Toast.makeText(localContext, it, Toast.LENGTH_SHORT).show() }
+                                )
+                            }
+                        )
                     }
                 }
             }
@@ -598,38 +643,6 @@ fun StaffRoleTab(basic: Map<String, Any?>, isDark: Boolean) {
 }
 
 @Composable
-fun StaffDetailsTab(basic: Map<String, Any?>, isDark: Boolean) {
-    val cardColor = if (isDark) Color(0xFF1E293B) else Color.White
-    val textColor = if (isDark) Color.White else Color(0xFF1E293B)
-
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(15.dp)) {
-        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(cardColor)) {
-            Column(Modifier.padding(20.dp)) {
-                Text("PERSONAL & HEALTH", color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.Black)
-                Spacer(Modifier.height(15.dp))
-                DetailItem("Full Name", basic["full_name"]?.toString() ?: "N/A", textColor)
-                DetailItem("Father Name", basic["father_name"]?.toString() ?: "N/A", textColor)
-                DetailItem("Gender", basic["gender"]?.toString() ?: "N/A", textColor)
-                DetailItem("DOB", basic["dob"]?.toString() ?: "N/A", textColor)
-                DetailItem("CNIC", basic["cnic"]?.toString() ?: "N/A", textColor)
-                DetailItem("Tribe", basic["tribe"]?.toString() ?: "N/A", textColor)
-                DetailItem("Address", basic["address"]?.toString() ?: "N/A", textColor)
-            }
-        }
-        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(cardColor)) {
-            Column(Modifier.padding(20.dp)) {
-                Text("TRANSPORT & SOCIAL", color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.Black)
-                Spacer(Modifier.height(15.dp))
-                DetailItem("WhatsApp", basic["whatsapp_no"]?.toString() ?: "N/A", textColor)
-                DetailItem("Transport", basic["is_transport_active"]?.toString() ?: "No", textColor)
-                DetailItem("Facebook", basic["facebook_link"]?.toString() ?: "N/A", textColor)
-            }
-        }
-        Spacer(Modifier.height(100.dp))
-    }
-}
-
-@Composable
 fun StaffCloudTab(data: StaffProfileResponse, isDark: Boolean, viewModel: WantuchViewModel, staffId: Int) {
     var activeSubSection by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
@@ -641,6 +654,12 @@ fun StaffCloudTab(data: StaffProfileResponse, isDark: Boolean, viewModel: Wantuc
     if (activeSubSection != null) {
         Box(Modifier.fillMaxSize()) {
             when (activeSubSection) {
+                "Identity" -> StudentIdentityForm(data.basic ?: emptyMap(), isDark, isStaff = true) { payload ->
+                    viewModel.updateStaffProfile(staffId, payload,
+                        onSuccess = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() },
+                        onError = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
+                    )
+                }
                 "Contacts" -> ProfileContactsList(data, isDark,
                     onSave = { fields -> viewModel.saveSectionNode("CONTACT", staffId, fields, {}, { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }) },
                     onDelete = { id -> viewModel.deleteSectionNode("CONTACT", staffId, id, {}, { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }) }
@@ -665,46 +684,304 @@ fun StaffCloudTab(data: StaffProfileResponse, isDark: Boolean, viewModel: Wantuc
 }
 
 @Composable
-fun StaffResignTab(basic: Map<String, Any?>, isDark: Boolean, onAction: (String) -> Unit) {
+fun StaffStatusTab(
+    basic: Map<String, Any?>, 
+    isDark: Boolean, 
+    onUpdateStatus: (String) -> Unit,
+    onDelete: () -> Unit
+) {
     val cardColor = if (isDark) Color(0xFF1E293B) else Color.White
     val textColor = if (isDark) Color.White else Color(0xFF1E293B)
-
     val currentStatus = basic["status"]?.toString() ?: "active"
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
-    Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(cardColor)) {
-            Column(Modifier.padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(Modifier.size(80.dp).background(Color(0xFFEF4444).copy(0.1f), CircleShape), Alignment.Center) {
-                    Icon(Icons.Default.ExitToApp, null, tint = Color(0xFFEF4444), modifier = Modifier.size(40.dp))
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Delete Staff Record") },
+            text = { Text("Are you sure you want to permanently delete this staff member? This action cannot be undone.") },
+            confirmButton = {
+                TextButton(onClick = { onDelete(); showDeleteDialog = false }, colors = ButtonDefaults.textButtonColors(contentColor = Color.Red)) {
+                    Text("DELETE", fontWeight = FontWeight.Bold)
                 }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("CANCEL")
+                }
+            },
+            containerColor = cardColor,
+            titleContentColor = textColor,
+            textContentColor = textColor.copy(0.7f)
+        )
+    }
+
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
+        // Deactivate Section
+        Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 15.dp, vertical = 10.dp), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(cardColor)) {
+            Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(Modifier.size(70.dp).background(Color(0xFFF59E0B).copy(0.1f), CircleShape), Alignment.Center) {
+                    Icon(Icons.Default.PowerSettingsNew, null, tint = Color(0xFFF59E0B), modifier = Modifier.size(35.dp))
+                }
+                Spacer(Modifier.height(16.dp))
+                Text(if(currentStatus == "active") "DEACTIVATE STAFF" else "RE-ACTIVATE STAFF", color = textColor, fontSize = 20.sp, fontWeight = FontWeight.Black)
+                Text(if(currentStatus == "active") "Temporarily disable this staff account. They won't be able to login." else "Restore this staff member to active status.",
+                    color = Color.Gray, fontSize = 11.sp, textAlign = TextAlign.Center)
+
                 Spacer(Modifier.height(24.dp))
-                Text("STAFF RESIGNATION", color = textColor, fontSize = 22.sp, fontWeight = FontWeight.Black)
-                Text("Process official resignation for this faculty member. Once resigned, the account will be deactivated.",
-                    color = Color.Gray, fontSize = 12.sp, textAlign = TextAlign.Center)
 
-                Spacer(Modifier.height(30.dp))
+                Button(
+                    onClick = { onUpdateStatus(if(currentStatus == "active") "deactivated" else "active") },
+                    modifier = Modifier.fillMaxWidth().height(55.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(if(currentStatus == "active") Color(0xFFF59E0B) else Color(0xFF10B981))
+                ) {
+                    Text(if(currentStatus == "active") "DEACTIVATE NOW" else "ACTIVATE NOW", color = Color.White, fontWeight = FontWeight.Black)
+                }
+            }
+        }
 
-                if (currentStatus == "active") {
-                    Button(
-                        onClick = { onAction("resigned") },
-                        modifier = Modifier.fillMaxWidth().height(55.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(Color(0xFFEF4444))
-                    ) {
-                        Text("PROCESS RESIGNATION", color = Color.White, fontWeight = FontWeight.Black)
-                    }
-                } else {
-                    Button(
-                        onClick = { onAction("active") },
-                        modifier = Modifier.fillMaxWidth().height(55.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(Color(0xFF10B981))
-                    ) {
-                        Text("RESTORE TO ACTIVE", color = Color.White, fontWeight = FontWeight.Black)
+        // Delete Section
+        Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 15.dp, vertical = 10.dp), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(cardColor)) {
+            Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(Modifier.size(70.dp).background(Color(0xFFEF4444).copy(0.1f), CircleShape), Alignment.Center) {
+                    Icon(Icons.Default.Delete, null, tint = Color(0xFFEF4444), modifier = Modifier.size(35.dp))
+                }
+                Spacer(Modifier.height(16.dp))
+                Text("DELETE STAFF", color = textColor, fontSize = 20.sp, fontWeight = FontWeight.Black)
+                Text("Permanently remove this staff member from the institutional database. This is irreversible.",
+                    color = Color.Gray, fontSize = 11.sp, textAlign = TextAlign.Center)
+
+                Spacer(Modifier.height(24.dp))
+
+                Button(
+                    onClick = { showDeleteDialog = true },
+                    modifier = Modifier.fillMaxWidth().height(55.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(Color(0xFFEF4444))
+                ) {
+                    Text("DELETE PERMANENTLY", color = Color.White, fontWeight = FontWeight.Black)
+                }
+            }
+        }
+        
+        Spacer(Modifier.height(100.dp))
+    }
+}
+
+@Composable
+fun StaffHomeworkTab(stats: Map<String, Any?>, isDark: Boolean) {
+    val cardColor = if (isDark) Color(0xFF1E293B) else Color.White
+    val textColor = if (isDark) Color.White else Color(0xFF1E293B)
+    val list = stats["list"] as? List<Map<String, Any?>> ?: emptyList()
+
+    Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(15.dp)) {
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(cardColor)) {
+            Column(Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("ASSIGNED HOMEWORKS", color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                Text(stats["total"]?.toString() ?: "0", color = Color(0xFF8B5CF6), fontSize = 48.sp, fontWeight = FontWeight.Black)
+                Text("Total Works Created", color = Color.Gray, fontSize = 11.sp)
+            }
+        }
+
+        Text("RECENT ASSIGNMENTS", color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(start = 5.dp))
+
+        if (list.isEmpty()) {
+            Box(Modifier.fillMaxWidth().padding(40.dp), Alignment.Center) {
+                Text("No recent homeworks found.", color = Color.Gray, fontSize = 12.sp)
+            }
+        } else {
+            list.forEach { hw ->
+                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(cardColor)) {
+                    Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(hw["title"]?.toString() ?: "Untitled", color = textColor, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text("${hw["cname"]} ${hw["sname"]} • ${hw["subname"]}", color = Color.Gray, fontSize = 11.sp)
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(hw["stats"]?.toString() ?: "0/0", color = Color(0xFF8B5CF6), fontSize = 14.sp, fontWeight = FontWeight.Black)
+                            Text("SUBMISSIONS", color = Color.Gray, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
         }
         Spacer(Modifier.height(100.dp))
     }
+}
+
+@Composable
+fun StaffSyllabusTab(stats: Map<String, Any?>, isDark: Boolean) {
+    val cardColor = if (isDark) Color(0xFF1E293B) else Color.White
+    val textColor = if (isDark) Color.White else Color(0xFF1E293B)
+    val list = stats["list"] as? List<Map<String, Any?>> ?: emptyList()
+
+    Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(15.dp)) {
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(cardColor)) {
+            Column(Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("COURSE PROGRESS", color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                Text("${stats["covered"] ?: 0} / ${stats["total_topics"] ?: 0}", color = Color(0xFFEC4899), fontSize = 42.sp, fontWeight = FontWeight.Black)
+                Text("Topics Covered", color = Color.Gray, fontSize = 11.sp)
+            }
+        }
+
+        Text("SYLLABUS TOPICS", color = Color.Gray, fontSize = 10.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(start = 5.dp))
+
+        if (list.isEmpty()) {
+            Box(Modifier.fillMaxWidth().padding(40.dp), Alignment.Center) {
+                Text("No syllabus records found.", color = Color.Gray, fontSize = 12.sp)
+            }
+        } else {
+            list.forEach { item ->
+                val status = item["status"]?.toString() ?: "Pending"
+                val statusColor = when(status) {
+                    "Completed" -> Color(0xFF10B981)
+                    "In Progress" -> Color(0xFFF59E0B)
+                    else -> Color(0xFFEF4444)
+                }
+                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(cardColor)) {
+                    Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(item["topic"]?.toString() ?: "Untitled", color = textColor, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text(item["subject"]?.toString() ?: "No Subject", color = Color.Gray, fontSize = 11.sp)
+                        }
+                        Box(Modifier.background(statusColor.copy(0.1f), RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 5.dp)) {
+                            Text(status.uppercase(), color = statusColor, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                        }
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(100.dp))
+    }
+}
+@Composable
+fun EnrollStaffModal(
+    viewModel: com.example.wantuch.ui.viewmodel.WantuchViewModel,
+    isDark: Boolean,
+    onDismiss: () -> Unit
+) {
+    var selectedTab by remember { mutableStateOf(0) } // 0: Quick List, 1: Manual
+    val textColor = if (isDark) Color.White else Color(0xFF1E293B)
+    val cardColor = if (isDark) Color(0xFF1E293B) else Color.White
+    val context = LocalContext.current
+
+    var selectedRole by remember { mutableStateOf("teacher") }
+    var selectedGender by remember { mutableStateOf("Male") }
+    var selectedType by remember { mutableStateOf("teaching") } // teaching, non-teaching
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = cardColor,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+        modifier = Modifier.fillMaxWidth(0.95f),
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Badge, null, tint = Color(0xFF3B82F6), modifier = Modifier.size(24.dp))
+                Spacer(Modifier.width(10.dp))
+                Text("ADD STAFF MEMBERS", color = textColor, fontSize = 20.sp, fontWeight = FontWeight.Black)
+            }
+        },
+        text = {
+            Column(Modifier.fillMaxWidth()) {
+                // Role & Gender Selection
+                // Type Selection (Full Width)
+                Box(Modifier.fillMaxWidth()) {
+                    var expanded by remember { mutableStateOf(false) }
+                    OutlinedButton(
+                        onClick = { expanded = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(1.dp, Color.Gray.copy(0.3f))
+                    ) {
+                        Text("STAFF TYPE: ${selectedType.uppercase()}", color = textColor, fontSize = 12.sp)
+                    }
+                    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                        listOf("teaching", "non-teaching").forEach { type ->
+                            DropdownMenuItem(
+                                text = { Text(type.uppercase()) },
+                                onClick = { 
+                                    selectedType = type
+                                    selectedRole = if(type == "teaching") "teacher" else "staff"
+                                    expanded = false 
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(15.dp))
+
+                // Tab Switcher
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(Color.Black.copy(0.05f))) {
+                    arrayOf("QUICK LIST", "MANUAL ENTRY").forEachIndexed { index, title ->
+                        Box(
+                            Modifier.weight(1f).height(40.dp).clickable { selectedTab = index }
+                                .background(if(selectedTab == index) Color(0xFF3B82F6) else Color.Transparent),
+                            Alignment.Center
+                        ) {
+                            Text(title, color = if(selectedTab == index) Color.White else Color.Gray, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(20.dp))
+
+                if (selectedTab == 0) {
+                    var namesText by remember { mutableStateOf("") }
+                    Column {
+                        Text("Paste names (one per line):", color = Color.Gray, fontSize = 11.sp, modifier = Modifier.padding(vertical = 8.dp))
+                        OutlinedTextField(
+                            value = namesText,
+                            onValueChange = { namesText = it },
+                            modifier = Modifier.fillMaxWidth().height(150.dp),
+                            placeholder = { Text("1. Ali Khan\n2. Sarah Malik", fontSize = 12.sp, color = Color.Gray) },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = textColor,
+                                unfocusedTextColor = textColor,
+                                focusedBorderColor = Color(0xFF3B82F6)
+                            )
+                        )
+                        Spacer(Modifier.height(20.dp))
+                        Button(
+                            onClick = {
+                                if (namesText.isBlank()) {
+                                    Toast.makeText(context, "Please enter names", Toast.LENGTH_SHORT).show()
+                                    return@Button
+                                }
+                                viewModel.bulkSaveStaff(namesText, selectedRole, selectedGender, selectedType,
+                                onSuccess = { 
+                                    Toast.makeText(context, "records successfuly saved", Toast.LENGTH_LONG).show()
+                                    onDismiss() 
+                                },
+                                    onError = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth().height(50.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6))
+                        ) {
+                            Text("ADD STAFF MEMBERS", fontWeight = FontWeight.Black)
+                        }
+                    }
+                } else {
+                    StudentIdentityForm(emptyMap(), isDark, isStaff = true) { fields ->
+                        val payload = fields.toMutableMap()
+                        payload["role"] = selectedRole
+                        payload["gender"] = selectedGender
+                        payload["user_type"] = selectedType
+                        
+                        viewModel.saveStaff(payload,
+                            onSuccess = { 
+                                Toast.makeText(context, "records successfuly saved", Toast.LENGTH_LONG).show()
+                                onDismiss()
+                            },
+                            onError = { Toast.makeText(context, it, Toast.LENGTH_SHORT).show() }
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {}
+    )
 }

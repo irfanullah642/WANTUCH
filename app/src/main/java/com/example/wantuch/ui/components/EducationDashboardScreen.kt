@@ -3,29 +3,13 @@ package com.example.wantuch.ui.components
 import android.app.Activity
 import android.widget.Toast
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Logout
-import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.Sync
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Text
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
@@ -63,7 +47,16 @@ fun EducationDashboardScreen(
     onOpenHomework: () -> Unit = {},
     onOpenPromotion: () -> Unit = {},
     onOpenDatabase: () -> Unit = {},
-    onOpenStudyPlan: () -> Unit = {}
+    onOpenStudyPlan: () -> Unit = {},
+    onOpenNotices: () -> Unit = {},
+    onOpenClasses: () -> Unit = {},
+    onOpenSubjects: () -> Unit = {},
+    onOpenExams: () -> Unit = {},
+    onOpenTimetable: () -> Unit = {},
+    onOpenAdmWdl: () -> Unit = {},
+    onOpenSmartIDCard: () -> Unit = {},
+    onOpenSubstitution: () -> Unit = {},
+    onLogout: () -> Unit = {}
 ) {
     val data by viewModel.dashboardData.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -114,7 +107,12 @@ fun EducationDashboardScreen(
                             val context = LocalContext.current
                             HeaderActionIcon(Icons.Default.ArrowBack, isDark, onBack)
                             HeaderActionIcon(Icons.Default.Palette, isDark) { viewModel.toggleTheme() }
-                            HeaderActionIcon(Icons.Default.Logout, isDark, onBack)
+                            
+                            // Manual red logout button to avoid breaking global HeaderActionIcon
+                            IconButton(onClick = onLogout, modifier = Modifier.size(32.dp).background(if (isDark) Color.White.copy(0.1f) else Color.Black.copy(0.05f), RoundedCornerShape(8.dp))) {
+                                Icon(Icons.Default.PowerSettingsNew, null, tint = Color(0xFFEF4444), modifier = Modifier.size(18.dp))
+                            }
+
                             HeaderActionIcon(Icons.Default.Sync, isDark) {
                                 Toast.makeText(context, "Syncing Data...", Toast.LENGTH_SHORT).show()
                                 viewModel.refreshDashboard()
@@ -133,34 +131,55 @@ fun EducationDashboardScreen(
                         val role = dash.role?.lowercase() ?: ""
                         val isHighAdmin = role == "admin" || role == "super_admin" || role == "developer"
 
+                        val isStudent = role == "student"
+
                         Row(
                             Modifier.fillMaxWidth().padding(horizontal = 10.dp),
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            if (isHighAdmin) {
-                                val rawStaff = dash.stats?.get("staff")?.toString() ?: "0"
-                                val staffCountInt = rawStaff.toDoubleOrNull()?.toInt() ?: 0
-                                val displayStaff = if (staffCountInt > 0) (staffCountInt - 1).toString() else "0"
-
-                                SuspendedStatCard("STAFF", displayStaff, Color(0xFF6366F1), isDark, Modifier.weight(1f)) {
-                                    onOpenStaff()
+                            if (isStudent) {
+                                // --- STUDENT DASHBOARD CARDS (Matches Web) ---
+                                val attPer = dash.stats?.get("attendance_per")?.toString() ?: (if(dash.is_holiday) "HOLIDAY" else "PRESENT")
+                                SuspendedStatCard("ATTENDANCE", attPer, Color(0xFF10B981), isDark, Modifier.weight(1f)) {
+                                    onOpenAttendance()
                                 }
-                            }
-                            SuspendedStatCard("STUDENTS", dash.stats?.get("students")?.toString() ?: "0", Color(0xFF3B82F6), isDark, Modifier.weight(1f)) {
-                                onOpenStudents()
-                            }
-
-
-                            if (isHighAdmin) {
-                                val feeToday = dash.stats?.get("fee_today")?.toString() ?: "0"
-                                SuspendedStatCard("FEE TODAY", "PKR $feeToday", Color(0xFF10B981), isDark, Modifier.weight(1f)) {
+                                
+                                val feeStatus = dash.stats?.get("fee_status")?.toString() ?: "N/A"
+                                val feeColor = if (feeStatus.contains("UNPAID", ignoreCase = true)) Color(0xFFEF4444) else Color(0xFF10B981)
+                                SuspendedStatCard("FEE STATUS", feeStatus.uppercase(), feeColor, isDark, Modifier.weight(1f)) {
                                     onOpenFee()
                                 }
-                            }
-                            
-                            val attLabel = if (dash.is_holiday) (dash.holiday_name?.uppercase() ?: "HOLIDAY") else "PRESENT"
-                            SuspendedStatCard("ATTENDANCE", attLabel, Color(0xFFF59E0B), isDark, Modifier.weight(1f)) {
-                                onOpenAttendance()
+                                
+                                val myClass = dash.stats?.get("my_class")?.toString() ?: "N/A"
+                                SuspendedStatCard("MY CLASS", myClass.uppercase(), Color(0xFF3B82F6), isDark, Modifier.weight(1f)) {
+                                    onOpenClasses()
+                                }
+                            } else {
+                                // --- STAFF / ADMIN DASHBOARD CARDS ---
+                                if (isHighAdmin) {
+                                    val rawStaff = dash.stats?.get("staff")?.toString() ?: "0"
+                                    val staffCountInt = rawStaff.toDoubleOrNull()?.toInt() ?: 0
+                                    val displayStaff = if (staffCountInt > 0) (staffCountInt - 1).toString() else "0"
+
+                                    SuspendedStatCard("STAFF", displayStaff, Color(0xFF6366F1), isDark, Modifier.weight(1f)) {
+                                        onOpenStaff()
+                                    }
+                                }
+                                SuspendedStatCard("STUDENTS", dash.stats?.get("students")?.toString() ?: "0", Color(0xFF3B82F6), isDark, Modifier.weight(1f)) {
+                                    onOpenStudents()
+                                }
+
+                                if (isHighAdmin) {
+                                    val feeToday = dash.stats?.get("fee_today")?.toString() ?: "0"
+                                    SuspendedStatCard("FEE TODAY", "PKR $feeToday", Color(0xFF10B981), isDark, Modifier.weight(1f)) {
+                                        onOpenFee()
+                                    }
+                                }
+                                
+                                val attLabel = if (dash.is_holiday) (dash.holiday_name?.uppercase() ?: "HOLIDAY") else "PRESENT"
+                                SuspendedStatCard("ATTENDANCE", attLabel, Color(0xFFF59E0B), isDark, Modifier.weight(1f)) {
+                                    onOpenAttendance()
+                                }
                             }
                         }
 
@@ -183,7 +202,7 @@ fun EducationDashboardScreen(
                                                     onOpenStaff()
                                                 }
                                                 "admission" -> {
-                                                    onOpenStudents()
+                                                    onOpenAdmWdl()
                                                 }
                                                 "fee" -> {
                                                     onOpenFee()
@@ -212,18 +231,32 @@ fun EducationDashboardScreen(
                                                 "study_plan", "planner", "study_planner" -> {
                                                     onOpenStudyPlan()
                                                 }
+                                                "notices" -> {
+                                                    onOpenNotices()
+                                                }
+                                                "classes" -> {
+                                                    onOpenClasses()
+                                                }
+                                                "subjects" -> {
+                                                    onOpenSubjects()
+                                                }
+                                                "exams" -> {
+                                                    onOpenExams()
+                                                }
+                                                "timetable" -> {
+                                                    onOpenTimetable()
+                                                }
+                                                "smart_id" -> {
+                                                    onOpenSmartIDCard()
+                                                }
+                                                "proxies" -> {
+                                                    onOpenSubstitution()
+                                                }
                                                 else -> {
                                                     val baseUrl = "https://wantuch.pk/"
                                                     val path = when(mod.id) {
                                                         "inst_profile" -> "modules/education/profile.php?tab=inst"
                                                         "quick_scan" -> "modules/education/attendance_quick_scan.php"
-                                                        "notices" -> "modules/education/notices.php"
-                                                        "classes" -> "modules/education/classes_manage.php"
-                                                        "subjects" -> "modules/education/subjects_manage.php"
-                                                        "exams" -> "modules/education/exams.php"
-                                                        "timetable" -> "modules/education/timetable.php"
-                                                        "smart_id" -> "modules/education/idcard/idcard.php"
-                                                        "proxies" -> "modules/education/substitution_manage.php"
                                                         else -> "modules/education/dashboard.php"
                                                     }
                                                     onOpenWeb(baseUrl + path)

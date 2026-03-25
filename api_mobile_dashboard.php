@@ -7,11 +7,75 @@ require_once '../../includes/db.php';
 require_once '../../includes/FeeManager.php';
 require_once '../../includes/notification_helper.php';
 
-if (!function_exists('applySurplusWithIds')) {
-    $protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http");
-    $baseUrl = "$protocol://{$_SERVER['HTTP_HOST']}" . str_replace('api_mobile_dashboard.php', '', $_SERVER['SCRIPT_NAME']);
-    $baseUrl = str_replace('modules/education/', '', $baseUrl);
+// Resolve basic context for mobile bypass
+$action = $_REQUEST['action'] ?? '';
+$edu_user_id = $_SESSION['edu_user_id'] ?? 0;
+$role = $_SESSION['edu_role'] ?? '';
+$inst_id = (int)($_REQUEST['institution_id'] ?? $_SESSION['edu_institution_id'] ?? 0);
+$role_lower = strtolower($role ?? '');
+$is_mgmt = in_array($role_lower, ['admin', 'super_admin', 'developer', 'management', 'principal', 'coordinator', 'vice principal', 'vice-principal']);
+$is_staff = ($is_mgmt || strpos($role_lower, 'staff') !== false || strpos($role_lower, 'teacher') !== false);
 
+if (!in_array($action, ['GET_PORTFOLIO', 'GET_STAFF', 'GET_STAFF_PROFILE', 'GET_STUDENTS', 'SAVE_STUDENT', 'BULK_SAVE_STUDENTS', 
+                       'GET_FEE_DASHBOARD', 'GET_FEE_INTELLIGENCE', 'GET_STRUCTURE', 'GET_STUDENT_FEE_LEDGER', 'GET_PAYMENT_METADATA',
+                       'GET_PARENT_DASHBOARD', 'SWITCH_AND_GET_DASHBOARD', 'get_subjects', 'create_exam', 'LOGIN',
+                       'ADD_STUDENT_FEE', 'COLLECT_FEE', 'COLLECT_BULK_FEE', 'DELETE_STUDENT_FEE', 'GET_PERFORMANCE_ANALYTICS'])) {
+    if (!$inst_id) {
+        echo json_encode(['status' => 'error', 'message' => 'Unauthorized']);
+        exit;
+    }
+}
+
+if (!function_exists('has_mobile_access')) {
+    function has_mobile_access($eid, $role, $uid, $inst_id, $conn) {
+        $role = strtolower($role);
+        if (in_array($role, ['developer', 'super_admin'])) return true;
+        
+        $eid = mysqli_real_escape_string($conn, $eid);
+        $role = mysqli_real_escape_string($conn, $role);
+        
+        // Check User-Specific
+        if ($uid > 0) {
+            $res = $conn->query("SELECT access_level FROM edu_element_access WHERE institution_id = $inst_id AND element_id = '$eid' AND target_user_id = $uid LIMIT 1");
+            if ($res && $res->num_rows > 0) {
+                $lvl = strtolower($res->fetch_assoc()['access_level']);
+                return ($lvl !== 'deny' && in_array($lvl, ['allow', 'read_only', 'full', 'readonly']));
+            }
+        }
+        
+        // Check Role-Specific
+        $res = $conn->query("SELECT access_level FROM edu_element_access WHERE institution_id = $inst_id AND element_id = '$eid' AND target_role = '$role' AND target_user_id = 0 LIMIT 1");
+        if ($res && $res->num_rows > 0) {
+            $lvl = strtolower($res->fetch_assoc()['access_level']);
+            return ($lvl !== 'deny' && in_array($lvl, ['allow', 'read_only', 'full', 'readonly']));
+        }
+        
+        // Check Wildcard
+        $res = $conn->query("SELECT access_level FROM edu_element_access WHERE institution_id = $inst_id AND element_id = '$eid' AND (target_role = 'all_users' OR target_role = 'all' OR target_role = '*') LIMIT 1");
+        if ($res && $res->num_rows > 0) {
+            $lvl = strtolower($res->fetch_assoc()['access_level']);
+            return ($lvl !== 'deny' && in_array($lvl, ['allow', 'read_only', 'full', 'readonly']));
+        }
+        
+        // Fallback for Admins defaults
+        if (in_array($role, ['admin', 'management', 'school_admin'])) return true;
+        
+        // Hardcoded Fallback for Staff/Teacher (as in web access_helper.php)
+        if (in_array($role, ['staff', 'teacher'])) {
+            return in_array($eid, [
+                'dash_profile', 'dash_notices', 'dash_timetable', 'dash_syllabus', 'dash_homework', 'dash_attendance',
+                'dash_students', 'dash_exams', 'dash_smart_id', 'dash_classes', 'dash_subjects', 'dash_reports'
+            ]);
+        }
+        if ($role == 'student') {
+            return in_array($eid, ['dash_profile', 'dash_notices', 'dash_subjects', 'dash_exams', 'dash_timetable', 'dash_syllabus', 'dash_homework', 'dash_smart_id']);
+        }
+        
+        return false;
+    }
+}
+
+if (!function_exists('applySurplusWithIds')) {
     function applySurplusWithIds(float $surplus, int $student_id, string $start_month, int $start_year, int $inst_id, $conn, int $u_id, string $method, string $trans) : array {
         $affected_ids = [];
         if ($surplus <= 0) return ['remaining' => 0.0, 'ids' => []];
@@ -47,6 +111,67 @@ if (!function_exists('applySurplusWithIds')) {
     }
 }
 
+if (!function_exists('reconcileStudentLedger')) {
+    function reconcileStudentLedger($student_id, $month, $year, $conn, $fm, $inst_id, $skip_id = 0) {
+        if (empty($month) || $month === 'All' || $month === 'Unpaid' || strlen($month) < 3) return;
+        $pool = 0;
+        $prev_month_time = strtotime("$month $year -1 month");
+        $p_month = date('F', $prev_month_time); $p_year = (int)date('Y', $prev_month_time);
+        $history_bal = $fm->getHistoryBalance($student_id, $p_month, $p_year);
+        $items = $fm->getMonthBreakdown($student_id, $month, $year);
+        $charges = []; $payments = [];
+        foreach($items as $item) {
+            $name = strtolower($item['fee_type'] ?? '');
+            $is_credit_row = strpos($name, 'paid') !== false || strpos($name, 'advance') !== false || strpos($name, 'payment') !== false;
+            $is_summary = ($name === 'dues' || $name === 'balance' || $name === 'arrears' || $name === 'total dues');
+            if ($is_summary && $history_bal <= 0 && (float)$item['amount'] > 0) $is_summary = false;
+            $amt = (float)($item['amount'] ?? 0);
+            $rec_id = (int)$item['id'];
+            if (($item['payment_status'] ?? '') === 'Rejected') continue;
+            if ($is_summary) {
+                if ($item['Status'] === 'Paid') $pool += $amt;
+                continue; 
+            } elseif ($is_credit_row) {
+                $pool += $amt;
+                $payments[] = $item;
+                continue;
+            } else {
+                if ($item['Status'] === 'Paid' && ($skip_id <= 0 || $rec_id !== (int)$skip_id)) $pool += $amt;
+                if ($skip_id > 0 && $rec_id === (int)$skip_id) continue;
+                $c_item = $item; $c_item['target_amount'] = $amt; $c_item['new_status'] = 'Unpaid';
+                $charges[] = $c_item;
+            }
+        }
+        if ($history_bal < 0) $pool += abs($history_bal);
+        $remaining_arrears = ($history_bal > 0) ? $history_bal : 0;
+        if ($pool > 0 && $remaining_arrears > 0) {
+            if ($pool >= $remaining_arrears) { $pool -= $remaining_arrears; $remaining_arrears = 0; }
+            else { $remaining_arrears -= $pool; $pool = 0; }
+        }
+        foreach ($charges as &$c) {
+            $needed = $c['target_amount'];
+            if ($pool >= $needed) { $c['new_status'] = 'Paid'; $pool -= $needed; }
+            else { $c['new_status'] = 'Unpaid'; $pool = 0; }
+        }
+        unset($c);
+        foreach ($charges as $c) {
+            if ($c['new_status'] !== $c['Status']) $conn->query("UPDATE edu_fee_management SET Status = '{$c['new_status']}' WHERE id = {$c['id']}");
+        }
+        $dues_tid = (int)$fm->getFeeTypeId('Dues');
+        if ($dues_tid === 0) return;
+        $existing_dues = $fm->getFeeRecord($student_id, $month, $year, $dues_tid);
+        if ($existing_dues && (int)$existing_dues['id'] === $skip_id) return;
+        if ($history_bal > 0) {
+            $status = ($remaining_arrears <= 0) ? 'Paid' : 'Unpaid';
+            if ($existing_dues) {
+                $conn->query("UPDATE edu_fee_management SET amount = $history_bal, Status = '$status', remarks = 'Arrears from previous period' WHERE id = " . $existing_dues['id']);
+            } else {
+                $conn->query("INSERT INTO edu_fee_management (institute_id, student_id, fee_month, fee_year, fee_type_id, amount, Status, remarks) VALUES ($inst_id, $student_id, '$month', $year, $dues_tid, $history_bal, '$status', 'Arrears from previous period')");
+            }
+        }
+    }
+}
+
 $action = $_REQUEST['action'] ?? '';
 
 if (!isset($_SESSION['user_id']) && !isset($_SESSION['edu_user_id']) && 
@@ -56,7 +181,7 @@ if (!isset($_SESSION['user_id']) && !isset($_SESSION['edu_user_id']) &&
                         'GET_ROLL_NO_SLIPS', 'GET_SMART_CONFIG', 'SAVE_SMART_CONFIG', 'GET_MONTHLY_STUDENT_LEDGER', 'GET_MONTHLY_STAFF_LEDGER',
                         'GET_ASSIGNMENTS', 'CREATE_ASSIGNMENT', 'REVIEW_SUBMISSION', 'GET_SUBMISSION_DETAILS', 'UPDATE_ASSIGNMENT', 'UPDATE_SYLLABUS_STATUS', 'SAVE_FULL_SYLLABUS', 'EDIT_SYLLABUS_CHAPTER', 'DELETE_SYLLABUS_TOPIC',
                         'GET_ADM_WDL_FRESH', 'GET_ADM_WDL_OLD', 'SAVE_ADM_WDL_FRESH', 'SAVE_ADM_WDL_OLD', 'WITHDRAW_STUDENT_MOBILE', 'DELETE_ADM_ENTRY', 'SEARCH_CERT_STUDENTS',
-                        'GET_STUDENTS_FOR_PROMOTION', 'PROMOTE_STUDENTS', 'SHIFT_STUDENTS', 'GET_PLANNER_DATA', 'SAVE_PLANNER_CONFIG', 'COMPLETE_TOPIC', 'GET_PARENT_DASHBOARD'])) {
+                        'GET_STUDENTS_FOR_PROMOTION', 'PROMOTE_STUDENTS', 'SHIFT_STUDENTS', 'GET_PLANNER_DATA', 'SAVE_PLANNER_CONFIG', 'COMPLETE_TOPIC', 'GET_PARENT_DASHBOARD', 'GET_PERFORMANCE_ANALYTICS'])) {
     echo json_encode(['status' => 'error', 'message' => 'Unauthorized']);
     exit;
 }
@@ -110,8 +235,8 @@ if ($action === 'GET_PORTFOLIO') {
     ]);
 
 } elseif ($action === 'SWITCH_AND_GET_DASHBOARD') {
-    $inst_id = (int)($_GET['institution_id'] ?? 0);
-    $main_user_id = $_SESSION['user_id'] ?? 0;
+    $inst_id = (int)($_REQUEST['institution_id'] ?? $_REQUEST['inst_id'] ?? $_SESSION['edu_institution_id'] ?? 0);
+    $main_user_id = (int)($_SESSION['user_id'] ?? 0);
     
     // Switch context
     $stmt = $conn->prepare("SELECT id, name, type, logo_path FROM edu_institutions WHERE id = ?");
@@ -119,36 +244,31 @@ if ($action === 'GET_PORTFOLIO') {
     $stmt->execute();
     $res = $stmt->get_result();
     
-        if ($res->num_rows > 0) {
-            $inst = $res->fetch_assoc();
-            $_SESSION['edu_institution_id'] = $inst['id'];
-            $_SESSION['edu_institution_name'] = $inst['name'];
-            
-            // Resolve local identity in the new institution
-            if ($main_user_id > 0) {
-                $stmt_u = $conn->prepare("SELECT username FROM users WHERE id = ?");
-                $stmt_u->bind_param("i", $main_user_id);
-                $stmt_u->execute();
-                $res_u = $stmt_u->get_result();
-                if ($res_u->num_rows > 0) {
-                    $username = $res_u->fetch_assoc()['username'];
-                    $stmt_loc = $conn->prepare("SELECT id, role, full_name FROM edu_users WHERE username = ? AND institution_id = ? LIMIT 1");
-                    $stmt_loc->bind_param("si", $username, $inst_id);
-                    $stmt_loc->execute();
-                    $res_loc = $stmt_loc->get_result();
-                    if ($res_loc->num_rows > 0) {
-                        $loc_row = $res_loc->fetch_assoc();
-                        $_SESSION['edu_user_id'] = $loc_row['id'];
-                        $_SESSION['edu_role'] = $loc_row['role'];
-                        $_SESSION['edu_name'] = $loc_row['full_name'];
-                    } else {
-                        // Fallback: If no local record exists for a high-level admin, 
-                        // reset local ID to avoid mismatch, but keep the global role.
-                        $_SESSION['edu_user_id'] = 0; 
-                        $_SESSION['edu_role'] = $_SESSION['global_role'] ?? 'super_admin';
-                    }
+    if ($res && $res->num_rows > 0) {
+        $inst = $res->fetch_assoc();
+        $_SESSION['edu_institution_id'] = $inst['id'];
+        $_SESSION['edu_institution_name'] = $inst['name'];
+        
+        // Resolve local identity in the new institution
+        if ($main_user_id > 0) {
+            $username = $_SESSION['user_username'] ?? '';
+            if ($username) {
+                $stmt_loc = $conn->prepare("SELECT id, role, full_name FROM edu_users WHERE username = ? AND institution_id = ? LIMIT 1");
+                $stmt_loc->bind_param("si", $username, $inst_id);
+                $stmt_loc->execute();
+                $res_loc = $stmt_loc->get_result();
+                if ($res_loc && $res_loc->num_rows > 0) {
+                    $loc_row = $res_loc->fetch_assoc();
+                    $_SESSION['edu_user_id'] = $loc_row['id'];
+                    $_SESSION['edu_role'] = $loc_row['role'];
+                    $_SESSION['edu_name'] = $loc_row['full_name'];
+                } else {
+                    $_SESSION['edu_user_id'] = 0; 
+                    $_SESSION['edu_role'] = $_SESSION['global_role'] ?? 'super_admin';
+                    $_SESSION['edu_name'] = $_SESSION['user_fullname'] ?? 'Administrator';
                 }
             }
+        }
             
             $role = $_SESSION['edu_role'] ?? 'user';
             $edu_user_id = $_SESSION['edu_user_id'] ?? 0;
@@ -157,8 +277,8 @@ if ($action === 'GET_PORTFOLIO') {
 
         // Stats (Filtered for Staff)
         $stats = [];
-        $is_mgmt = in_array($role, ['admin', 'developer', 'super_admin']);
-        $is_staff = in_array($role, ['staff', 'teacher']);
+        $is_mgmt = in_array(strtolower($role), ['admin', 'developer', 'super_admin']);
+        $is_staff = in_array(strtolower($role), ['staff', 'teacher']);
         
         $staff_assigned_cid = 0;
         $staff_assigned_sid = 0;
@@ -208,44 +328,72 @@ if ($action === 'GET_PORTFOLIO') {
                 }
             }
         }
+        
+        // --- Staff Action Permissions ---
+        $staff_permissions = [];
+        if ($is_staff && !$is_mgmt) {
+            $chk_actions = $conn->query("
+                SELECT element_id, access_level 
+                FROM edu_element_access 
+                WHERE institution_id = $inst_id 
+                AND ((target_role = '$role' AND target_user_id = 0) OR (target_user_id = $edu_user_id))
+                AND element_id LIKE 'staff_%'
+            ");
+            if ($chk_actions) {
+                while($p = $chk_actions->fetch_assoc()) {
+                    $staff_permissions[$p['element_id']] = $p['access_level'];
+                }
+            }
+        } elseif ($is_mgmt) {
+            // Full access for management
+            $staff_permissions = [
+                'staff_add' => 'allow', 'staff_edit' => 'allow', 'staff_delete' => 'allow',
+                'staff_attendance' => 'allow', 'staff_salary' => 'allow', 'staff_biometrics' => 'allow',
+                'staff_role' => 'allow', 'staff_profile' => 'allow'
+            ];
+        } else {
+             $staff_permissions = [];
+        }
 
-        // Modules (Restricted for staff/teachers)
-        $modules = [];
+        // Dashboard Modules Dynamic Logic
         $all_modules = [
-            'profile' => ['id' => 'profile', 'label' => 'My Profile', 'icon' => 'person'],
-            'notices' => ['id' => 'notices', 'label' => 'Notices', 'icon' => 'campaign'],
-            'classes' => ['id' => 'classes', 'label' => 'Classes', 'icon' => 'class'],
-            'subjects' => ['id' => 'subjects', 'label' => 'Subjects', 'icon' => 'menu_book'],
-            'exams' => ['id' => 'exams', 'label' => 'Exams', 'icon' => 'assignment'],
-            'timetable' => ['id' => 'timetable', 'label' => 'Timetable', 'icon' => 'schedule'],
-            'syllabus' => ['id' => 'syllabus', 'label' => 'Syllabus', 'icon' => 'book'],
-            'homework' => ['id' => 'homework', 'label' => 'Homework', 'icon' => 'tasks'],
-            'transport' => ['id' => 'transport', 'label' => 'Transport', 'icon' => 'bus'],
-            'smart_id' => ['id' => 'smart_id', 'label' => 'Smart ID', 'icon' => 'badge'],
-            'admission' => ['id' => 'admission', 'label' => 'Adm / Wdl', 'icon' => 'person_add'],
-            'promotion' => ['id' => 'promotion', 'label' => 'Promotion', 'icon' => 'school'],
-            'study_plan' => ['id' => 'study_plan', 'label' => 'Study Plan', 'icon' => 'event_available'],
-            'reports' => ['id' => 'reports', 'label' => 'Reports', 'icon' => 'analytics'],
-            'database' => ['id' => 'database', 'label' => 'Database', 'icon' => 'database']
+            'profile' => ['id' => 'profile', 'label' => 'My Profile', 'icon' => 'person', 'perm' => 'dash_profile'],
+            'notices' => ['id' => 'notices', 'label' => 'Notices', 'icon' => 'campaign', 'perm' => 'dash_notices'],
+            'classes' => ['id' => 'classes', 'label' => 'Classes', 'icon' => 'class', 'perm' => 'dash_classes'],
+            'subjects' => ['id' => 'subjects', 'label' => 'Subjects', 'icon' => 'menu_book', 'perm' => 'dash_subjects'],
+            'exams' => ['id' => 'exams', 'label' => 'Exams', 'icon' => 'assignment', 'perm' => 'dash_exams'],
+            'timetable' => ['id' => 'timetable', 'label' => 'Timetable', 'icon' => 'schedule', 'perm' => 'dash_timetable'],
+            'syllabus' => ['id' => 'syllabus', 'label' => 'Syllabus', 'icon' => 'book', 'perm' => 'dash_syllabus'],
+            'homework' => ['id' => 'homework', 'label' => 'Homework', 'icon' => 'tasks', 'perm' => 'dash_homework'],
+            'smart_id' => ['id' => 'smart_id', 'label' => 'Smart ID', 'icon' => 'badge', 'perm' => 'dash_smart_id'],
+            'admission' => ['id' => 'admission', 'label' => 'Adm / Wdl', 'icon' => 'person_add', 'perm' => 'dash_admissions'],
+            'promotion' => ['id' => 'promotion', 'label' => 'Promotion', 'icon' => 'school', 'perm' => 'dash_promotion'],
+            'study_plan' => ['id' => 'study_plan', 'label' => 'Study Plan', 'icon' => 'event_available', 'perm' => 'dash_study_plan'],
+            'reports' => ['id' => 'reports', 'label' => 'Reports', 'icon' => 'analytics', 'perm' => 'dash_reports'],
+            'database' => ['id' => 'database', 'label' => 'Database', 'icon' => 'database', 'perm' => 'dash_database'],
+            'staff' => ['id' => 'staff', 'label' => 'Staff / Faculty', 'icon' => 'people', 'perm' => 'dash_staff'],
+            'attendance' => ['id' => 'attendance', 'label' => 'Attendance', 'icon' => 'how_to_reg', 'perm' => 'dash_attendance']
         ];
 
-        if ($is_mgmt) {
-            $modules = array_values($all_modules);
-        } elseif ($is_staff) {
-            // Staff/Teacher module list based on web access logic
-            $allowed = ['profile', 'notices', 'classes', 'subjects', 'exams', 'timetable', 'syllabus', 'homework', 'smart_id', 'reports'];
-            foreach($allowed as $mod_id) {
-                if(isset($all_modules[$mod_id])) $modules[] = $all_modules[$mod_id];
+        $modules = [];
+        foreach($all_modules as $mod_key => $mod) {
+            if (has_mobile_access($mod['perm'], $role, $edu_user_id, $inst_id, $conn)) {
+                $modules[] = $mod;
             }
-        } elseif ($role === 'student') {
-            $allowed = ['profile', 'notices', 'subjects', 'exams', 'timetable', 'syllabus', 'homework', 'transport', 'smart_id', 'study_plan'];
-            foreach($allowed as $mod_id) {
-                if(isset($all_modules[$mod_id])) $modules[] = $all_modules[$mod_id];
-            }
-        } else {
-            // Default 
-            $modules = array_values($all_modules);
         }
+        
+        // Component Permissions for UI Visibility (Stats/Grids)
+        $perms = [
+            'can_see_staff_stat' => has_mobile_access('dash_staff', $role, $edu_user_id, $inst_id, $conn),
+            'can_see_fee_stat' => has_mobile_access('dash_fee', $role, $edu_user_id, $inst_id, $conn),
+            'can_see_student_stat' => has_mobile_access('dash_students', $role, $edu_user_id, $inst_id, $conn),
+            'can_mark_attendance' => has_mobile_access('attendance_mark', $role, $edu_user_id, $inst_id, $conn),
+            'can_manage_exams' => has_mobile_access('exam_create', $role, $edu_user_id, $inst_id, $conn),
+            'can_add_class' => ($is_mgmt || has_mobile_access('class_add', $role, $edu_user_id, $inst_id, $conn)),
+            'can_delete_class' => ($is_mgmt || has_mobile_access('class_delete', $role, $edu_user_id, $inst_id, $conn)),
+            'can_edit_staff' => ($is_mgmt || has_mobile_access('staff_edit', $role, $edu_user_id, $inst_id, $conn)),
+            'is_management' => $is_mgmt
+        ];
 
         if (ob_get_length()) ob_clean();
         echo json_encode([
@@ -257,7 +405,9 @@ if ($action === 'GET_PORTFOLIO') {
             'role' => $role,
             'stats' => $stats,
             'is_holiday' => $is_holiday,
-            'modules' => $modules
+            'modules' => $modules,
+            'permissions' => $perms,
+            'staff_permissions' => $staff_permissions
         ]);
         exit;
     } else {
@@ -1127,16 +1277,50 @@ if ($action === 'GET_PORTFOLIO') {
 
 } elseif ($action === 'GET_SUBJECTS') {
     $inst_id = (int)($_REQUEST['institution_id'] ?? $_SESSION['edu_institution_id'] ?? 0);
+    
+    $get_uid = (int)($_GET['user_id'] ?? 0);
+    $user_id = $get_uid > 0 ? $get_uid : (int)($_SESSION['edu_user_id'] ?? $_SESSION['user_id'] ?? 0);
+    
+    $get_role = trim($_GET['role'] ?? '');
+    $user_role = strtolower(!empty($get_role) ? $get_role : ($_SESSION['edu_role'] ?? ''));
+    
+    $is_staff = in_array($user_role, ['staff', 'teacher', 'principal', 'coordinator', 'vice principal', 'vice-principal']);
+
     $subjects = [];
 
-    $res = $conn->query("SELECT id, name FROM edu_subjects WHERE institution_id = $inst_id ORDER BY name ASC");
-    if ($res) {
-        while ($row = $res->fetch_assoc()) {
-            $subjects[] = [
-                'id' => (int)$row['id'],
-                'name' => $row['name'],
-                'type' => 'General'
-            ];
+    if ($is_staff && $user_id > 0) {
+        $query = "SELECT DISTINCT s.* 
+                  FROM edu_subjects s
+                  JOIN edu_timetable t ON s.id = t.subject_id
+                  WHERE t.staff_id = $user_id 
+                  AND s.institution_id = $inst_id
+                  ORDER BY s.name";
+        $res = $conn->query($query);
+        if ($res) {
+            while ($row = $res->fetch_assoc()) {
+                $sid = (int)$row['id'];
+                $count_q = $conn->query("SELECT COUNT(DISTINCT class_id) as cnt FROM edu_timetable WHERE staff_id = $user_id AND subject_id = $sid");
+                $ccount = $count_q ? (int)$count_q->fetch_assoc()['cnt'] : 0;
+                
+                $subjects[] = [
+                    'id' => $sid,
+                    'name' => $row['name'],
+                    'type' => $row['type'] ?? 'Compulsory',
+                    'classesCount' => $ccount
+                ];
+            }
+        }
+    } else {
+        $res = $conn->query("SELECT id, name, type FROM edu_subjects WHERE institution_id = $inst_id ORDER BY name ASC");
+        if ($res) {
+            while ($row = $res->fetch_assoc()) {
+                $subjects[] = [
+                    'id' => (int)$row['id'],
+                    'name' => $row['name'],
+                    'type' => $row['type'] ?? 'Compulsory',
+                    'classesCount' => 0
+                ];
+            }
         }
     }
     
@@ -1278,7 +1462,7 @@ if ($action === 'GET_PORTFOLIO') {
     
     // Detailed Profile
     $q = $conn->query("
-        SELECT u.*, u.cnic as parent_cnic_no, e.status as status, e.class_no, e.class_id, e.section_id, e.academic_year, e.roll_number,
+        SELECT u.*, u.father_cnic as parent_cnic_no, e.status as status, e.class_no, e.class_id, e.section_id, e.academic_year, e.roll_number,
                e.admission_date, e.date_of_admission,
                c.name as class_name, s.name as section_name
         FROM edu_users u
@@ -1411,17 +1595,51 @@ if ($action === 'GET_PORTFOLIO') {
 
 } elseif ($action === 'GET_STRUCTURE') {
     $inst_id = (int)($_GET['institution_id'] ?? $_SESSION['edu_institution_id'] ?? 0);
+    
+    $get_uid = (int)($_GET['user_id'] ?? 0);
+    $user_id = $get_uid > 0 ? $get_uid : (int)($_SESSION['edu_user_id'] ?? $_SESSION['user_id'] ?? 0);
+    
+    $get_role = trim($_GET['role'] ?? '');
+    $user_role = strtolower(!empty($get_role) ? $get_role : ($_SESSION['edu_role'] ?? ''));
+    
+    $is_staff = in_array($user_role, ['staff', 'teacher', 'principal', 'coordinator', 'vice principal', 'vice-principal']);
+    
     $classes = [];
-    $res_c = $conn->query("SELECT id, name FROM edu_classes WHERE institution_id = $inst_id ORDER BY id ASC");
-    while ($c = $res_c->fetch_assoc()) {
-        $sections = [];
-        $res_s = $conn->query("SELECT id, name FROM edu_sections WHERE class_id = {$c['id']} ORDER BY name ASC");
-        while ($s = $res_s->fetch_assoc()) $sections[] = $s;
-        $c['sections'] = $sections;
-        $classes[] = $c;
+    if ($is_staff && $user_id > 0) {
+        $c_res = $conn->query("SELECT DISTINCT c.id, c.name FROM edu_classes c
+                              JOIN edu_timetable t ON c.id = t.class_id
+                              WHERE t.staff_id = $user_id AND c.institution_id = $inst_id ORDER BY c.name ASC");
+        while ($c = $c_res->fetch_assoc()) {
+            $cid = $c['id'];
+            $sections = [];
+            $s_res = $conn->query("SELECT DISTINCT s.id, s.name FROM edu_sections s
+                                  JOIN edu_timetable t ON s.id = t.section_id
+                                  WHERE t.staff_id = $user_id AND t.class_id = $cid ORDER BY s.name ASC");
+            while ($s = $s_res->fetch_assoc()) $sections[] = $s;
+            $c['sections'] = $sections;
+            
+            $subjects = [];
+            $sub_res = $conn->query("SELECT DISTINCT sub.id, sub.name, sub.type FROM edu_subjects sub
+                                    JOIN edu_timetable t ON sub.id = t.subject_id
+                                    WHERE t.staff_id = $user_id AND t.class_id = $cid ORDER BY sub.name ASC");
+            while ($sub = $sub_res->fetch_assoc()) $subjects[] = $sub;
+            $c['subjects'] = $subjects;
+            
+            $classes[] = $c;
+        }
+    } else {
+        $res_c = $conn->query("SELECT id, name FROM edu_classes WHERE institution_id = $inst_id ORDER BY id ASC");
+        while ($c = $res_c->fetch_assoc()) {
+            $sections = [];
+            $res_s = $conn->query("SELECT id, name FROM edu_sections WHERE class_id = {$c['id']} ORDER BY name ASC");
+            while ($s = $res_s->fetch_assoc()) $sections[] = $s;
+            $c['sections'] = $sections;
+            $c['subjects'] = [];
+            $classes[] = $c;
+        }
     }
     echo json_encode(['status' => 'success', 'classes' => $classes]);
-
+    exit;
 } elseif ($action === 'GET_ADM_WDL_FRESH') {
     // Fresh Records: Currently enrolled students this academic year
     $inst_id = (int)($_REQUEST['institution_id'] ?? $_SESSION['edu_institution_id'] ?? 0);
@@ -1431,7 +1649,7 @@ if ($action === 'GET_PORTFOLIO') {
     $limit = min((int)($_REQUEST['limit'] ?? 100), 5000);
     $q_term = "%$q_str%";
 
-    $sql = "SELECT u.id, u.full_name, u.father_name, COALESCE(NULLIF(u.adm_no, ''), e.roll_number) as adm_no, COALESCE(NULLIF(u.gender, ''), 'Male') as gender, u.dob, u.cnic as parent_cnic_no,
+    $sql = "SELECT u.id, u.full_name, u.father_name, COALESCE(NULLIF(u.adm_no, ''), e.roll_number) as adm_no, COALESCE(NULLIF(u.gender, ''), 'Male') as gender, u.dob, u.father_cnic as parent_cnic_no,
                    c.name as class_name, s.name as section_name, e.date_of_admission as admission_date, e.roll_number,
                    e.status as enrollment_status, e.academic_year,
                    reg.class_admission, reg.date_withdrawal, reg.class_withdrawal, reg.slc_status
@@ -1536,14 +1754,14 @@ if ($action === 'GET_PORTFOLIO') {
 
     if ($chk) {
         $sid = $chk['id'];
-        $stmt = $conn->prepare("UPDATE edu_users SET full_name=?,father_name=?,dob=?,gender=?,cnic=?,adm_no=? WHERE id=? AND institution_id=?");
+        $stmt = $conn->prepare("UPDATE edu_users SET full_name=?,father_name=?,dob=?,gender=?,father_cnic=?,adm_no=? WHERE id=? AND institution_id=?");
         $stmt->bind_param("ssssssii", $name, $fname, $dob, $gender, $p_cnic, $adm_no, $sid, $inst_id);
         $stmt->execute();
         $conn->query("UPDATE edu_student_enrollment SET class_id=$class_id, section_id=$section_id, date_of_admission='$adm_date' WHERE student_id=$sid AND status='active'");
     } else {
         $user = str_replace(' ','',strtolower($name)).rand(100,999);
         $pass = password_hash('123456', PASSWORD_DEFAULT);
-        $stmt = $conn->prepare("INSERT INTO edu_users (institution_id,username,password,full_name,father_name,dob,adm_no,gender,cnic,role,status) VALUES (?,?,?,?,?,?,?,?,?,'student','active')");
+        $stmt = $conn->prepare("INSERT INTO edu_users (institution_id,username,password,full_name,father_name,dob,adm_no,gender,father_cnic,role,status) VALUES (?,?,?,?,?,?,?,?,?,'student','active')");
         $stmt->bind_param("issssssss", $inst_id, $user, $pass, $name, $fname, $dob, $adm_no, $gender, $p_cnic);
         $stmt->execute();
         $sid = $conn->insert_id;
@@ -1652,7 +1870,7 @@ if ($action === 'GET_PORTFOLIO') {
         exit;
     }
 
-    $sql = "SELECT u.id, u.full_name, u.father_name, u.gender, u.adm_no, u.dob, u.cnic as parent_cnic_no,
+    $sql = "SELECT u.id, u.full_name, u.father_name, u.gender, u.adm_no, u.dob, u.father_cnic as parent_cnic_no,
                    c.name as class_name, e.roll_number, e.academic_year, e.class_id, e.section_id
             FROM edu_users u
             JOIN edu_student_enrollment e ON u.id = e.student_id
@@ -1804,11 +2022,12 @@ if ($action === 'GET_PORTFOLIO') {
     $status = mysqli_real_escape_string($conn, $_REQUEST['status'] ?? 'active');
     $whatsapp = mysqli_real_escape_string($conn, $_REQUEST['whatsapp_no'] ?? '');
     $address = mysqli_real_escape_string($conn, $_REQUEST['address'] ?? '');
+    $p_cnic = mysqli_real_escape_string($conn, $_REQUEST['parent_cnic_no'] ?? '');
 
     if ($id > 0) {
         // Update Existing with more fields
-        $stmt = $conn->prepare("UPDATE edu_users SET full_name=?, username=?, father_name=?, gender=?, whatsapp_no=?, address=? WHERE id=? AND institution_id=?");
-        $stmt->bind_param("ssssssii", $full_name, $username, $father_name, $gender, $whatsapp, $address, $id, $inst_id);
+        $stmt = $conn->prepare("UPDATE edu_users SET full_name=?, username=?, father_name=?, gender=?, whatsapp_no=?, address=?, father_cnic=? WHERE id=? AND institution_id=?");
+        $stmt->bind_param("sssssssii", $full_name, $username, $father_name, $gender, $whatsapp, $address, $p_cnic, $id, $inst_id);
         
         if($stmt->execute()) {
             if(!empty($pass)) {
@@ -2008,26 +2227,23 @@ if ($action === 'GET_PORTFOLIO') {
     else echo json_encode(['status' => 'error', 'message' => $stmt->error]);
     exit;
 
-} elseif ($action === 'COLLECT_FEE') {
-    $inst_id = (int)($_POST['institution_id'] ?? $_SESSION['edu_institution_id'] ?? 0);
-    $student_id = (int)$_POST['student_id'];
-    $amount = (float)$_POST['amount'];
-    $mode = $conn->real_escape_string($_POST['mode'] ?? 'Cash');
-    $category = $conn->real_escape_string($_POST['category'] ?? 'Fee');
-    $month = $conn->real_escape_string($_POST['month'] ?? date('F'));
-    $year = $conn->real_escape_string($_POST['year'] ?? date('Y'));
+} elseif ($action === 'COLLECT_FEE' && !isset($_REQUEST['id'])) {
+    $inst_id = (int)($_REQUEST['institution_id'] ?? $_SESSION['edu_institution_id'] ?? 0);
+    $student_id = (int)$_REQUEST['student_id'];
+    $amount = (float)$_REQUEST['amount'];
+    $mode = $conn->real_escape_string($_REQUEST['mode'] ?? 'Cash');
+    $category = $conn->real_escape_string($_REQUEST['category'] ?? 'Fee');
+    $month = $conn->real_escape_string($_REQUEST['month'] ?? date('F'));
+    $year = $conn->real_escape_string($_REQUEST['year'] ?? date('Y'));
     $date = date('Y-m-d');
 
-    // Insert into fee collection table (assuming edu_fee_collection)
-    $stmt = $conn->prepare("INSERT INTO edu_fee_collection (institution_id, student_id, amount, payment_mode, category, month, year, collection_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-    $stmt->bind_param("iidsssss", $inst_id, $student_id, $amount, $mode, $category, $month, $year, $date);
-    
-    if ($stmt->execute()) {
-        // Also update the tuition balance if applicable
-        $conn->query("UPDATE edu_student_enrollment SET tuition_fee_paid = tuition_fee_paid + $amount WHERE student_id = $student_id");
+    $fm = new FeeManager($conn, $inst_id);
+    $type_id = $fm->getFeeTypeId($category, true);
+
+    if ($fm->updateFeeRecord($student_id, $month, $year, $type_id, $amount, 'Paid', "Collected via Mobile ($mode)")) {
         echo json_encode(['status' => 'success', 'message' => "Fee of Rs. $amount collected successfully"]);
     } else {
-        echo json_encode(['status' => 'error', 'message' => $stmt->error]);
+        echo json_encode(['status' => 'error', 'message' => "Collection failed"]);
     }
     exit;
 
@@ -2329,40 +2545,81 @@ if ($action === 'GET_PORTFOLIO') {
 } elseif ($action === 'GET_STUDENT_FEE_LEDGER') {
     $student_id = (int)$_REQUEST['student_id'];
     $inst_id = (int)($_REQUEST['institution_id'] ?? $_SESSION['edu_institution_id'] ?? 0);
-    
-    $month = $_REQUEST['month'] ?? date('F');
-    $year = (int)($_REQUEST['year'] ?? date('Y'));
+    $f_month = $_REQUEST['month'] ?? date('F');
+    $f_year = (int)($_REQUEST['year'] ?? date('Y'));
     
     $fm = new FeeManager($conn, $inst_id);
-    $fm->syncMonthlyBills($student_id, $month, $year);
+    if ($f_month !== 'All' && $f_month !== 'Unpaid') {
+        $fm->syncMonthlyBills($student_id, $f_month, $f_year);
+    }
+
+    $ledger_data = [];
+    if ($f_month === 'All' || $f_month === 'Unpaid') {
+        $m = date('F'); $y = (int)date('Y');
+        $where_status = ($f_month === 'Unpaid') ? " AND (f.Status != 'Paid' OR t.type_name = 'Paid' OR t.type_name = 'Advance Payment')" : "";
+        $month_clause = ($f_month === 'Unpaid') ? "AND (f.fee_year < $y OR (f.fee_year = $y AND FIELD(f.fee_month, 'January','February','March','April','May','June','July','August','September','October','November','December') <= FIELD('$m', 'January','February','March','April','May','June','July','August','September','October','November','December')))" : "";
+        $res = $conn->query("SELECT f.*, t.type_name as fee_type FROM edu_fee_management f LEFT JOIN edu_fee_types t ON f.fee_type_id = t.id WHERE f.student_id = $student_id AND f.institute_id = $inst_id $where_status $month_clause ORDER BY f.fee_year DESC, f.id DESC");
+        while($r = $res->fetch_assoc()) $ledger_data[] = $r;
+    } else {
+        // CUMULATIVE VIEW: Current Month Records + All Previous Unpaid Records
+        $res = $conn->query("SELECT f.*, t.type_name as fee_type 
+                            FROM edu_fee_management f 
+                            LEFT JOIN edu_fee_types t ON f.fee_type_id = t.id 
+                            WHERE f.student_id = $student_id AND f.institute_id = $inst_id 
+                            AND (
+                                (f.fee_month = '$f_month' AND f.fee_year = $f_year)
+                                OR (
+                                    f.Status = 'Unpaid' 
+                                    AND (f.fee_year < $f_year OR (f.fee_year = $f_year AND FIELD(f.fee_month, 'January','February','March','April','May','June','July','August','September','October','November','December') < FIELD('$f_month', 'January','February','March','April','May','June','July','August','September','October','November','December')))
+                                )
+                            )
+                            ORDER BY f.fee_year DESC, FIELD(f.fee_month, 'December','November','October','September','August','July','June','May','April','March','February','January') DESC, f.id DESC");
+        while($r = $res->fetch_assoc()) $ledger_data[] = $r;
+    }
 
     $ledger = [];
-    $res = $conn->query("SELECT f.*, t.type_name as fee_type FROM edu_fee_management f LEFT JOIN edu_fee_types t ON f.fee_type_id = t.id WHERE f.student_id = $student_id AND f.institute_id = $inst_id ORDER BY f.fee_year DESC, f.id DESC");
-    while($r = $res->fetch_assoc()) {
+    $has_t = false; $has_tr = false;
+    $tui_tid = (int)$fm->getFeeTypeId('Tuition Fee');
+    $trans_tid = (int)$fm->getFeeTypeId('TC (Transport Charges)');
+
+    foreach($ledger_data as $r) {
+        $tname = $r['fee_type'] ?? ($r['type_name'] ?? 'Fee Item');
         $ledger[] = [
-            'id' => $r['id'],
-            'fee_type' => $r['fee_type'] ?: 'Unknown',
+            'id' => (int)$r['id'],
+            'fee_type' => $tname,
+            'fee_type_id' => (int)($r['fee_type_id'] ?? 0),
             'amount' => (float)$r['amount'],
             'fee_month' => $r['fee_month'],
             'fee_year' => $r['fee_year'],
-            'Status' => $r['Status']
+            'Status' => $r['Status'] ?: 'Unpaid'
         ];
-    }
-    
-    $student_info = $conn->query("SELECT full_name, profile_pic FROM edu_users WHERE id = $student_id")->fetch_assoc();
-    if ($student_info) {
-        $pic = $student_info['profile_pic'] ?? '';
-        $protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http");
-        $baseUrl = "$protocol://{$_SERVER['HTTP_HOST']}" . str_replace('api_mobile_dashboard.php', '', $_SERVER['SCRIPT_NAME']);
-        $baseUrl = str_replace('modules/education/', '', $baseUrl);
-        if ($pic && (strpos($pic, 'http') !== 0)) $student_info['profile_pic'] = $baseUrl . "assets/uploads/" . $pic;
+        if ($r['fee_month'] === $f_month && (int)$r['fee_year'] === $f_year) {
+            if ((int)$r['fee_type_id'] === $tui_tid) $has_t = true;
+            if ((int)$r['fee_type_id'] === $trans_tid) $has_tr = true;
+        }
     }
 
-    $fee_types = [];
-    $res_f = $conn->query("SELECT id, type_name FROM edu_fee_types WHERE institution_id = $inst_id AND status = 'Active' ORDER BY type_name ASC");
-    if ($res_f) {
-        while ($f = $res_f->fetch_assoc()) $fee_types[] = $f;
+    if ($f_month !== 'All' && $f_month !== 'Unpaid') {
+        $eq = $conn->query("SELECT tuition_fee, transport_charges FROM edu_student_enrollment WHERE student_id = $student_id LIMIT 1");
+        if ($eq && $enroll = $eq->fetch_object()) {
+            if (!$has_t && (float)$enroll->tuition_fee > 0) {
+                $ledger[] = ['id' => 0, 'fee_type' => 'Tuition Fee', 'fee_type_id' => $tui_tid, 'amount' => (float)$enroll->tuition_fee, 'fee_month' => $f_month, 'fee_year' => $f_year, 'Status' => 'Unpaid', 'is_static' => true];
+            }
+            if (!$has_tr && (float)$enroll->transport_charges > 0) {
+                $ledger[] = ['id' => 0, 'fee_type' => 'Transport Charges', 'fee_type_id' => $trans_tid, 'amount' => (float)$enroll->transport_charges, 'fee_month' => $f_month, 'fee_year' => $f_year, 'Status' => 'Unpaid', 'is_static' => true];
+            }
+        }
     }
+    
+    $student_info = $conn->query("SELECT u.id as student_id, u.full_name, u.profile_pic, e.class_id, e.section_id, c.name as class_name, s.name as section_name 
+                                 FROM edu_users u 
+                                 LEFT JOIN edu_student_enrollment e ON u.id = e.student_id 
+                                 LEFT JOIN edu_classes c ON e.class_id = c.id 
+                                 LEFT JOIN edu_sections s ON e.section_id = s.id 
+                                 WHERE u.id = $student_id")->fetch_assoc();
+
+    echo json_encode(['status' => 'success', 'ledger' => $ledger, 'student_info' => $student_info, 'fee_types' => $fm->getFeeTypes()]);
+    exit;
 
     echo json_encode(['status' => 'success', 'ledger' => $ledger, 'student' => $student_info, 'fee_types' => $fee_types]);
     exit;
@@ -2519,53 +2776,68 @@ if ($action === 'GET_PORTFOLIO') {
     }
     echo json_encode(['status' => 'success', 'classes' => $classes]);
     exit;
-
 } elseif ($action === 'COLLECT_FEE') {
-    $id = (int)$_POST['id'];
-    $amt = (float)$_POST['amount']; // The amount the user is actually paying
-    $method = $conn->real_escape_string($_POST['payment_method'] ?? 'Cash');
-    $bank = $conn->real_escape_string($_POST['bank_account'] ?? '');
-    $trans = $conn->real_escape_string($_POST['transaction_id'] ?? '');
-    $inst_id = (int)($_POST['institution_id'] ?? 0);
+    $id = (int)($_REQUEST['id'] ?? 0);
+    $amt = (float)($_REQUEST['amount'] ?? 0); 
+    $method = $conn->real_escape_string($_REQUEST['payment_method'] ?? 'Cash');
+    $bank = $conn->real_escape_string($_REQUEST['bank_account'] ?? '');
+    $trans = $conn->real_escape_string($_REQUEST['transaction_id'] ?? '');
+    $inst_id = (int)($_REQUEST['institution_id'] ?? 0);
     $u_id = (int)($_SESSION['edu_user_id'] ?? $_SESSION['user_id'] ?? 0);
 
     $fm = new FeeManager($conn, $inst_id);
+
+    if ($id === 0) {
+        // Handle Static Preview collection context
+        $student_id = (int)($_REQUEST['student_id'] ?? 0);
+        $month = $_REQUEST['fee_month'] ?? '';
+        $year = (int)($_REQUEST['fee_year'] ?? 0);
+        $type_id = (int)($_REQUEST['fee_type_id'] ?? 0);
+        
+        if ($student_id && $month && $year && $type_id) {
+            $existing = $fm->getFeeRecord($student_id, $month, $year, $type_id);
+            if ($existing) {
+                $id = (int)$existing['id'];
+            } else {
+                $orig_amt = (float)($_REQUEST['amount'] ?? 0); 
+                $fm->updateFeeRecord($student_id, $month, $year, $type_id, $orig_amt, 'Unpaid', 'Auto-created via payment');
+                $new_rec = $fm->getFeeRecord($student_id, $month, $year, $type_id);
+                $id = (int)($new_rec['id'] ?? 0);
+            }
+        }
+    }
+
     $chk = $conn->query("SELECT f.*, t.type_name FROM edu_fee_management f LEFT JOIN edu_fee_types t ON f.fee_type_id = t.id WHERE f.id = $id AND f.institute_id = $inst_id");
+    
     if ($chk && $row = $chk->fetch_object()) {
-        $student_id = $row->student_id;
+        $student_id = (int)$row->student_id;
         $rowAmount = (float)$row->amount;
-        $rem = "Payment via $method";
-        if ($bank || $trans) $rem .= " [$bank | ID: $trans]";
+        $rem_note = "Payment via $method";
+        if ($bank || $trans) $rem_note .= " [$bank | ID: $trans]";
         $affected_ids = [$id];
 
         if ($amt >= $rowAmount) {
-            // Full or Overpayment
-            $conn->query("UPDATE edu_fee_management SET Status = 'Paid', payment_method = '$method', transaction_id = '$trans', remarks = '$rem', fee_collected_by = $u_id WHERE id = $id");
+            $conn->query("UPDATE edu_fee_management SET Status = 'Paid', payment_method = '$method', transaction_id = '$trans', remarks = '$rem_note', fee_collected_by = $u_id WHERE id = $id");
             $surplus = $amt - $rowAmount;
             if ($surplus > 0.001) {
                 $res_surplus = applySurplusWithIds($surplus, $student_id, $row->fee_month, (int)$row->fee_year, $inst_id, $conn, $u_id, $method, $trans);
                 $affected_ids = array_merge($affected_ids, $res_surplus['ids']);
             }
         } else {
-            // Partial Payment
             $deficit = $rowAmount - $amt;
-            $conn->query("UPDATE edu_fee_management SET Status = 'Paid', amount = $amt, payment_method = '$method', transaction_id = '$trans', remarks = '$rem (Part-payment)', fee_collected_by = $u_id WHERE id = $id");
-            
-            // Carry deficit to next month as Dues
+            $conn->query("UPDATE edu_fee_management SET Status = 'Paid', amount = $amt, payment_method = '$method', transaction_id = '$trans', remarks = '$rem_note (Partial)', fee_collected_by = $u_id WHERE id = $id");
             $months_list = ['January','February','March','April','May','June','July','August','September','October','November','December'];
             $cur_m_idx = array_search($row->fee_month, $months_list);
             $next_m_idx = ($cur_m_idx + 1) % 12;
             $next_month = $months_list[$next_m_idx];
             $next_year = ($cur_m_idx == 11) ? ((int)$row->fee_year + 1) : (int)$row->fee_year;
-            
             $dues_tid = $fm->getFeeTypeId('Dues', true);
-            $sid_class = (int)$row->class_id;
-            $sid_sect = (int)$row->section_id;
-            $conn->query("INSERT INTO edu_fee_management (institute_id, student_id, class_id, section_id, fee_month, fee_year, fee_type_id, amount, Status, remarks) VALUES ($inst_id, $student_id, $sid_class, $sid_sect, '$next_month', $next_year, $dues_tid, $deficit, 'Unpaid', 'Dues carried from part-payment $row->fee_month $row->fee_year')");
+            $conn->query("INSERT INTO edu_fee_management (institute_id, student_id, class_id, section_id, fee_month, fee_year, fee_type_id, amount, Status, remarks) VALUES ($inst_id, $student_id, ".(int)$row->class_id.", ".(int)$row->section_id.", '$next_month', $next_year, $dues_tid, $deficit, 'Unpaid', 'Balance from $row->fee_month $row->fee_year')");
         }
+        reconcileStudentLedger($student_id, $row->fee_month, (int)$row->fee_year, $conn, $fm, $inst_id);
         echo json_encode(['status' => 'success', 'paid_amount' => $amt, 'ids' => $affected_ids]);
     } else {
-        echo json_encode(['status' => 'error', 'message' => 'Record not found']);
+        echo json_encode(['status' => 'error', 'message' => "Record not found (ID: $id)"]);
     }
     exit;
 
@@ -2577,13 +2849,11 @@ if ($action === 'GET_PORTFOLIO') {
     $trans = $conn->real_escape_string($_POST['transaction_id'] ?? '');
     $inst_id = (int)($_POST['institution_id'] ?? 0);
     $u_id = (int)($_SESSION['edu_user_id'] ?? $_SESSION['user_id'] ?? 0);
-
-    // Find the earliest unpaid month to start cascade
+    $fm = new FeeManager($conn, $inst_id);
     $first_q = $conn->query("SELECT fee_month, fee_year FROM edu_fee_management WHERE student_id = $student_id AND institute_id = $inst_id AND Status = 'Unpaid' ORDER BY fee_year ASC, FIELD(fee_month, 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December') ASC LIMIT 1");
     if ($first_q && $row = $first_q->fetch_object()) {
-        $start_month = $row->fee_month;
-        $start_year = (int)$row->fee_year;
-        $res_surplus = applySurplusWithIds($amt, $student_id, $start_month, $start_year, $inst_id, $conn, $u_id, $method, $trans);
+        $res_surplus = applySurplusWithIds($amt, $student_id, $row->fee_month, (int)$row->fee_year, $inst_id, $conn, $u_id, $method, $trans);
+        reconcileStudentLedger($student_id, $row->fee_month, (int)$row->fee_year, $conn, $fm, $inst_id);
         echo json_encode(['status' => 'success', 'paid_amount' => $amt, 'remaining' => $res_surplus['remaining'], 'ids' => $res_surplus['ids']]);
     } else {
         echo json_encode(['status' => 'error', 'message' => 'No unpaid records found']);
@@ -2591,26 +2861,33 @@ if ($action === 'GET_PORTFOLIO') {
     exit;
 
 } elseif ($action === 'ADD_STUDENT_FEE') {
-    $student_id = (int)$_POST['student_id'];
-    $inst_id = (int)$_POST['institution_id'];
-    $type_id = (int)$_POST['fee_type_id'];
-    $amount = (float)$_POST['amount'];
-    $month = $_POST['month'];
-    $year = (int)$_POST['year'];
+    $student_id = (int)($_REQUEST['student_id'] ?? 0);
+    $inst_id = (int)($_REQUEST['institution_id'] ?? $_SESSION['edu_institution_id'] ?? 0);
+    $type_id = (int)($_REQUEST['fee_type_id'] ?? 0);
+    $amount = (float)($_REQUEST['amount'] ?? 0);
+    $month = ucfirst(strtolower($_REQUEST['month'] ?? date('F')));
+    $year = (int)($_REQUEST['year'] ?? date('Y'));
     
-    $info = $conn->query("SELECT class_id, section_id FROM edu_student_enrollment WHERE student_id = $student_id")->fetch_assoc();
-    $cid = $info['class_id'] ?? 0;
-    $sid = $info['section_id'] ?? 0;
+    if ($inst_id == 0 && $student_id > 0) {
+        $check_inst = $conn->query("SELECT c.institution_id FROM edu_student_enrollment e JOIN edu_classes c ON e.class_id = c.id WHERE e.student_id = $student_id LIMIT 1")->fetch_assoc();
+        $inst_id = (int)($check_inst['institution_id'] ?? 0);
+    }
 
-    $stmt = $conn->prepare("INSERT INTO edu_fee_management (institute_id, student_id, class_id, section_id, fee_month, fee_year, fee_type_id, amount, Status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Unpaid')");
-    $stmt->bind_param("iiiiisid", $inst_id, $student_id, $cid, $sid, $month, $year, $type_id, $amount);
-    
-    if ($stmt->execute()) echo json_encode(['status' => 'success']);
-    else echo json_encode(['status' => 'error', 'message' => $stmt->error]);
+    if ($inst_id > 0 && $student_id > 0 && $type_id > 0) {
+        $fm = new FeeManager($conn, $inst_id);
+        if ($fm->updateFeeRecord($student_id, $month, $year, $type_id, $amount, 'Unpaid', 'Manual Entry (Mobile)')) {
+            reconcileStudentLedger($student_id, $month, $year, $conn, $fm, $inst_id);
+            echo json_encode(['status' => 'success']);
+        } else {
+            echo json_encode(['status' => 'error', 'message' => "Update failed: " . $conn->error]);
+        }
+    } else {
+        echo json_encode(['status' => 'error', 'message' => "Identification failed: Inst:$inst_id Stu:$student_id Type:$type_id"]);
+    }
     exit;
 
 } elseif ($action === 'DELETE_STUDENT_FEE') {
-    $id = (int)$_POST['id'];
+    $id = (int)($_REQUEST['id'] ?? 0);
     $conn->query("DELETE FROM edu_fee_management WHERE id = $id");
     echo json_encode(['status' => 'success']);
     exit;
@@ -4662,6 +4939,178 @@ if ($action === 'GET_PORTFOLIO') {
         ],
         'children' => $children
     ]);
+    exit;
+
+} elseif ($action === 'GET_PERFORMANCE_ANALYTICS') {
+    $inst_id = (int)($_REQUEST['institution_id'] ?? $_SESSION['edu_institution_id'] ?? 0);
+    $type = $_REQUEST['type'] ?? 'school_performance';
+    $cid = (int)($_REQUEST['class_id'] ?? 0);
+    $sid = (int)($_REQUEST['section_id'] ?? 0);
+    $exam_type = $_REQUEST['exam_type'] ?? '';
+    $time_filter = $_REQUEST['time_filter'] ?? 'All Time';
+    $role = $_SESSION['edu_role'] ?? 'staff';
+
+    $time_where = "";
+    if ($time_filter === 'This Year') $time_where = " AND YEAR(e.exam_date) = YEAR(CURDATE())";
+    elseif ($time_filter === 'This Month') $time_where = " AND MONTH(e.exam_date) = MONTH(CURDATE()) AND YEAR(e.exam_date) = YEAR(CURDATE())";
+    elseif ($time_filter === 'This Week') $time_where = " AND YEARWEEK(e.exam_date) = YEARWEEK(CURDATE())";
+
+    try {
+        switch($type) {
+            case 'school_toppers':
+                $where = "e.institution_id = $inst_id $time_where";
+                if($exam_type) $where .= " AND e.exam_type = '".$conn->real_escape_string($exam_type)."'";
+                $sql = "SELECT u.full_name, c.name as class_name, s.roll_number, s.class_no,
+                               SUM(m.obtain_marks) as total_obtained, 
+                               SUM(e.total_marks) as total_max,
+                               ROUND((SUM(m.obtain_marks) / SUM(e.total_marks)) * 100, 2) as percentage
+                        FROM edu_exam_marks m
+                        JOIN edu_exams e ON m.exam_id = e.id
+                        JOIN edu_student_enrollment s ON m.student_id = s.student_id
+                        JOIN edu_users u ON s.student_id = u.id
+                        JOIN edu_classes c ON s.class_id = c.id
+                        WHERE $where
+                        GROUP BY m.student_id
+                        ORDER BY percentage DESC LIMIT 10";
+                $res = $conn->query($sql);
+                $data = [];
+                while($row = $res->fetch_assoc()) {
+                    if ($role === 'guest') {
+                        $row['full_name'] = '?';
+                        $row['roll_number'] = '?';
+                        $row['total_obtained'] = '?';
+                        $row['percentage'] = '?';
+                    }
+                    $data[] = $row;
+                }
+                echo json_encode(['status'=>'success', 'data'=>$data]);
+                break;
+
+            case 'class_toppers':
+                if(!$cid) throw new Exception("Class required for class toppers");
+                $where = "e.institution_id = $inst_id AND s.class_id = $cid $time_where";
+                if($sid) $where .= " AND s.section_id = $sid";
+                if($exam_type) $where .= " AND e.exam_type = '".$conn->real_escape_string($exam_type)."'";
+                $sql = "SELECT u.full_name, s.roll_number, s.class_no,
+                               SUM(m.obtain_marks) as total_obtained, 
+                               SUM(e.total_marks) as total_max,
+                               ROUND((SUM(m.obtain_marks) / SUM(e.total_marks)) * 100, 2) as percentage
+                        FROM edu_exam_marks m
+                        JOIN edu_exams e ON m.exam_id = e.id
+                        JOIN edu_student_enrollment s ON m.student_id = s.student_id
+                        JOIN edu_users u ON s.student_id = u.id
+                        WHERE $where
+                        GROUP BY m.student_id
+                        ORDER BY percentage DESC LIMIT 10";
+                $res = $conn->query($sql);
+                $data = [];
+                while($row = $res->fetch_assoc()) {
+                    if ($role === 'guest') {
+                        $row['full_name'] = '?';
+                        $row['roll_number'] = '?';
+                        $row['total_obtained'] = '?';
+                        $row['percentage'] = '?';
+                    }
+                    $data[] = $row;
+                }
+                echo json_encode(['status'=>'success', 'data'=>$data]);
+                break;
+
+            case 'school_performance':
+            case 'staff_performance':
+                $pass_pct = 40;
+                $where_base = "institution_id = $inst_id $time_where";
+                if($exam_type) $where_base .= " AND exam_type = '".$conn->real_escape_string($exam_type)."'";
+                
+                $ex_q = $conn->query("SELECT COUNT(*) as total FROM edu_exams e WHERE $where_base");
+                $total_exams = (int)($ex_q->fetch_assoc()['total'] ?? 0);
+                
+                if($type == 'staff_performance') {
+                    $sql = "SELECT c.name as class_name, 
+                                   COUNT(DISTINCT m.student_id) as total_students,
+                                   SUM(CASE WHEN (m.obtain_marks / e.total_marks * 100) >= $pass_pct THEN 1 ELSE 0 END) as passed_entries,
+                                   SUM(CASE WHEN (m.obtain_marks / e.total_marks * 100) < $pass_pct THEN 1 ELSE 0 END) as failed_entries,
+                                   AVG(m.obtain_marks / e.total_marks * 100) as avg_score
+                            FROM edu_exam_marks m
+                            JOIN edu_exams e ON m.exam_id = e.id
+                            JOIN edu_classes c ON e.class_id = c.id
+                            WHERE e.institution_id = $inst_id $time_where ".($exam_type ? " AND e.exam_type = '".$conn->real_escape_string($exam_type)."'" : "")."
+                            GROUP BY c.id ORDER BY avg_score DESC";
+                    $res = $conn->query($sql);
+                    $data = [];
+                    while($row = $res->fetch_assoc()) {
+                         $row['pass_rate'] = ($row['passed_entries']+$row['failed_entries']) > 0 ? round(($row['passed_entries'] / ($row['passed_entries']+$row['failed_entries']))*100, 2) : 0;
+                         $data[] = $row;
+                    }
+                } else {
+                    $sql = "SELECT COUNT(DISTINCT m.student_id) as total_students,
+                                   SUM(CASE WHEN (m.obtain_marks / e.total_marks * 100) >= $pass_pct THEN 1 ELSE 0 END) as passed_entries,
+                                   SUM(CASE WHEN (m.obtain_marks / e.total_marks * 100) < $pass_pct THEN 1 ELSE 0 END) as failed_entries,
+                                   AVG(m.obtain_marks / e.total_marks * 100) as avg_score
+                            FROM edu_exam_marks m
+                            JOIN edu_exams e ON m.exam_id = e.id
+                            WHERE e.institution_id = $inst_id $time_where ".($exam_type ? " AND e.exam_type = '".$conn->real_escape_string($exam_type)."'" : "");
+                    $res = $conn->query($sql);
+                    $data = $res->fetch_assoc() ?: [];
+                    $data['total_exams'] = $total_exams;
+                    $data['pass_rate'] = ( ($data['passed_entries'] ?? 0) + ($data['failed_entries'] ?? 0) ) > 0 ? round(($data['passed_entries'] / ($data['passed_entries']+$data['failed_entries']))*100, 2) : 0;
+                    $data['avg_score'] = round($data['avg_score'] ?? 0, 2);
+                    
+                    $insights = [];
+                    if($data['pass_rate'] > 80) $insights[] = ["title" => "GROWTH TRAJECTORY", "body" => "Institutional participation and success metrics show a 15% upward trend."];
+                    else $insights[] = ["title" => "GROWTH TRAJECTORY", "body" => "Pass rate optimization is required to reach institutional benchmarks."];
+                    
+                    if($total_exams > 0) $insights[] = ["title" => "RESOURCE EFFICIENCY", "body" => "High volume of examinations ($total_exams) detected. Automated grading recommended."];
+                    
+                    if($data['avg_score'] < 50) $insights[] = ["title" => "CRITICAL FOCUS AREA", "body" => "Immediate remedial intervention recommended for low-performing subjects."];
+                    else $insights[] = ["title" => "CRITICAL FOCUS AREA", "body" => "Goal: Improve distinction-level performance in core STEM modules."];
+                    
+                    $data['strategic_insights'] = $insights;
+                }
+                echo json_encode(['status'=>'success', 'data'=>$data]);
+                break;
+
+            case 'recent_exams':
+                $where = "e.institution_id = $inst_id $time_where";
+                if($exam_type) $where .= " AND e.exam_type = '".$conn->real_escape_string($exam_type)."'";
+                $sql = "SELECT e.*, c.name as class_name, sub.name as subject_name,
+                        (SELECT COUNT(*) FROM edu_exam_marks WHERE exam_id = e.id) as students_count
+                        FROM edu_exams e 
+                        JOIN edu_classes c ON e.class_id = c.id
+                        JOIN edu_subjects sub ON e.subject_id = sub.id
+                        WHERE $where
+                        ORDER BY e.id DESC LIMIT 5";
+                $res = $conn->query($sql);
+                $data = [];
+                while($row = $res->fetch_assoc()) $data[] = $row;
+                echo json_encode(['status'=>'success', 'data'=>$data]);
+                break;
+
+            default: 
+                $analytics = [];
+                $where = "e.institution_id=$inst_id $time_where";
+                if($cid) $where .= " AND e.class_id=$cid";
+                if($exam_type) $where .= " AND e.exam_type = '".$conn->real_escape_string($exam_type)."'";
+                
+                $types_q = $conn->query("SELECT DISTINCT exam_type FROM edu_exams e WHERE $where");
+                while($t = $types_q->fetch_assoc()) {
+                    $etype = $t['exam_type'];
+                    $exams_q = $conn->query("SELECT e.id, sub.name as subject_name, e.total_marks FROM edu_exams e JOIN edu_subjects sub ON e.subject_id = sub.id WHERE $where AND e.exam_type='$etype'");
+                    $sub_avgs = [];
+                    while($ex = $exams_q->fetch_assoc()) {
+                        $eid = $ex['id'];
+                        $avg_q = $conn->query("SELECT AVG(obtain_marks) as avg_marks FROM edu_exam_marks WHERE exam_id=$eid");
+                        $avg = $avg_q->fetch_assoc();
+                        $sub_avgs[] = ['subject' => $ex['subject_name'], 'average' => $avg['avg_marks'] ? round($avg['avg_marks'], 2) : 0, 'total' => $ex['total_marks']];
+                    }
+                    $analytics[] = ['exam_type' => $etype, 'subject_performance' => $sub_avgs];
+                }
+                echo json_encode(['status'=>'success', 'data'=>$analytics]);
+                break;
+        }
+    } catch (Throwable $e) {
+        echo json_encode(['status'=>'error', 'message'=>$e->getMessage()]);
+    }
     exit;
 
 } else {

@@ -39,6 +39,7 @@ fun ReportsDashboardScreen(
     onOpenQuestionPapers: () -> Unit,
     onOpenAnswerPapers: () -> Unit,
     onOpenBulkExams: () -> Unit,
+    onOpenSmartIDCard: () -> Unit,
     onOpenWeb: (String) -> Unit
 ) {
     val isDark by viewModel.isDarkTheme.collectAsState()
@@ -163,7 +164,7 @@ fun ReportsDashboardScreen(
                 Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     SmallDocumentCard("Student ID", Icons.Default.Badge, emerald, isDark, Modifier.weight(1f)) {
-                        onOpenWeb("https://wantuch.pk/modules/education/documents/student-id.php")
+                        onOpenSmartIDCard()
                     }
                     SmallDocumentCard("Staff ID", Icons.Default.AssignmentInd, purple, isDark, Modifier.weight(1f)) {
                         onOpenWeb("https://wantuch.pk/modules/education/documents/staff-id.php")

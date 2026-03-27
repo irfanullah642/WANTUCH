@@ -6,13 +6,35 @@ import com.example.wantuch.data.local.entities.*
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
+import retrofit2.HttpException
 import retrofit2.converter.gson.GsonConverterFactory
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
 
 class WantuchRepository(private val baseUrl: String, private val dao: com.example.wantuch.data.local.dao.WantuchDao) {
+
+    private fun unwrapHttpErrorMessage(e: HttpException): String {
+        val fallback = e.message ?: "HTTP ${e.code()}"
+        val errorBody = try {
+            e.response()?.errorBody()?.string()
+        } catch (_: Exception) {
+            null
+        }
+
+        if (errorBody.isNullOrBlank()) return fallback
+
+        return try {
+            val json = JSONObject(errorBody)
+            val msg = json.optString("message")
+            if (msg.isNotBlank()) msg else fallback
+        } catch (_: Exception) {
+            // If PHP returned non-JSON (or truncated), show raw body snippet.
+            errorBody.take(5000)
+        }
+    }
     
     private val api: WantuchApi by lazy {
         val logging = HttpLoggingInterceptor().apply {
@@ -105,8 +127,8 @@ class WantuchRepository(private val baseUrl: String, private val dao: com.exampl
         api.getUnreadCounts()
     }
 
-    suspend fun fetchPortfolio(): Result<PortfolioResponse> = try {
-        val response = api.getPortfolio()
+    suspend fun fetchPortfolio(username: String, role: String, userId: Int = 0): Result<PortfolioResponse> = try {
+        val response = api.getPortfolio(username, role, "GET_PORTFOLIO", userId)
         if (response.status == "success") {
             dao.insertPortfolio(response.toEntity())
         }
@@ -120,8 +142,10 @@ class WantuchRepository(private val baseUrl: String, private val dao: com.exampl
         }
     }
 
-    suspend fun fetchDashboard(instId: Int): Result<DashboardResponse> = try {
-        val response = api.switchAndGetDashboard(instId = instId)
+    suspend fun fetchDashboard(instId: Int, username: String, role: String): Result<DashboardResponse> = try {
+        // Backend legacy router expects SWITCH_AND_GET_DASHBOARD for mobile dashboard payloads.
+        // Using GET_DASHBOARD can return HTTP 500 / empty response depending on server build.
+        val response = api.switchAndGetDashboard(instId, username, role, "SWITCH_AND_GET_DASHBOARD")
         if (response.status == "success") {
             dao.insertDashboard(response.toEntity(instId))
         }
@@ -131,7 +155,30 @@ class WantuchRepository(private val baseUrl: String, private val dao: com.exampl
         if (cached != null) {
             Result.success(cached.toDomain())
         } else {
-            Result.failure(e)
+            Result.failure(
+                if (e is HttpException) {
+                    RuntimeException(unwrapHttpErrorMessage(e), e)
+                } else e
+            )
+        }
+    }
+
+    suspend fun switchAndGetDashboard(instId: Int, username: String, role: String): Result<DashboardResponse> = try {
+        val response = api.switchAndGetDashboard(instId, username, role, "SWITCH_AND_GET_DASHBOARD")
+        if (response.status == "success") {
+            dao.insertDashboard(response.toEntity(instId))
+        }
+        Result.success(response)
+    } catch (e: Exception) {
+        val cached = dao.getDashboardOnce(instId)
+        if (cached != null) {
+            Result.success(cached.toDomain())
+        } else {
+            Result.failure(
+                if (e is HttpException) {
+                    RuntimeException(unwrapHttpErrorMessage(e), e)
+                } else e
+            )
         }
     }
 
@@ -154,29 +201,50 @@ class WantuchRepository(private val baseUrl: String, private val dao: com.exampl
     }
 
 
-    suspend fun fetchStaff(instId: Int): Result<StaffResponse> = try {
-        val response = api.getStaff(instId = instId)
+    suspend fun fetchStaff(instId: Int, role: String, userId: Int): Result<StaffResponse> = try {
+        val response = api.getStaff(instId = instId, role = role, userId = userId)
         if (response.status == "success") {
-            val allStaff = (response.teaching_staff ?: emptyList()) + (response.non_teaching_staff ?: emptyList())
-            if (allStaff.isNotEmpty()) {
-                val entities = allStaff.map { it.toEntity(instId) }
-                dao.insertStaff(entities)
-            }
+            val teaching = response.teaching_staff?.map { it.toEntity(instId, true) } ?: emptyList()
+            val nonTeaching = response.non_teaching_staff?.map { it.toEntity(instId, false) } ?: emptyList()
+            dao.insertStaff(teaching + nonTeaching)
         }
         Result.success(response)
     } catch (e: Exception) {
-        val cachedEntities = dao.getStaffOnce(instId)
-        if (cachedEntities.isNotEmpty()) {
-            val teaching = cachedEntities.filter { it.role.contains("Teaching", ignoreCase = true) }.map { it.toDomain() }
-            val nonTeaching = cachedEntities.filter { !it.role.contains("Teaching", ignoreCase = true) }.map { it.toDomain() }
-            Result.success(StaffResponse(status = "success", teaching_staff = teaching, non_teaching_staff = nonTeaching))
+        val cached = dao.getStaffOnce(instId)
+        if (cached.isNotEmpty()) {
+            val tList = cached.filter { 
+                val lRole = it.role.lowercase()
+                val lName = it.name.lowercase()
+                // Robust Teaching Identification (Matches Refined PHP Logic)
+                val isAcademic = listOf("teaching", "teacher", "professor", "lecturer", "headmaster", "principal", "v.p", "vp", "hod").any { lRole.contains(it) } || 
+                                 listOf("prof.", "dr.", "miss ", "mr. ", "sir ", "prof ", "dr ").any { lName.contains(it) }
+                
+                // Explicit Non-Teaching identification
+                val isExplicitNt = listOf("peon", "guard", "clerk", "driver", "cleaner", "sweeper", "qasid", "chowkidar", "helper").any { lRole.contains(it) } ||
+                                 listOf("driver", "peon", "guard", "clerk").any { lName.contains(it) }
+                
+                // Trust the saved flag first, fallback to robust keywords
+                it.isTeaching || (!isExplicitNt && isAcademic) || (isAcademic && !isExplicitNt) || (!isExplicitNt && !lRole.contains("staff"))
+            }.map { it.toDomain() }
+            
+            val ntList = cached.filter { 
+                val entityId = it.id
+                !tList.any { (it.id as? Int) == entityId }
+            }.map { it.toDomain() }
+            
+            val stats = mapOf(
+                "total" to (tList.size + ntList.size),
+                "present" to 0, "absent" to 0, "leave" to 0
+            )
+
+            Result.success(StaffResponse(status = "success", stats = stats, teaching_staff = tList, non_teaching_staff = ntList))
         } else {
             Result.failure(e)
         }
     }
 
-    suspend fun fetchStaffProfile(staffId: Int, instId: Int): Result<StaffProfileResponse> = runCatching {
-        api.getStaffProfile(staffId = staffId, instId = instId)
+    suspend fun fetchStaffProfile(staffId: Int, instId: Int, role: String, userId: Int): Result<StaffProfileResponse> = runCatching {
+        api.getStaffProfile(staffId = staffId, instId = instId, role = role, userId = userId)
     }
 
     suspend fun updateStaffProfile(fields: Map<String, String>): Result<BasicResponse> = runCatching {
@@ -249,8 +317,8 @@ class WantuchRepository(private val baseUrl: String, private val dao: com.exampl
         api.markAttendance(studentId = studentId, status = status, institutionId = instId, date = date)
     }
 
-    suspend fun fetchStudents(instId: Int, classId: Int = 0, sectionId: Int = 0, status: String = "active", year: String = ""): Result<StudentResponse> = try {
-        val response = api.getStudents(instId = instId, classId = classId, sectionId = sectionId, status = status, year = year)
+    suspend fun fetchStudents(instId: Int, role: String, userId: Int, classId: Int = 0, sectionId: Int = 0, status: String = "active", year: String = ""): Result<StudentResponse> = try {
+        val response = api.getStudents(instId = instId, role = role, userId = userId, classId = classId, sectionId = sectionId, status = status, year = year)
         if (response.status == "success" && response.students != null) {
             val entities = response.students.map { it.toEntity(instId) }
             dao.insertStudents(entities)
@@ -269,12 +337,12 @@ class WantuchRepository(private val baseUrl: String, private val dao: com.exampl
         api.bulkSaveStudents(institutionId = instId, classId = classId, sectionId = sectionId, namesText = namesText, gender = gender)
     }
 
-    suspend fun fetchStudentProfile(studentId: Int, instId: Int): Result<StudentProfileResponse> = runCatching {
-        api.getStudentProfile(studentId = studentId, instId = instId)
+    suspend fun fetchStudentProfile(studentId: Int, instId: Int, role: String, userId: Int): Result<StudentProfileResponse> = runCatching {
+        api.getStudentProfile(studentId = studentId, instId = instId, role = role, userId = userId)
     }
 
-    suspend fun fetchSchoolStructure(instId: Int): Result<SchoolStructureResponse> = try {
-        val response = api.getStructure(instId = instId)
+    suspend fun fetchSchoolStructure(instId: Int, role: String, userId: Int): Result<SchoolStructureResponse> = try {
+        val response = api.getStructure(instId = instId, role = role, userId = userId)
         if (response.status == "success" && response.classes != null) {
             val classEntities = response.classes.map { it.toEntity(instId) }
             dao.insertClasses(classEntities)
@@ -289,8 +357,6 @@ class WantuchRepository(private val baseUrl: String, private val dao: com.exampl
     } catch (e: Exception) {
         val classes = dao.getClassesOnce(instId)
         if (classes.isNotEmpty()) {
-             // For now we map classes with empty sections to avoid compile error, 
-             // since querying relation wasn't setup
              val domainClasses = classes.map { SchoolClass(id = it.id, name = it.name, sections = emptyList()) }
              Result.success(SchoolStructureResponse(status = "success", classes = domainClasses))
         } else {
@@ -365,7 +431,7 @@ class WantuchRepository(private val baseUrl: String, private val dao: com.exampl
     suspend fun saveAttendanceRules(instId: Int, fields: Map<String, String>) = runCatching {
         api.saveAttendanceRules(institutionId = instId, fields = fields)
     }
-    suspend fun getLeaveAppeals(instId: Int) = runCatching { api.getLeaveAppeals(instId = instId) }
+    suspend fun getLeaveAppeals(instId: Int, userId: Int = 0) = runCatching { api.getLeaveAppeals(instId = instId, userId = userId) }
     suspend fun updateAppealStatus(instId: Int, id: Int, status: String) = runCatching {
         api.updateAppealStatus(institutionId = instId, id = id, status = status)
     }
@@ -376,8 +442,8 @@ class WantuchRepository(private val baseUrl: String, private val dao: com.exampl
         api.getMonthlyStaffLedger(instId = instId, month = month, year = year)
     }
 
-    suspend fun fetchSyllabus(instId: Int, classId: Int = 0, sectionId: Int = 0, subjectId: Int = 0) = runCatching {
-        api.getSyllabus(instId = instId, classId = classId, sectionId = sectionId, subjectId = subjectId)
+    suspend fun fetchSyllabus(instId: Int, role: String, userId: Int, classId: Int = 0, sectionId: Int = 0, subjectId: Int = 0) = runCatching {
+        api.getSyllabus(instId = instId, role = role, userId = userId, classId = classId, sectionId = sectionId, subjectId = subjectId)
     }
 
     suspend fun importDatabase(fileBytes: ByteArray, filename: String, onProgress: (Float) -> Unit) = runCatching {
@@ -446,8 +512,8 @@ class WantuchRepository(private val baseUrl: String, private val dao: com.exampl
 
     // ── Missing Methods for Merged UI ───────────────────────────────────────
 
-    suspend fun fetchSubjects(instId: Int): Result<SubjectResponse> = runCatching {
-        api.getSubjects(instId = instId)
+    suspend fun fetchSubjects(instId: Int, role: String, userId: Int): Result<SubjectResponse> = runCatching {
+        api.fetchSubjects(instId = instId, role = role, userId = userId)
     }
 
     suspend fun getAwardListExams(instId: Int, classId: Int, sectionId: Int) = runCatching {
@@ -498,8 +564,8 @@ class WantuchRepository(private val baseUrl: String, private val dao: com.exampl
         api.getRollNoSlips(examType = examType, classId = classId, institutionId = instId)
     }
 
-    suspend fun fetchNotices(instId: Int): Result<NoticeResponse> = runCatching {
-        api.getNotices(instId = instId)
+    suspend fun fetchNotices(instId: Int, role: String, userId: Int): Result<NoticeResponse> = runCatching {
+        api.getNotices(instId = instId, role = role, userId = userId)
     }
 
     suspend fun saveNotice(fields: Map<String, String>, instId: Int) = runCatching {
@@ -660,6 +726,10 @@ class WantuchRepository(private val baseUrl: String, private val dao: com.exampl
     }
     suspend fun saveLeaveAppeal(instId: Int, userId: Int, fromDate: String, toDate: String, leaveType: String, reason: String) = runCatching {
         api.saveLeaveAppeal(instId = instId, userId = userId, fromDate = fromDate, toDate = toDate, leaveType = leaveType, reason = reason)
+    }
+
+    suspend fun deleteLeaveAppeal(instId: Int, id: Int) = runCatching {
+        api.deleteLeaveAppeal(instId = instId, id = id)
     }
 }
 

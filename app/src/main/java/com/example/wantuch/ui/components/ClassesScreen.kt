@@ -40,6 +40,7 @@ fun ClassesScreen(viewModel: WantuchViewModel, onBack: () -> Unit) {
     val structure by viewModel.schoolStructure.collectAsState()
     val dashboardData by viewModel.dashboardData.collectAsState()
     val userRole = dashboardData?.role?.lowercase() ?: ""
+    val isMgmt = listOf("admin", "super_admin", "super admin", "developer").contains(userRole)
     val isStudent = userRole == "student"
     val studentClassId = dashboardData?.stats?.get("class_id")?.toString()?.toDoubleOrNull()?.toInt() ?: 0
     val context = LocalContext.current
@@ -122,7 +123,7 @@ fun ClassesScreen(viewModel: WantuchViewModel, onBack: () -> Unit) {
 
                     Spacer(Modifier.width(10.dp))
 
-                    if (!isStudent) {
+                    if (isMgmt) {
                         Button(
                             onClick = { showAddClassModal = true },
                             shape = RoundedCornerShape(12.dp),
@@ -164,6 +165,7 @@ fun ClassesScreen(viewModel: WantuchViewModel, onBack: () -> Unit) {
                             isDark = isDark,
                             viewModel = viewModel,
                             context = context,
+                            isMgmt = isMgmt,
                             isStudent = isStudent
                         )
                     }
@@ -199,6 +201,7 @@ fun ClassCard(
     isDark: Boolean,
     viewModel: WantuchViewModel,
     context: android.content.Context,
+    isMgmt: Boolean = false,
     isStudent: Boolean = false
 ) {
     val cardBg = if (isDark) Color(0xFF1E293B) else Color.White
@@ -229,7 +232,7 @@ fun ClassCard(
                     color = textMain,
                     letterSpacing = 1.sp
                 )
-                if (!isStudent) {
+                if (isMgmt) {
                     IconButton(onClick = { showDeleteConfirm = true }, modifier = Modifier.size(24.dp)) {
                         Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color(0xFFEF4444), modifier = Modifier.size(20.dp))
                     }
@@ -264,7 +267,7 @@ fun ClassCard(
                                     fontWeight = FontWeight.Bold,
                                     color = textMain
                                 )
-                                if (!isStudent) {
+                                if (isMgmt) {
                                     Spacer(Modifier.width(8.dp))
                                     Icon(
                                         Icons.Default.Close,
@@ -290,8 +293,8 @@ fun ClassCard(
 
             Spacer(Modifier.height(20.dp))
 
-            // Add Section Row - Hidden for students
-            if (!isStudent) {
+            // Add Section Row - Hidden for students/staff/parents
+            if (isMgmt) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth()

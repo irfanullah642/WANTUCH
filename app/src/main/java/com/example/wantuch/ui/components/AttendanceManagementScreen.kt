@@ -10,10 +10,12 @@ import androidx.camera.view.PreviewView
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.shape.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+// import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -21,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -34,6 +37,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import coil.compose.AsyncImage
 import com.example.wantuch.ui.viewmodel.WantuchViewModel
 import com.google.mlkit.vision.common.InputImage
@@ -41,11 +45,13 @@ import com.google.mlkit.vision.face.FaceDetection
 import com.google.mlkit.vision.face.FaceDetectorOptions
 import java.util.concurrent.Executors
 import org.json.JSONObject
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
 import androidx.lifecycle.viewModelScope
 import com.example.wantuch.domain.model.VerifyFaceResponse
+import androidx.annotation.OptIn
+import androidx.camera.core.ExperimentalGetImage
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun SmartActionButton(
     label: String, 
@@ -88,7 +94,7 @@ fun AttendanceManagementScreen(viewModel: WantuchViewModel, onBack: () -> Unit) 
 
     var selectedTopTab by remember { mutableIntStateOf(0) }
     val dashboardData by viewModel.dashboardData.collectAsState()
-    val isStudent = dashboardData?.role?.lowercase() ?: "" == "student"
+    val isStudent = (dashboardData?.role?.lowercase() ?: "") == "student"
     
     val allTopTabs = listOf("Attendance", "Monthly", "Rules", "L-appeals", "Status Admin")
     val topTabs = if (isStudent) listOf("Attendance", "Monthly", "L-appeals") else allTopTabs
@@ -123,7 +129,7 @@ fun AttendanceManagementScreen(viewModel: WantuchViewModel, onBack: () -> Unit) 
             }
         }
     ) { padding ->
-        Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState())) {
+        Column(Modifier.padding(padding).fillMaxSize()) {
             Spacer(Modifier.height(16.dp))
             when (topTabs.getOrNull(selectedTopTab)) {
                 "Attendance" -> AttendanceMainTab(viewModel, isDark, textColor, labelColor, cardColor) { 
@@ -145,19 +151,19 @@ fun AttendanceMainTab(viewModel: WantuchViewModel, isDark: Boolean, textColor: C
     val dashboardData by viewModel.dashboardData.collectAsState()
     val isStudent = dashboardData?.role?.lowercase() ?: "" == "student"
 
-    var subTab by remember { androidx.compose.runtime.mutableIntStateOf(if (isStudent) 3 else 0) }
+    var subTab by remember { mutableIntStateOf(if (isStudent) 3 else 0) }
     val allSubTabs = listOf("Students", "Staff", "Manual", "Smart Attendance")
     val subTabs = if (isStudent) listOf("Smart Attendance") else allSubTabs
 
     val structure by viewModel.schoolStructure.collectAsState()
-    var selectedClassId by remember { androidx.compose.runtime.mutableIntStateOf(0) }
-    var classExpanded by remember { androidx.compose.runtime.mutableStateOf(false) }
+    var selectedClassId by remember { mutableIntStateOf(0) }
+    var classExpanded by remember { mutableStateOf(false) }
 
     val studentsData by viewModel.studentsData.collectAsState()
-    val context = androidx.compose.ui.platform.LocalContext.current
-    var selectedDate by remember { androidx.compose.runtime.mutableStateOf(java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())) }
-    var searchQuery by remember { androidx.compose.runtime.mutableStateOf("") }
-    var showManualModal by remember { androidx.compose.runtime.mutableStateOf(false) }
+    val context = LocalContext.current
+    var selectedDate by remember { mutableStateOf(java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())) }
+    var searchQuery by remember { mutableStateOf("") }
+    var showManualModal by remember { mutableStateOf(false) }
 
     val datePickerDialog = remember {
         val calendar = java.util.Calendar.getInstance()
@@ -174,7 +180,7 @@ fun AttendanceMainTab(viewModel: WantuchViewModel, isDark: Boolean, textColor: C
         )
     }
 
-    androidx.compose.runtime.LaunchedEffect(Unit) {
+    LaunchedEffect(Unit) {
         viewModel.fetchSchoolStructure()
         viewModel.fetchStudents()
         viewModel.fetchStaff()
@@ -413,7 +419,7 @@ fun AttendanceMainTab(viewModel: WantuchViewModel, isDark: Boolean, textColor: C
             }
             2 -> {
                 // MANUAL ATTENDANCE
-                var manualSubTab by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+                var manualSubTab by remember { mutableIntStateOf(0) }
                 val manualSubTabs = listOf("Students", "Staff", "Bulk")
 
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -511,15 +517,15 @@ fun AttendanceMainTab(viewModel: WantuchViewModel, isDark: Boolean, textColor: C
 
                             if (manualSubTab == 2) {
                                 // BULK ATTENDANCE PROCESSING
-                                var bulkFromDate by remember { androidx.compose.runtime.mutableStateOf(
+                                var bulkFromDate by remember { mutableStateOf(
                                     java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(
                                         java.util.Calendar.getInstance().also { it.add(java.util.Calendar.DAY_OF_MONTH, -7) }.time
                                     )
                                 ) }
-                                var bulkToDate by remember { androidx.compose.runtime.mutableStateOf(selectedDate) }
-                                var bulkClassSectionId by remember { androidx.compose.runtime.mutableStateOf("") }
-                                var bulkClassExpanded by remember { androidx.compose.runtime.mutableStateOf(false) }
-                                var showExcelWizard by remember { androidx.compose.runtime.mutableStateOf(false) }
+                                var bulkToDate by remember { mutableStateOf(selectedDate) }
+                                var bulkClassSectionId by remember { mutableStateOf("") }
+                                var bulkClassExpanded by remember { mutableStateOf(false) }
+                                var showExcelWizard by remember { mutableStateOf(false) }
 
                                 val fromDatePickerDialog = remember {
                                     val calendar = java.util.Calendar.getInstance()
@@ -706,14 +712,14 @@ fun SmartAttendanceTab(viewModel: WantuchViewModel, isDark: Boolean, textColor: 
     val dashboardData by viewModel.dashboardData.collectAsState()
     val isStudent = dashboardData?.role?.lowercase() ?: "" == "student"
 
-    var smartSubTab by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    var smartSubTab by remember { mutableIntStateOf(0) }
     val allTabs = listOf("Face Recognition", "Fingerprint", "Settings")
     val tabs = if (isStudent) listOf("Face Recognition") else allTabs
     
     val accentCyan = Color(0xFF06B6D4)
     val accentPurple = Color(0xFF6366F1)
     
-    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(20.dp)) {
         // Sub-sub tabs (Face, Fingerprint, Settings)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             tabs.forEachIndexed { i, t ->
@@ -754,6 +760,7 @@ fun SmartAttendanceTab(viewModel: WantuchViewModel, isDark: Boolean, textColor: 
     }
 }
 
+@OptIn(ExperimentalGetImage::class)
 @Composable
 fun FaceRecognitionSection(viewModel: WantuchViewModel, isDark: Boolean, textColor: Color, labelColor: Color, cardColor: Color, accentCyan: Color, accentPurple: Color) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -762,12 +769,12 @@ fun FaceRecognitionSection(viewModel: WantuchViewModel, isDark: Boolean, textCol
         var showEnrollModal by remember { mutableStateOf(false) }
         val smartStatus by viewModel.smartStatus.collectAsState()
 
-        androidx.compose.runtime.LaunchedEffect(Unit) {
+        LaunchedEffect(Unit) {
             viewModel.fetchSmartStatus()
         }
         
         // Reset session when system is toggled
-        androidx.compose.runtime.LaunchedEffect(isSystemActive) {
+        LaunchedEffect(isSystemActive) {
             if (!isSystemActive) {
                 viewModel.clearRecognizedSession()
             }
@@ -877,7 +884,7 @@ fun FaceRecognitionSection(viewModel: WantuchViewModel, isDark: Boolean, textCol
                 val isStudent = dashboardData?.role?.lowercase() ?: "" == "student"
 
                 // Action Buttons
-                val context = androidx.compose.ui.platform.LocalContext.current
+                val context = LocalContext.current
                 if (!isStudent) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         SmartActionButton("ENROLL NEW FACE", Icons.Default.PersonAdd, accentCyan, Modifier.weight(1.2f), onClick = { showEnrollModal = true })
@@ -978,17 +985,17 @@ fun FingerprintSection(viewModel: WantuchViewModel, isDark: Boolean, textColor: 
     var isSystemActive by remember { mutableStateOf(false) }
     var resultMessage by remember { mutableStateOf("SCAN FINGERPRINT TO START") }
     var showEnrollModal by remember { mutableStateOf(false) }
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
 
     // Reset session when system is toggled
-    androidx.compose.runtime.LaunchedEffect(isSystemActive) {
+    LaunchedEffect(isSystemActive) {
         if (!isSystemActive) {
             viewModel.clearRecognizedSession()
         }
     }
 
     // Trigger biometric automatically when system is activated
-    androidx.compose.runtime.LaunchedEffect(isSystemActive) {
+    LaunchedEffect(isSystemActive) {
         if (isSystemActive) {
             val executor = ContextCompat.getMainExecutor(context)
             val biometricPrompt = BiometricPrompt(
@@ -1292,7 +1299,7 @@ fun SmartSettingsSection(viewModel: WantuchViewModel, isDark: Boolean, textColor
     var checkInStart by remember(config) { mutableStateOf(config["check_in_time_start"]?.toString() ?: "01:00 pm") }
     var checkInEnd by remember(config) { mutableStateOf(config["check_in_time_end"]?.toString() ?: "02:00 pm") }
 
-    androidx.compose.runtime.LaunchedEffect(instId) {
+    LaunchedEffect(instId) {
         val itid = when(val id = instId) {
             is Int -> id
             is Double -> id.toInt()
@@ -1499,7 +1506,7 @@ fun FaceEnrollmentModal(viewModelSize: WantuchViewModel, isDark: Boolean, cardCo
     val labelColor = if (isDark) Color.White.copy(0.6f) else Color.Gray
 
     // Data Fetching
-    androidx.compose.runtime.LaunchedEffect(category, selectedClassId, selectedSectionId) {
+    LaunchedEffect(category, selectedClassId, selectedSectionId) {
         if (category == "STUDENT") {
             viewModelSize.fetchStudents(selectedClassId, selectedSectionId)
         } else {
@@ -1632,7 +1639,7 @@ fun FaceEnrollmentModal(viewModelSize: WantuchViewModel, isDark: Boolean, cardCo
 
                     // Actions
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        val context = androidx.compose.ui.platform.LocalContext.current
+                        val context = LocalContext.current
                         SmartActionButton("DISCARD", null, Color.Red, Modifier.weight(1f), isFilled = false, onClick = { capturedBitmap = null })
                         SmartActionButton("ENROLL FACE", null, accentCyan, Modifier.weight(1.5f), isFilled = true, enabled = (selectedPersonId > 0 && capturedBitmap != null)) {
                             val personName = if (category == "STUDENT") {
@@ -1690,7 +1697,7 @@ fun StaffAttendanceRow(
     cardColor: Color,
     onMark: (String) -> Unit
 ) {
-    var currentStatus by remember(staff.id, staff.marked) { androidx.compose.runtime.mutableStateOf(staff.marked) }
+    var currentStatus by remember(staff.id, staff.marked) { mutableStateOf(staff.marked) }
 
     Card(
         colors = CardDefaults.cardColors(containerColor = cardColor),
@@ -1826,7 +1833,7 @@ fun StudentAttendanceRow(
     cardColor: Color,
     onMark: (String) -> Unit
 ) {
-    var currentStatus by remember(student.id, student.marked) { androidx.compose.runtime.mutableStateOf(student.marked) }
+    var currentStatus by remember(student.id, student.marked) { mutableStateOf(student.marked) }
 
     Card(
         colors = CardDefaults.cardColors(containerColor = cardColor),
@@ -1957,16 +1964,20 @@ fun StudentAttendanceRow(
 @Composable
 fun MonthlyAttendanceTab(viewModel: WantuchViewModel, isDark: Boolean, textColor: Color, labelColor: Color, cardColor: Color) {
     val dashboardData by viewModel.dashboardData.collectAsState()
-    val isDark by viewModel.isDarkTheme.collectAsState()
-    val isStudent = dashboardData?.role?.lowercase() ?: "" == "student"
-    var subTab by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    val isStudent = dashboardData?.role?.lowercase()?.contains("student") == true
+    var subTab by remember { mutableIntStateOf(0) }
     val structure by viewModel.schoolStructure.collectAsState()
     val studentLedger by viewModel.studentLedger.collectAsState()
     val staffLedger by viewModel.staffLedger.collectAsState()
     val instId by viewModel.lastInstId.collectAsState()
+    val context = LocalContext.current
+    val accentPurple = Color(0xFF6366F1)
 
-    var selectedClassId by remember { androidx.compose.runtime.mutableIntStateOf(0) }
-    var classExpanded by remember { androidx.compose.runtime.mutableStateOf(false) }
+    var selectedClassId by remember { mutableIntStateOf(0) }
+    var classExpanded by remember { mutableStateOf(false) }
+    
+    // val graphicsLayer = rememberGraphicsLayer() // Removed due to compilation error
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     
     val currentMonth = java.text.SimpleDateFormat("MMMM", java.util.Locale.getDefault()).format(java.util.Date())
     val currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
@@ -1980,36 +1991,28 @@ fun MonthlyAttendanceTab(viewModel: WantuchViewModel, isDark: Boolean, textColor
     val months = listOf("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
     val years = (currentYear - 2..currentYear + 1).map { it }
 
-    androidx.compose.runtime.LaunchedEffect(Unit) {
+    LaunchedEffect(Unit) {
         viewModel.fetchSchoolStructure()
     }
 
-    androidx.compose.runtime.LaunchedEffect(subTab, selectedClassId, selectedMonth, selectedYear, isStudent, instId, structure) {
+    // Robust User identification
+    val myUid = (dashboardData?.stats?.get("id") ?: dashboardData?.user_id)?.toString()?.toDoubleOrNull()?.toInt() ?: 0
+    val myStudentId = (dashboardData?.stats?.get("student_id") ?: (dashboardData?.stats?.get("id") ?: (dashboardData?.stats?.get("sid") ?: (dashboardData?.user_id))))?.toString()?.toDoubleOrNull()?.toInt() ?: 0
+    
+    // Resolve Student Class ID
+    val studentClass = (dashboardData?.stats?.get("class_id") ?: (dashboardData?.stats?.get("curr_class") ?: (dashboardData?.stats?.get("st_class_id") ?: (dashboardData?.stats?.get("class") ?: (dashboardData?.stats?.get("my_class_id"))))))?.toString()?.toDoubleOrNull()?.toInt() ?: 
+                        (structure?.classes?.find { it.name.equals(dashboardData?.stats?.get("my_class")?.toString()?.trim() ?: "", ignoreCase = true) }?.id ?: 0)
+
+    LaunchedEffect(subTab, selectedClassId, selectedMonth, selectedYear, isStudent, instId, structure, dashboardData, myUid) {
         if (instId > 0) {
             if (isStudent) {
-                val myStudentId = (dashboardData?.stats?.get("student_id") ?: (dashboardData?.stats?.get("id") ?: (dashboardData?.stats?.get("sid") ?: (dashboardData?.user_id))))?.toString()?.toDoubleOrNull()?.toInt() ?: 0
                 if (myStudentId > 0) {
                      viewModel.fetchStudentProfile(myStudentId)
                 }
                 
-                var studentClass = (dashboardData?.stats?.get("class_id") ?: (dashboardData?.stats?.get("curr_class") ?: (dashboardData?.stats?.get("st_class_id") ?: (dashboardData?.stats?.get("class") ?: (dashboardData?.stats?.get("my_class_id"))))))?.toString()?.toDoubleOrNull()?.toInt() ?: 0
+                // For students, fetch by their ID. Backend doesn't strictly need class_id for single-student ledger.
+                viewModel.fetchMonthlyStudentLedger(instId, studentClass, selectedMonth, selectedYear, myUid)
                 
-                // Fallback: Find by NAME matching if ID is missing from stats
-                if (studentClass == 0 && structure != null) {
-                    val myClassName = dashboardData?.stats?.get("my_class")?.toString()?.trim() ?: ""
-                    if (myClassName.isNotEmpty()) {
-                        studentClass = structure?.classes?.find { 
-                            it.name.equals(myClassName, ignoreCase = true) || 
-                            it.name.contains(myClassName, ignoreCase = true) ||
-                            myClassName.contains(it.name, ignoreCase = true)
-                        }?.id ?: 0
-                    }
-                }
-
-                val effectiveClass = if (studentClass > 0) studentClass else selectedClassId
-                if (effectiveClass > 0) {
-                    viewModel.fetchMonthlyStudentLedger(instId, effectiveClass, selectedMonth, selectedYear)
-                }
             } else if (subTab == 0) {
                 if (selectedClassId > 0) viewModel.fetchMonthlyStudentLedger(instId, selectedClassId, selectedMonth, selectedYear)
             } else {
@@ -2018,9 +2021,17 @@ fun MonthlyAttendanceTab(viewModel: WantuchViewModel, isDark: Boolean, textColor
         }
     }
  
-    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+    Column(Modifier
+        .fillMaxSize()
+        // .graphicsLayer(graphicsLayer)
+        // .drawWithContent {
+        //     graphicsLayer.record { this@drawWithContent.drawContent() }
+        //     drawContent()
+        // }
+        .padding(horizontal = 16.dp)
+    ) {
         if (!isStudent) {
-            // Sub-tabs row - HIDDEN FOR STUDENTS
+            // Sub-tabs row - RESTORED FOR STAFF
             Row(Modifier.fillMaxWidth().height(50.dp).background(cardColor.copy(0.5f), RoundedCornerShape(12.dp)).padding(4.dp)) {
                 Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(8.dp)).background(if(subTab == 0) Color(0xFF3B82F6) else Color.Transparent).clickable { subTab = 0 }, Alignment.Center) {
                     Text("STUDENTS", color = if(subTab == 0) Color.White else labelColor, fontWeight = FontWeight.Black, fontSize = 11.sp)
@@ -2032,74 +2043,113 @@ fun MonthlyAttendanceTab(viewModel: WantuchViewModel, isDark: Boolean, textColor
             Spacer(Modifier.height(24.dp))
         }
 
-        Text(if(isStudent) "MY MONTHLY PERFORMANCE" else if(subTab == 0) "STUDENT PERFORMANCE" else "STAFF MONTHLY PERFORMANCE", color = textColor, fontWeight = FontWeight.Black, fontSize = 14.sp)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(if(isStudent) "MY MONTHLY PERFORMANCE" else if(subTab == 0) "STUDENT PERFORMANCE" else "STAFF MONTHLY PERFORMANCE", color = textColor, fontWeight = FontWeight.Black, fontSize = 14.sp, modifier = Modifier.weight(1f))
+            if (isStudent) {
+                /* Removed due to compilation error with graphicsLayer
+                IconButton(onClick = {
+                    scope.launch {
+                        try {
+                            val bitmap = graphicsLayer.toImageBitmap()
+                            saveAndShareBitmap(context, bitmap)
+                        } catch(e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+                }) {
+                    Icon(Icons.Default.Share, null, tint = accentPurple, modifier = Modifier.size(20.dp))
+                }
+                */
+            }
+        }
         Spacer(Modifier.height(16.dp))
 
         val studentClass = (dashboardData?.stats?.get("class_id") ?: (dashboardData?.stats?.get("curr_class") ?: (dashboardData?.stats?.get("st_class_id") ?: (dashboardData?.stats?.get("class") ?: (dashboardData?.stats?.get("my_class_id"))))))?.toString()?.toDoubleOrNull()?.toInt() ?: 
                             (structure?.classes?.find { it.name.equals(dashboardData?.stats?.get("my_class")?.toString()?.trim() ?: "", ignoreCase = true) }?.id ?: 0)
         
-        // Filters Row (Common for Staff and Students)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (!isStudent && subTab == 0) {
-                Box(Modifier.weight(1.5f)) {
-                    val selectedText = structure?.classes?.find { it.id == selectedClassId }?.name?.uppercase() ?: "SELECT CLASS"
-                    Surface(onClick = { classExpanded = true }, color = cardColor.copy(0.5f), shape = RoundedCornerShape(10.dp), border = BorderStroke(1.dp, labelColor.copy(0.1f))) {
-                        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(selectedText, color = if(selectedClassId > 0) textColor else labelColor, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        // Filters Row
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                // Month Selector
+                Box(Modifier.fillMaxWidth()) {
+                    var expanded by remember { mutableStateOf(false) }
+                    Surface(onClick = { expanded = true }, color = cardColor.copy(0.5f), shape = RoundedCornerShape(12.dp), border = BorderStroke(1.dp, labelColor.copy(0.1f))) {
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.CalendarToday, null, tint = accentPurple, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(10.dp))
+                            Text(selectedMonth.uppercase(), color = textColor, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
                             Spacer(Modifier.weight(1f))
-                            Icon(Icons.Default.ArrowDropDown, null, tint = labelColor)
+                            Icon(Icons.Default.ArrowDropDown, null, tint = labelColor, modifier = Modifier.size(16.dp))
                         }
                     }
-                    androidx.compose.material3.DropdownMenu(expanded = classExpanded, onDismissRequest = { classExpanded = false }, modifier = Modifier.background(cardColor)) {
-                        structure?.classes?.forEach { cls ->
-                            androidx.compose.material3.DropdownMenuItem(text = { Text(cls.name.uppercase(), color = textColor, fontSize = 12.sp) }, onClick = { selectedClassId = cls.id; classExpanded = false })
+                    androidx.compose.material3.DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, modifier = Modifier.background(cardColor)) {
+                        months.forEach { m ->
+                            androidx.compose.material3.DropdownMenuItem(text = { Text(m.uppercase(), color = textColor, fontSize = 11.sp) }, onClick = { selectedMonth = m; expanded = false })
                         }
                     }
                 }
-            } else if (isStudent && studentClass > 0) {
-                // Student info card instead of class selector
-                Surface(Modifier.weight(1.5f), color = cardColor.copy(0.2f), shape = RoundedCornerShape(10.dp)) {
-                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("MY PERFORMANCE", color = textColor, fontSize = 11.sp, fontWeight = FontWeight.Black)
+
+                // Year Selector
+                Box(Modifier.fillMaxWidth()) {
+                    var expanded by remember { mutableStateOf(false) }
+                    Surface(onClick = { expanded = true }, color = cardColor.copy(0.5f), shape = RoundedCornerShape(12.dp), border = BorderStroke(1.dp, labelColor.copy(0.1f))) {
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("YEAR: $selectedYear", color = textColor, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                            Spacer(Modifier.weight(1f))
+                            Icon(Icons.Default.ArrowDropDown, null, tint = labelColor, modifier = Modifier.size(16.dp))
+                        }
+                    }
+                    androidx.compose.material3.DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, modifier = Modifier.background(cardColor)) {
+                        years.forEach { y ->
+                            androidx.compose.material3.DropdownMenuItem(text = { Text(y.toString(), color = textColor, fontSize = 11.sp) }, onClick = { selectedYear = y; expanded = false })
+                        }
                     }
                 }
             }
-            
-            Box(Modifier.weight(1f)) {
-                var expanded by remember { mutableStateOf(false) }
-                Surface(onClick = { expanded = true }, color = cardColor.copy(0.5f), shape = RoundedCornerShape(10.dp), border = BorderStroke(1.dp, labelColor.copy(0.1f))) {
-                    Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(selectedMonth, color = textColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.weight(1f))
-                        Icon(Icons.Default.CalendarToday, null, tint = Color(0xFF3B82F6), modifier = Modifier.size(16.dp))
+
+            // Student Picture Column
+            if (isStudent) {
+                Card(
+                    modifier = Modifier.size(80.dp),
+                    shape = CircleShape,
+                    border = BorderStroke(2.dp, accentPurple.copy(0.3f))
+                ) {
+                    val ledgerStudents = studentLedger?.optJSONArray("students")
+                    val s0 = if (ledgerStudents != null && ledgerStudents.length() > 0) ledgerStudents.optJSONObject(0) else null
+                    val ledgerPic = s0?.optString("profile_pic")?.takeIf { it?.isNotBlank() == true }
+                    val pic = if (ledgerPic != null) ledgerPic else dashboardData?.profile_pic
+                    if (!pic.isNullOrEmpty()) {
+                        val imageUrl = if (pic.startsWith("http", ignoreCase = true)) pic else "https://wantuch.pk/$pic"
+                        androidx.compose.foundation.layout.Box(Modifier.fillMaxSize()) {
+                            coil.compose.AsyncImage(
+                                model = imageUrl,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                            )
+                        }
+                    } else {
+                        Box(Modifier.fillMaxSize().background(accentPurple.copy(0.1f)), Alignment.Center) {
+                            Icon(Icons.Default.Person, null, tint = accentPurple.copy(0.5f), modifier = Modifier.size(32.dp))
+                        }
                     }
                 }
-                androidx.compose.material3.DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, modifier = Modifier.background(cardColor)) {
-                    months.forEach { m ->
-                        androidx.compose.material3.DropdownMenuItem(text = { Text(m.uppercase(), color = textColor, fontSize = 11.sp) }, onClick = { selectedMonth = m; expanded = false })
-                    }
-                }
-            }
-            
-            Box(Modifier.weight(0.7f)) {
-                var expanded by remember { mutableStateOf(false) }
-                Surface(onClick = { expanded = true }, color = cardColor.copy(0.5f), shape = RoundedCornerShape(10.dp), border = BorderStroke(1.dp, labelColor.copy(0.1f))) {
-                    Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(selectedYear.toString(), color = textColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-                androidx.compose.material3.DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, modifier = Modifier.background(cardColor)) {
-                    years.forEach { y ->
-                        androidx.compose.material3.DropdownMenuItem(text = { Text(y.toString(), color = textColor, fontSize = 11.sp) }, onClick = { selectedYear = y; expanded = false })
-                    }
-                }
+            } else if (subTab == 0 && selectedClassId > 0) {
+                 // Class info or logo placeholder
+                 Box(Modifier.size(height = 96.dp, width = 80.dp).background(cardColor.copy(0.3f), RoundedCornerShape(14.dp)), Alignment.Center) {
+                     Icon(Icons.Default.School, null, tint = labelColor.copy(0.3f), modifier = Modifier.size(32.dp))
+                 }
             }
         }
         
         Spacer(Modifier.height(30.dp))
 
         if (isStudent) {
+            // FIX: Wrap in scrollable column so bottom stats/calendar are reachable
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             StudentCalendarView(viewModel, isDark, textColor, labelColor, cardColor, selectedMonth, selectedYear)
+            Spacer(Modifier.height(100.dp))
+            }
         } else {
             // Ledger Header
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -2549,7 +2599,7 @@ fun StaffMonthlyLedger(data: org.json.JSONObject?, isDark: Boolean, textColor: C
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun AttendanceRulesTab(isDark: Boolean, textColor: Color, labelColor: Color, cardColor: Color) {
-    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(20.dp)) {
         Text("Institutional Standards & Payout Rules", color = textColor, fontWeight = FontWeight.Black, fontSize = 16.sp)
 
         // Absence & Deduction Section
@@ -2574,9 +2624,9 @@ fun AttendanceRulesTab(isDark: Boolean, textColor: Color, labelColor: Color, car
 
         // Fines Section
         RuleSectionCard("DISCIPLINARY FINES (RS)", isDark, labelColor, cardColor) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FineBadge("HAIR CUT", "10", isDark)
-                FineBadge("REGISTER/BOOKS", "20", isDark)
+                FineBadge("REGISTER/BOO...", "20", isDark)
                 FineBadge("RULES BREAK", "30", isDark)
                 FineBadge("ATTENDANCE", "10", isDark)
             }
@@ -2664,6 +2714,11 @@ fun LeaveAppealsTab(viewModel: WantuchViewModel, isDark: Boolean, textColor: Col
     var subTab by rememberSaveable { mutableIntStateOf(0) }
     val accentPurple = Color(0xFF6366F1)
 
+    LaunchedEffect(subTab, myUserId) {
+        // FIX: Pass myUserId for students so backend filters to only their appeals
+        viewModel.fetchLeaveAppeals(if (isStudent) myUserId else 0)
+    }
+
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         Text(if(isStudent) "MY LEAVE APPEALS" else "PENDING LEAVE APPEALS", color = textColor, fontWeight = FontWeight.Black, fontSize = 16.sp)
         Spacer(Modifier.height(20.dp))
@@ -2696,108 +2751,303 @@ fun LeaveAppealsTab(viewModel: WantuchViewModel, isDark: Boolean, textColor: Col
 
         Spacer(Modifier.height(24.dp))
 
-        if (isStudent && subTab == 1) {
-            val context = androidx.compose.ui.platform.LocalContext.current
-            fun showDatePicker(onDate: (String) -> Unit) { 
-                val current = java.util.Calendar.getInstance()
-                android.app.DatePickerDialog(context, {_,y,m,d -> 
-                    val c = java.util.Calendar.getInstance()
-                    c.set(y, m, d)
-                    onDate(java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(c.time)) 
-                }, current.get(java.util.Calendar.YEAR), current.get(java.util.Calendar.MONTH), current.get(java.util.Calendar.DAY_OF_MONTH)).show() 
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var editingAppeal by remember { mutableStateOf<org.json.JSONObject?>(null) }
+
+    fun showDatePicker(onDate: (String) -> Unit) { 
+        val current = java.util.Calendar.getInstance()
+        android.app.DatePickerDialog(context, {_,y,m,d -> 
+            val c = java.util.Calendar.getInstance()
+            c.set(y, m, d)
+            onDate(java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(c.time)) 
+        }, current.get(java.util.Calendar.YEAR), current.get(java.util.Calendar.MONTH), current.get(java.util.Calendar.DAY_OF_MONTH)).show() 
+    }
+
+    if (isStudent && subTab == 1) {
+        var fromDate by remember { mutableStateOf("Choose start date...") }
+        var toDate by remember { mutableStateOf("Choose end date...") }
+        var reason by remember { mutableStateOf("") }
+        var leaveType by remember { mutableStateOf("SICK LEAVE") }
+        var typeExpanded by remember { mutableStateOf(false) }
+
+        // Sync form if editing
+        LaunchedEffect(editingAppeal) {
+            editingAppeal?.let { a ->
+                fromDate = a.optString("start_date")
+                toDate = a.optString("end_date")
+                leaveType = a.optString("leave_type", "SICK LEAVE")
+                reason = a.optString("reason")
             }
-            var fromDate by remember { mutableStateOf("Choose start date...") }
-            var toDate by remember { mutableStateOf("Choose end date...") }
-            var reason by remember { mutableStateOf("") }
-            var leaveType by remember { mutableStateOf("SICK LEAVE") }
-            var typeExpanded by remember { mutableStateOf(false) }
+        }
 
-            Card(colors = CardDefaults.cardColors(containerColor = cardColor.copy(0.5f)), shape = RoundedCornerShape(16.dp)) {
-                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text("APPEAL FOR LEAVE", color = textColor, fontSize = 14.sp, fontWeight = FontWeight.Black)
-                    
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Column(Modifier.weight(1f)) {
-                            Text("FROM DATE", color = labelColor, fontSize = 8.sp, fontWeight = FontWeight.Bold)
-                            Spacer(Modifier.height(6.dp))
-                            Surface(onClick = { showDatePicker { fromDate = it } }, color = Color.Black.copy(0.1f), shape = RoundedCornerShape(10.dp), modifier = Modifier.fillMaxWidth().height(44.dp)) {
-                                Box(Modifier.fillMaxSize().padding(horizontal = 12.dp), Alignment.CenterStart) { Text(fromDate, color = if(fromDate.contains("-")) textColor else labelColor, fontSize = 11.sp) }
-                            }
-                        }
-                        Column(Modifier.weight(1f)) {
-                            Text("TO DATE", color = labelColor, fontSize = 8.sp, fontWeight = FontWeight.Bold)
-                            Spacer(Modifier.height(6.dp))
-                            Surface(onClick = { showDatePicker { toDate = it } }, color = Color.Black.copy(0.1f), shape = RoundedCornerShape(10.dp), modifier = Modifier.fillMaxWidth().height(44.dp)) {
-                                Box(Modifier.fillMaxSize().padding(horizontal = 12.dp), Alignment.CenterStart) { Text(toDate, color = if(toDate.contains("-")) textColor else labelColor, fontSize = 11.sp) }
-                            }
-                        }
-                    }
-
-                    Column {
-                        Text("LEAVE TYPE", color = labelColor, fontSize = 8.sp, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.height(6.dp))
-                        Box {
-                            Surface(onClick = { typeExpanded = true }, color = Color.Black.copy(0.1f), shape = RoundedCornerShape(10.dp), modifier = Modifier.fillMaxWidth().height(44.dp)) {
-                                Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Text(leaveType, color = textColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                    Spacer(Modifier.weight(1f))
-                                    Icon(Icons.Default.ArrowDropDown, null, tint = labelColor)
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = 10.dp)) {
+                Card(colors = CardDefaults.cardColors(containerColor = cardColor.copy(0.5f)), shape = RoundedCornerShape(16.dp)) {
+                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Text("APPEAL FOR LEAVE", color = textColor, fontSize = 14.sp, fontWeight = FontWeight.Black)
+                        
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Column(Modifier.weight(1f)) {
+                                Text("FROM DATE", color = labelColor, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.height(6.dp))
+                                Surface(onClick = { showDatePicker { fromDate = it } }, color = Color.Black.copy(0.1f), shape = RoundedCornerShape(10.dp), modifier = Modifier.fillMaxWidth().height(44.dp)) {
+                                    Box(Modifier.fillMaxSize().padding(horizontal = 12.dp), Alignment.CenterStart) { Text(fromDate, color = if(fromDate.contains("-")) textColor else labelColor, fontSize = 11.sp) }
                                 }
                             }
-                            androidx.compose.material3.DropdownMenu(expanded = typeExpanded, onDismissRequest = { typeExpanded = false }, modifier = Modifier.background(cardColor)) {
-                                listOf("SICK LEAVE", "CASUAL LEAVE", "EMERGENCY LEAVE", "OTHER").forEach { t ->
-                                    androidx.compose.material3.DropdownMenuItem(text = { Text(t, color = textColor, fontSize = 11.sp) }, onClick = { leaveType = t; typeExpanded = false })
+                            Column(Modifier.weight(1f)) {
+                                Text("TO DATE", color = labelColor, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.height(6.dp))
+                                Surface(onClick = { showDatePicker { toDate = it } }, color = Color.Black.copy(0.1f), shape = RoundedCornerShape(10.dp), modifier = Modifier.fillMaxWidth().height(44.dp)) {
+                                    Box(Modifier.fillMaxSize().padding(horizontal = 12.dp), Alignment.CenterStart) { Text(toDate, color = if(toDate.contains("-")) textColor else labelColor, fontSize = 11.sp) }
                                 }
                             }
                         }
-                    }
 
-                    Column {
-                        Text("REASON FOR LEAVE", color = labelColor, fontSize = 8.sp, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.height(6.dp))
-                        PremiumTextField(reason, { reason = it }, "Detailed reason...", Icons.Default.Edit, isDark)
-                    }
-
-                    Button(
-                        onClick = { 
-                            if (!fromDate.contains("-") || !toDate.contains("-") || reason.isBlank()) {
-                                android.widget.Toast.makeText(context, "Please fill all fields", android.widget.Toast.LENGTH_SHORT).show()
-                            } else {
-                                viewModel.submitLeaveAppeal(instId, myUserId, fromDate, toDate, leaveType, reason) { success ->
-                                    if(success) { 
-                                        android.widget.Toast.makeText(context, "Appeal Submitted Successfully", android.widget.Toast.LENGTH_SHORT).show()
-                                        fromDate = "Choose start date..."
-                                        toDate = "Choose end date..."
-                                        reason = ""
-                                        subTab = 0 
-                                    } else {
-                                        android.widget.Toast.makeText(context, "Submission Failed", android.widget.Toast.LENGTH_SHORT).show()
+                        Column {
+                            Text("LEAVE TYPE", color = labelColor, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(6.dp))
+                            Box {
+                                Surface(onClick = { typeExpanded = true }, color = Color.Black.copy(0.1f), shape = RoundedCornerShape(10.dp), modifier = Modifier.fillMaxWidth().height(44.dp)) {
+                                    Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Text(leaveType, color = textColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        Spacer(Modifier.weight(1f))
+                                        Icon(Icons.Default.ArrowDropDown, null, tint = labelColor)
                                     }
-                                } 
+                                }
+                                androidx.compose.material3.DropdownMenu(expanded = typeExpanded, onDismissRequest = { typeExpanded = false }, modifier = Modifier.background(cardColor)) {
+                                    listOf("SICK LEAVE", "CASUAL LEAVE", "EMERGENCY LEAVE", "OTHER").forEach { t ->
+                                        androidx.compose.material3.DropdownMenuItem(text = { Text(t, color = textColor, fontSize = 11.sp) }, onClick = { leaveType = t; typeExpanded = false })
+                                    }
+                                }
                             }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = accentPurple),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth().height(50.dp)
-                    ) {
-                        Text("SUBMIT APPEAL", fontWeight = FontWeight.Black)
+                        }
+
+                        Column {
+                            Text("REASON FOR LEAVE", color = labelColor, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(6.dp))
+                            PremiumTextField(reason, { reason = it }, "Detailed reason...", Icons.Default.Edit, isDark)
+                        }
+
+                        Button(
+                            onClick = { 
+                                if (!fromDate.contains("-") || !toDate.contains("-") || reason.isBlank()) {
+                                    android.widget.Toast.makeText(context, "Please fill all fields", android.widget.Toast.LENGTH_SHORT).show()
+                                } else {
+                                    val editItem = editingAppeal
+                                    if (editItem != null) {
+                                        // Update logic
+                                        scope.launch {
+                                            viewModel.genericGet("EDIT_LEAVE_APPEAL", mapOf(
+                                                "institution_id" to instId.toString(),
+                                                "user_id" to myUserId.toString(),
+                                                "role" to "student",
+                                                "id" to editItem.optInt("id").toString(),
+                                                "from_date" to fromDate,
+                                                "to_date" to toDate,
+                                                "leave_type" to leaveType,
+                                                "reason" to reason
+                                            )).onSuccess { body ->
+                                                val jsonStr = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { body.string() }
+                                                val json = org.json.JSONObject(jsonStr)
+                                                if (json.optString("status") == "success") {
+                                                    android.widget.Toast.makeText(context, "Appeal Updated", android.widget.Toast.LENGTH_SHORT).show()
+                                                    editingAppeal = null
+                                                    subTab = 0
+                                                    viewModel.fetchLeaveAppeals(myUserId)
+                                                    // Reset form
+                                                    fromDate = "Choose start date..."
+                                                    toDate = "Choose end date..."
+                                                    reason = ""
+                                                } else {
+                                                    android.widget.Toast.makeText(context, json.optString("message", "Update Failed: Check Pending status"), android.widget.Toast.LENGTH_LONG).show()
+                                                }
+                                            }.onFailure {
+                                                android.widget.Toast.makeText(context, "Network or Server Error", android.widget.Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    } else {
+                                        viewModel.submitLeaveAppeal(instId, myUserId, fromDate, toDate, leaveType, reason) { success ->
+                                            if(success) { 
+                                                android.widget.Toast.makeText(context, "Appeal Submitted Successfully", android.widget.Toast.LENGTH_SHORT).show()
+                                                fromDate = "Choose start date..."
+                                                toDate = "Choose end date..."
+                                                reason = ""
+                                                subTab = 0 
+                                            } else {
+                                                android.widget.Toast.makeText(context, "Submission Failed", android.widget.Toast.LENGTH_SHORT).show()
+                                            }
+                                        } 
+                                    }
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = accentPurple),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth().height(50.dp)
+                        ) {
+                            Text(if(editingAppeal != null) "UPDATE APPEAL" else "SUBMIT APPEAL", fontWeight = FontWeight.Black)
+                        }
+                    }
+                }
+                Spacer(Modifier.height(100.dp))
+            }
+        }
+        else {
+            val history by viewModel.leaveAppeals.collectAsState()
+            val rawAppeals = history?.get("appeals") as? org.json.JSONArray
+            val appealsList = mutableListOf<org.json.JSONObject>()
+            if (rawAppeals != null) {
+                for(i in 0 until rawAppeals.length()) {
+                    val a = rawAppeals.optJSONObject(i)
+                    if (a != null) {
+                        val appealRole = a.optString("role", "").lowercase()
+                        val isForStudent = appealRole.contains("student")
+                        if (isStudent) { 
+                           appealsList.add(a) 
+                        } else {
+                           if (subTab == 0 && !isForStudent) appealsList.add(a)
+                           else if (subTab == 1 && isForStudent) appealsList.add(a)
+                        }
                     }
                 }
             }
-        }
- else {
-            // LIST VIEW (History for Student, Pending for Admin)
-            Spacer(Modifier.height(60.dp))
-            Box(Modifier.fillMaxWidth(), Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.MoveToInbox, null, Modifier.size(64.dp), tint = labelColor.copy(0.2f))
-                    Spacer(Modifier.height(16.dp))
-                    val emptyMsg = when {
-                        isStudent -> "No recent leave appeals found"
-                        subTab == 0 -> "No Pending Staff Appeals"
-                        else -> "No Pending Student Appeals"
+
+            if (appealsList.isEmpty()) {
+                Spacer(Modifier.height(60.dp))
+                Box(Modifier.fillMaxWidth(), Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.Inbox, null, Modifier.size(64.dp), tint = labelColor.copy(0.2f))
+                        Spacer(Modifier.height(16.dp))
+                        val emptyMsg = when {
+                            isStudent -> "No recent leave appeals found"
+                            subTab == 0 -> "No Pending Staff Appeals"
+                            else -> "No Pending Student Appeals"
+                        }
+                        Text(emptyMsg, color = labelColor.copy(0.5f), fontWeight = FontWeight.Bold)
                     }
-                    Text(emptyMsg, color = labelColor.copy(0.5f), fontWeight = FontWeight.Bold)
+                }
+            } else {
+                androidx.compose.foundation.lazy.LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxSize().padding(bottom = 100.dp)
+                ) {
+                    items(appealsList.size) { idx ->
+                        val a = appealsList[idx]
+                        val aId = a.optInt("id")
+                        val status = a.optString("status", "pending")
+                        val fromStr = a.optString("start_date", "-")
+                        val toStr = a.optString("end_date", "-")
+                        val reasonText = a.optString("reason", "")
+                        val typeText = a.optString("leave_type", "Leave")
+                        val userName = a.optString("user_name", "UNKNOWN")
+
+                        val statusColor = when(status.lowercase()) {
+                            "approved" -> Color(0xFF10B981)
+                            "rejected" -> Color(0xFFEF4444)
+                            "forwarded_to_parent" -> Color(0xFFF59E0B)
+                            else -> Color(0xFF3B82F6) // pending
+                        }
+
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = cardColor.copy(0.3f)),
+                            shape = RoundedCornerShape(14.dp),
+                            border = BorderStroke(1.dp, labelColor.copy(0.05f))
+                        ) {
+                            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                // Initials circle removed
+                                Column(Modifier.weight(1f)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(status.uppercase(), color = statusColor, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 0.5.sp)
+                                        if (!isStudent) {
+                                            Spacer(Modifier.width(8.dp))
+                                            Text(userName, color = textColor, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                    Spacer(Modifier.height(4.dp))
+                                    Card(
+                                        colors = CardDefaults.cardColors(containerColor = Color.White.copy(0.05f)),
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Column(Modifier.padding(10.dp)) {
+                                            Text(
+                                                "Subject: $typeText Application", 
+                                                color = textColor, 
+                                                fontWeight = FontWeight.ExtraBold, 
+                                                fontSize = 11.sp,
+                                                fontFamily = androidx.compose.ui.text.font.FontFamily.Serif
+                                            )
+                                            Spacer(Modifier.height(4.dp))
+                                            Text(
+                                                "Respected Authority,\n$reasonText\nPeriod: $fromStr to $toStr",
+                                                color = textColor.copy(0.8f),
+                                                fontSize = 10.sp,
+                                                lineHeight = 14.sp,
+                                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                                            )
+                                        }
+                                    }
+                                }
+                                
+                                if (status.lowercase() == "pending") {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        if (!isStudent) {
+                                            IconButton(onClick = { 
+                                                viewModel.updateAppealStatus(a.optInt("id"), "Approved") { viewModel.fetchLeaveAppeals() }
+                                            }) {
+                                                Icon(Icons.Default.Done, null, tint = Color(0xFF10B981))
+                                            }
+                                            IconButton(onClick = { 
+                                                viewModel.updateAppealStatus(a.optInt("id"), "Rejected") { viewModel.fetchLeaveAppeals() }
+                                            }) {
+                                                Icon(Icons.Default.Clear, null, tint = Color(0xFFEF4444))
+                                            }
+                                        } else {
+                                            // Student Edit/Delete placeholders
+                                            if (status.lowercase() == "pending") {
+                                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                    IconButton(onClick = {
+                                                        editingAppeal = a
+                                                        subTab = 1
+                                                    }) {
+                                                        Icon(Icons.Default.Edit, "Edit", tint = Color(0xFF3B82F6), modifier = Modifier.size(20.dp))
+                                                    }
+                                                    IconButton(onClick = {
+                                                        scope.launch {
+                                                            val result = viewModel.genericGet("DELETE_LEAVE_APPEAL", mapOf(
+                                                                "institution_id" to instId.toString(),
+                                                                "user_id" to myUserId.toString(),
+                                                                "role" to "student",
+                                                                "id" to aId.toString()
+                                                            ))
+                                                            
+                                                            result.onSuccess { body ->
+                                                                try {
+                                                                    val jsonStr = body.string()
+                                                                    val json = org.json.JSONObject(jsonStr)
+                                                                    if (json.optString("status") == "success") {
+                                                                        android.widget.Toast.makeText(context, "Appeal Deleted", android.widget.Toast.LENGTH_SHORT).show()
+                                                                        viewModel.fetchLeaveAppeals(myUserId)
+                                                                    } else {
+                                                                        android.widget.Toast.makeText(context, json.optString("message", "Delete Failed"), android.widget.Toast.LENGTH_SHORT).show()
+                                                                    }
+                                                                } catch (e: Exception) {
+                                                                    android.widget.Toast.makeText(context, "Error parsing response", android.widget.Toast.LENGTH_SHORT).show()
+                                                                }
+                                                            }.onFailure {
+                                                                android.widget.Toast.makeText(context, "Network Error", android.widget.Toast.LENGTH_SHORT).show()
+                                                            }
+                                                        }
+                                                    }) {
+                                                        Icon(Icons.Default.Delete, "Delete", tint = Color(0xFFEF4444), modifier = Modifier.size(20.dp))
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -2807,10 +3057,10 @@ fun LeaveAppealsTab(viewModel: WantuchViewModel, isDark: Boolean, textColor: Col
 @Composable
 fun StatusAdminTab(viewModel: WantuchViewModel, isDark: Boolean, textColor: Color, labelColor: Color, cardColor: Color) {
     val submissionStatus by viewModel.submissionStatus.collectAsState()
-    var selectedDate by remember { androidx.compose.runtime.mutableStateOf(java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())) }
-    var searchQuery by remember { androidx.compose.runtime.mutableStateOf("") }
+    var selectedDate by remember { mutableStateOf(java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())) }
+    var searchQuery by remember { mutableStateOf("") }
 
-    androidx.compose.runtime.LaunchedEffect(selectedDate) {
+    LaunchedEffect(selectedDate) {
         viewModel.fetchSubmissionStatus(selectedDate)
     }
 
@@ -2818,7 +3068,7 @@ fun StatusAdminTab(viewModel: WantuchViewModel, isDark: Boolean, textColor: Colo
     val submittedCount = items.count { it.submitted }
     val pendingCount = items.count { !it.submitted }
 
-    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
         Text("Attendance Submission Status", color = textColor, fontWeight = FontWeight.Black, fontSize = 16.sp)
         Spacer(Modifier.height(20.dp))
 
@@ -3141,20 +3391,20 @@ fun ExcelAttendanceWizardModal(
     classSelection: String,
     onDismiss: () -> Unit
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
     val modalBg = Color(0xFF0D1B2E)
     val accentCyan = Color(0xFF06B6D4)
     val accentGreen = Color(0xFF10B981)
 
     // Step management: 1=download+upload, 2=preview
-    var step by remember { androidx.compose.runtime.mutableIntStateOf(1) }
-    var isLoading by remember { androidx.compose.runtime.mutableStateOf(false) }
-    var statusMsg by remember { androidx.compose.runtime.mutableStateOf("") }
+    var step by remember { mutableIntStateOf(1) }
+    var isLoading by remember { mutableStateOf(false) }
+    var statusMsg by remember { mutableStateOf("") }
 
     // Parsed CSV data for preview
     data class CsvRow(val studentId: String, val roll: String, val name: String, val cells: List<Pair<String, String>>)
     data class ParsedCsv(val dateHeaders: List<String>, val rows: List<CsvRow>)
-    var parsedCsv by remember { androidx.compose.runtime.mutableStateOf<ParsedCsv?>(null) }
+    var parsedCsv by remember { mutableStateOf<ParsedCsv?>(null) }
 
     // Helper: parse CSV text
     fun parseCsvText(text: String): ParsedCsv? {
@@ -3525,10 +3775,11 @@ fun ExcelAttendanceWizardModal(
     }
 }
 
+@OptIn(ExperimentalGetImage::class)
 @Composable
 fun FaceRecognitionCameraPreview(modifier: Modifier, viewModel: WantuchViewModel) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val executor = remember { java.util.concurrent.Executors.newSingleThreadExecutor() }
     
     // Face Detector setup - FAST mode + tracking for multiple faces
@@ -3560,7 +3811,7 @@ fun FaceRecognitionCameraPreview(modifier: Modifier, viewModel: WantuchViewModel
         hasPermission = isGranted
     }
     
-    androidx.compose.runtime.LaunchedEffect(Unit) {
+    LaunchedEffect(Unit) {
         if (!hasPermission) {
             permissionLauncher.launch(android.Manifest.permission.CAMERA)
         }
@@ -3582,9 +3833,9 @@ fun FaceRecognitionCameraPreview(modifier: Modifier, viewModel: WantuchViewModel
                         it.setSurfaceProvider(previewView.surfaceProvider)
                     }
 
-                    val imageAnalyzer = androidx.camera.core.ImageAnalysis.Builder()
-                        .setBackpressureStrategy(androidx.camera.core.ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                        .setOutputImageFormat(androidx.camera.core.ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
+                    val imageAnalyzer = ImageAnalysis.Builder()
+                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                        .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
                         .build()
                         .also {
                             it.setAnalyzer(executor) { imageProxy ->
@@ -3771,10 +4022,11 @@ fun FaceRecognitionCameraPreview(modifier: Modifier, viewModel: WantuchViewModel
     }
 }
 
+@OptIn(ExperimentalGetImage::class)
 @Composable
 fun FaceCapturePreview(modifier: Modifier, onFaceCaptured: (android.graphics.Bitmap) -> Unit) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val executor = remember { java.util.concurrent.Executors.newSingleThreadExecutor() }
     
     // Permission Management
@@ -3789,7 +4041,7 @@ fun FaceCapturePreview(modifier: Modifier, onFaceCaptured: (android.graphics.Bit
         hasPermission = isGranted
     }
     
-    androidx.compose.runtime.LaunchedEffect(Unit) {
+    LaunchedEffect(Unit) {
         if (!hasPermission) {
             permissionLauncher.launch(android.Manifest.permission.CAMERA)
         }
@@ -3820,9 +4072,9 @@ fun FaceCapturePreview(modifier: Modifier, onFaceCaptured: (android.graphics.Bit
                         val preview = androidx.camera.core.Preview.Builder().build().also {
                             it.setSurfaceProvider(previewView.surfaceProvider)
                         }
-                        val imageAnalyzer = androidx.camera.core.ImageAnalysis.Builder()
-                            .setBackpressureStrategy(androidx.camera.core.ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                            .setOutputImageFormat(androidx.camera.core.ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
+                        val imageAnalyzer = ImageAnalysis.Builder()
+                            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                            .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
                             .build()
                             .also {
                                 it.setAnalyzer(executor) { imageProxy ->
@@ -3939,10 +4191,11 @@ fun FingerprintEnrollmentModal(
     var selectedUserName by remember { mutableStateOf("") }
     var enrollmentStatus by remember { mutableStateOf("") }
     var isScanning by remember { mutableStateOf(false) }
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context = LocalContext.current
 
     val studentsData by viewModelSize.studentsData.collectAsState()
     val staffData by viewModelSize.staffData.collectAsState()
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     
     val userList = if (selectedTarget == "Students") {
         studentsData?.students ?: emptyList()
@@ -4082,7 +4335,7 @@ fun FingerprintEnrollmentModal(
                                                     enrollmentStatus = "SUCCESSFULLY ENROLLED"
                                                     viewModelSize.setLastEnrolledUser(selectedUserId, selectedUserName)
                                                     isScanning = false
-                                                    viewModelSize.viewModelScope.launch {
+                                                    scope.launch {
                                                         kotlinx.coroutines.delay(1000)
                                                         onDismiss()
                                                     }
@@ -4199,7 +4452,10 @@ fun StudentCalendarView(
     
     // FINAL FALLBACK: If ledger matching failed, but profile is loaded for this user, use profile stats
     if (myRecord == null && isMyProfile && myProfile?.stats != null) {
-        myRecord = org.json.JSONObject(myProfile?.stats as Map<*, *>)
+    val statsMap = myProfile?.stats as? Map<*, *>
+    if (statsMap != null) {
+        myRecord = JSONObject(statsMap)
+    }
     }
 
     val stats = myRecord?.optJSONObject("stats") ?: (if(myRecord?.has("month") == true) myRecord else null)
@@ -4212,28 +4468,32 @@ fun StudentCalendarView(
     val stats_l = (stats?.optString("l") ?: (stats?.optString("leave") ?: stats?.optString("leave_monthly")))
     
     // Manual calculation fallback if stats are missing but attendance exists
-    val (calcP, calcA, calcL) = attendance?.let { att ->
-        var p = 0; var a = 0; var l = 0
+    val (calcP, calcA, calcL, calcPH) = attendance?.let { att ->
+        var p = 0; var a = 0; var l = 0; var ph = 0
         for (d in 1..daysInMonth) {
-            val s = att.optString(d.toString(), "")
+            val s = att.optString(d.toString(), "").uppercase()
             when {
-                s == "P" || s == "Present" -> p++
-                s == "A" || s == "Absent" -> a++
-                s == "L" || s == "Leave" -> l++
+                s == "P" || s == "PRESENT" -> p++
+                s == "A" || s == "ABSENT" -> a++
+                s == "L" || s == "LEAVE" -> l++
+                s == "PH" || s == "H" || s == "HOLIDAY" -> ph++
             }
         }
-        Triple(p.toString(), a.toString(), l.toString())
-    } ?: Triple("0", "0", "0")
+        listOf(p.toString(), a.toString(), l.toString(), ph.toString())
+    } ?: listOf("0", "0", "0", "0")
 
+    val stats_ph = stats?.optString("ph")
     val pCount = if (stats_p == null || stats_p == "0" || stats_p == "") calcP else stats_p
     val aCount = if (stats_a == null || stats_a == "0" || stats_a == "") calcA else stats_a
     val lCount = if (stats_l == null || stats_l == "0" || stats_l == "") calcL else stats_l
+    val phCount = if (stats_ph == null || stats_ph == "0" || stats_ph == "") calcPH else stats_ph
     
-    val ypCount = (stats?.optString("total_att") ?: (stats?.optString("y_p"))) ?: "0"
-    val yaCount = stats?.optString("y_a") ?: "0"
-    val ylCount = stats?.optString("y_l") ?: "0"
-    
-    val allTimeDays = (stats?.optString("total_days") ?: (stats?.optString("tm_days"))) ?: "0"
+    val ypCount = stats?.let { if (it.has("total_p")) it.getString("total_p") else (if (it.has("y_p")) it.getString("y_p") else "0") } ?: "0"
+    val yaCount = stats?.let { if (it.has("y_a")) it.getString("y_a") else "0" } ?: "0"
+    val ylCount = stats?.let { if (it.has("y_l")) it.getString("y_l") else "0" } ?: "0"
+    val ysCount = stats?.let { if (it.has("y_s")) it.getString("y_s") else "0" } ?: "0"
+    val yphCount = stats?.let { if (it.has("y_ph")) it.getString("y_ph") else "0" } ?: "0"
+    val ytotalCount = stats?.let { if (it.has("y_total")) it.getString("y_total") else "0" } ?: "0"
 
     val weekDays = listOf("SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT")
     
@@ -4266,7 +4526,7 @@ fun StudentCalendarView(
                         for (c in 0 until 7) {
                             val dayNum = r * 7 + c - firstDayOfWeek + 1
                             if (dayNum in 1..daysInMonth) {
-                                val statusRaw = attendance?.optString(dayNum.toString()) ?: ""
+                                val statusRaw = (attendance?.optString(dayNum.toString()) ?: "").trim().uppercase()
                                 
                                 // Check if this day is a holiday from API
                                 var holidayName = ""
@@ -4289,37 +4549,43 @@ fun StudentCalendarView(
                                 }
 
                                 val isSunday = c == 0
-                                val isFriday = c == 5
                                 
                                 val (bg, contentColor, symbol) = when {
-                                    holidayName.isNotEmpty() || statusRaw == "H" || statusRaw == "PH" || statusRaw == "Holiday" -> 
-                                        Triple(Color(0xFFEAB308).copy(0.2f), Color(0xFFEAB308), "H")
-                                    statusRaw == "P" || statusRaw == "Present" -> 
-                                        Triple(Color(0xFF10B981).copy(0.15f), Color(0xFF10B981), "P")
-                                    statusRaw == "A" || statusRaw == "Absent" -> 
-                                        Triple(Color(0xFFEF4444).copy(0.15f), Color(0xFFEF4444), "A")
-                                    statusRaw == "L" || statusRaw == "Leave" -> 
-                                        Triple(Color(0xFF3B82F6).copy(0.15f), Color(0xFF3B82F6), "L")
-                                    isSunday -> Triple(Color(0xFF7F1D1D).copy(0.15f), Color(0xFFFCA5A5), "") // Reddish for Sunday
-                                    isFriday -> Triple(Color(0xFF065F46).copy(0.15f), Color(0xFF6EE7B7), "") // Greenish for Friday
-                                    else -> Triple(Color.White.copy(0.03f), labelColor.copy(0.6f), "")
+                                    holidayName.isNotEmpty() || statusRaw == "H" || statusRaw == "PH" || statusRaw == "HOLIDAY" -> 
+                                        Triple(Color(0xFFF59E0B), Color.White, "PH") // Bold Amber for Holiday
+                                    statusRaw == "P" || statusRaw == "PRESENT" -> 
+                                        Triple(Color(0xFF10B981), Color.White, "P")   // Bold Green for Present
+                                    statusRaw == "A" || statusRaw == "ABSENT" -> 
+                                        Triple(Color(0xFFEF4444), Color.White, "A")   // Bold Red for Absent
+                                    statusRaw == "L" || statusRaw == "LEAVE" -> 
+                                        Triple(Color(0xFF3B82F6), Color.White, "L")   // Bold Blue for Leave
+                                    statusRaw == "S" || statusRaw == "SUNDAY" || isSunday -> 
+                                        Triple(Color(0xFFB91C1C), Color.White, "S")   // Darker Red for Sunday
+                                    else -> Triple(Color.White.copy(0.05f), labelColor.copy(0.8f), "")
                                 }
 
                                 Box(
                                     modifier = Modifier
                                         .weight(1f)
                                         .aspectRatio(1f)
-                                        .clip(RoundedCornerShape(10.dp))
+                                        .clip(RoundedCornerShape(8.dp))
                                         .background(bg)
-                                        .border(0.5.dp, contentColor.copy(0.1f), RoundedCornerShape(10.dp)),
+                                        .border(2.dp, bg.copy(alpha = 0.5f), RoundedCornerShape(8.dp)),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text(dayNum.toString(), color = contentColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                                        Text(dayNum.toString(), color = contentColor, fontSize = 11.sp, fontWeight = FontWeight.Black)
                                         if (symbol.isNotEmpty()) {
-                                            Text(symbol, color = contentColor.copy(0.7f), fontSize = 7.sp, fontWeight = FontWeight.Black)
+                                            Text(symbol, color = contentColor, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold)
                                         }
                                     }
+                                    
+                                    // Subtle 3D Shine Effect
+                                    Box(Modifier.matchParentSize().background(
+                                        Brush.verticalGradient(
+                                            listOf(Color.White.copy(0.2f), Color.Transparent, Color.Black.copy(0.1f))
+                                        )
+                                    ))
                                 }
                             } else {
                                 Spacer(modifier = Modifier.weight(1f).aspectRatio(1f))
@@ -4334,32 +4600,27 @@ fun StudentCalendarView(
         Text("MONTHLY STATS", color = labelColor, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
         Spacer(Modifier.height(12.dp))
         
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             MiniStatCard("PRESENT", pCount, Color(0xFF10B981), Modifier.weight(1f), isDark, cardColor)
-            MiniStatCard("ABSENT", aCount, Color(0xFFF43F5E), Modifier.weight(1f), isDark, cardColor)
-            MiniStatCard("LEAVE", lCount, Color(0xFFF59E0B), Modifier.weight(1f), isDark, cardColor)
+            MiniStatCard("ABSENT", aCount, Color(0xFFEF4444), Modifier.weight(1f), isDark, cardColor)
+            MiniStatCard("LEAVE", lCount, Color(0xFF3B82F6), Modifier.weight(1f), isDark, cardColor)
+            MiniStatCard("HOLIDAY", phCount, Color(0xFFF59E0B), Modifier.weight(1f), isDark, cardColor)
         }
 
         Spacer(Modifier.height(32.dp))
-        Text("ACADEMIC YEAR", color = labelColor, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
+        Text("ACADEMIC YEAR SUMMARY", color = labelColor, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.sp)
         Spacer(Modifier.height(12.dp))
         
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            MiniStatCard("PRESENT", ypCount, Color(0xFF10B981), Modifier.weight(1f), isDark, cardColor)
-            MiniStatCard("ABSENT", yaCount, Color(0xFFF43F5E), Modifier.weight(1f), isDark, cardColor)
-            MiniStatCard("LEAVE", ylCount, Color(0xFFF59E0B), Modifier.weight(1f), isDark, cardColor)
-        }
-
-        Spacer(Modifier.height(24.dp))
-        Card(
-            modifier = Modifier.fillMaxWidth().height(80.dp),
-            colors = CardDefaults.cardColors(containerColor = cardColor.copy(0.4f)),
-            shape = RoundedCornerShape(20.dp),
-            border = BorderStroke(1.dp, Color.White.copy(0.05f))
-        ) {
-            Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.Center) {
-                Text("All Time Days", color = labelColor, fontSize = 10.sp, fontWeight = FontWeight.Black)
-                Text(allTimeDays, color = Color(0xFF3B82F6), fontSize = 24.sp, fontWeight = FontWeight.Black)
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                MiniStatCard("ALL PRESENT", ypCount, Color(0xFF10B981), Modifier.weight(1f), isDark, cardColor)
+                MiniStatCard("ALL ABSENT", yaCount, Color(0xFFEF4444), Modifier.weight(1f), isDark, cardColor)
+                MiniStatCard("ALL LEAVE", ylCount, Color(0xFF3B82F6), Modifier.weight(1f), isDark, cardColor)
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                MiniStatCard("SUNDAYS", ysCount, Color(0xFFFCA5A5), Modifier.weight(1f), isDark, cardColor)
+                MiniStatCard("HOLIDAYS", yphCount, Color(0xFFF59E0B), Modifier.weight(1f), isDark, cardColor)
+                MiniStatCard("TOTAL DAYS", ytotalCount, Color(0xFF94A3B8), Modifier.weight(1f), isDark, cardColor)
             }
         }
     }
@@ -4381,3 +4642,45 @@ fun MiniStatCard(label: String, value: String, color: Color, modifier: Modifier,
     }
 }
 
+fun saveAndShareBitmap(context: android.content.Context, imageBitmap: androidx.compose.ui.graphics.ImageBitmap) {
+    CoroutineScope(Dispatchers.IO).launch {
+        try {
+            val bitmap = imageBitmap.asAndroidBitmap()
+            val cachePath = java.io.File(context.cacheDir, "images")
+            cachePath.mkdirs()
+            cachePath.listFiles()?.forEach { it.delete() }
+            
+            val file = java.io.File(cachePath, "performance_summary.png")
+            val stream = java.io.FileOutputStream(file)
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, stream)
+            stream.close()
+            
+            val uri = androidx.core.content.FileProvider.getUriForFile(
+                context,
+                "com.example.wantuch.fileprovider",
+                file
+            )
+            
+            val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                type = "image/png"
+                putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                setPackage("com.whatsapp")
+            }
+            
+            withContext(Dispatchers.Main) {
+                try { 
+                    context.startActivity(intent) 
+                } catch(e: Exception) {
+                    val simple = android.content.Intent.createChooser(intent.apply { setPackage(null) }, "Share Image")
+                    context.startActivity(simple)
+                }
+            }
+        } catch(e: Exception) {
+            e.printStackTrace()
+            withContext(Dispatchers.Main) {
+                android.widget.Toast.makeText(context, "Failed to share image", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+}

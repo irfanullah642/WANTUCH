@@ -129,7 +129,7 @@ fun EducationDashboardScreen(
                     Column(Modifier.verticalScroll(rememberScrollState()).padding(top = 15.dp)) {
                         // Suspended Stat Cards (4 in a row)
                         val role = dash.role?.lowercase() ?: ""
-                        val isHighAdmin = role == "admin" || role == "super_admin" || role == "developer"
+                        val isHighAdmin = listOf("admin", "super_admin", "developer", "principal", "coordinator", "management", "headmaster", "head", "school_admin").contains(role)
 
                         val isStudent = role == "student"
 
@@ -148,11 +148,6 @@ fun EducationDashboardScreen(
                                 val feeColor = if (feeStatus.contains("UNPAID", ignoreCase = true)) Color(0xFFEF4444) else Color(0xFF10B981)
                                 SuspendedStatCard("FEE STATUS", feeStatus.uppercase(), feeColor, isDark, Modifier.weight(1f)) {
                                     onOpenFee()
-                                }
-                                
-                                val myClass = dash.stats?.get("my_class")?.toString() ?: "N/A"
-                                SuspendedStatCard("MY CLASS", myClass.uppercase(), Color(0xFF3B82F6), isDark, Modifier.weight(1f)) {
-                                    onOpenClasses()
                                 }
                             } else {
                                 // --- STAFF / ADMIN DASHBOARD CARDS ---
@@ -193,13 +188,16 @@ fun EducationDashboardScreen(
                             dash.modules?.chunked(2)?.forEach { row ->
                                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     row.forEach { mod ->
-                                        FlapModuleCard(mod.label, getIcon(mod.icon), isDark, Modifier.weight(1f)) {
+                                        FlapModuleCard(mod.label, getIcon(mod.icon), isDark, mod.sub, Modifier.weight(1f)) {
                                             when(mod.id) {
                                                 "profile" -> {
                                                     dash.user_id?.let { onOpenMyProfile(it) }
                                                 }
                                                 "staff" -> {
                                                     onOpenStaff()
+                                                }
+                                                "students" -> {
+                                                    onOpenStudents()
                                                 }
                                                 "admission" -> {
                                                     onOpenAdmWdl()
@@ -257,6 +255,7 @@ fun EducationDashboardScreen(
                                                     val path = when(mod.id) {
                                                         "inst_profile" -> "modules/education/profile.php?tab=inst"
                                                         "quick_scan" -> "modules/education/attendance_quick_scan.php"
+                                                        "transport" -> "modules/education/transport.php"
                                                         else -> "modules/education/dashboard.php"
                                                     }
                                                     onOpenWeb(baseUrl + path)

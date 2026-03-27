@@ -14,10 +14,11 @@ data class StaffEntity(
     val bps: String,
     val marked: String,
     val stats: String,
-    val profile_pic: String?
+    val profile_pic: String?,
+    val isTeaching: Boolean = true
 )
 
-fun StaffMember.toEntity(institutionId: Int): StaffEntity {
+fun StaffMember.toEntity(institutionId: Int, isTeaching: Boolean = true): StaffEntity {
     val staffId = when (id) {
         is Double -> id.toInt()
         is Int -> id
@@ -33,7 +34,8 @@ fun StaffMember.toEntity(institutionId: Int): StaffEntity {
         bps = bps,
         marked = marked,
         stats = stats,
-        profile_pic = profile_pic
+        profile_pic = profile_pic,
+        isTeaching = isTeaching
     )
 }
 
@@ -48,6 +50,7 @@ fun StaffEntity.toDomain(): StaffMember {
         paid = null,
         balance = null,
         stats = stats,
-        profile_pic = profile_pic
+        profile_pic = profile_pic,
+        user_type = if (isTeaching) "teaching" else "non-teaching"
     )
 }

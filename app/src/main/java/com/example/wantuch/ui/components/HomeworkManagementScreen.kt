@@ -15,7 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -114,7 +114,7 @@ fun HomeworkManagementScreen(
                                     .clip(RoundedCornerShape(10.dp))
                                     .background(Color.White.copy(0.05f))
                             ) {
-                                Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = textColor)
+                                Icon(Icons.Default.ArrowBack, null, tint = textColor)
                             }
                             
                             Spacer(Modifier.width(12.dp))

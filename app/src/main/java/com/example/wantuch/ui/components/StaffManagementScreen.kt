@@ -112,6 +112,7 @@ fun StaffManagementScreen(
     val isDark by viewModel.isDarkTheme.collectAsState()
     val context = LocalContext.current
 
+    var searchQuery by remember { mutableStateOf("") }
     var showActions by remember { mutableStateOf(false) }
     var showAddModal by remember { mutableStateOf(false) }
     var selectedStaff by remember { mutableStateOf<com.example.wantuch.domain.model.StaffMember?>(null) }
@@ -131,20 +132,41 @@ fun StaffManagementScreen(
         Column(Modifier.fillMaxSize()) {
 
             // App Bar
-            Row(Modifier.fillMaxWidth().statusBarsPadding().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack, Modifier.background(if (isDark) Color.White.copy(0.05f) else Color.Black.copy(0.05f), RoundedCornerShape(12.dp))) {
-                    Icon(Icons.Default.ArrowBack, null, tint = textColor)
-                }
-                Spacer(Modifier.width(16.dp))
-                Text("STAFF MANAGER", color = textColor, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Column(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 20.dp, vertical = 10.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onBack, Modifier.background(if (isDark) Color.White.copy(0.05f) else Color.Black.copy(0.05f), RoundedCornerShape(12.dp))) {
+                        Icon(Icons.Default.ArrowBack, null, tint = textColor)
+                    }
+                    Spacer(Modifier.width(16.dp))
+                    Text("STAFF MANAGER", color = textColor, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
 
-                IconButton(onClick = { viewModel.toggleTheme() }, Modifier.background(if (isDark) Color.White.copy(0.05f) else Color.Black.copy(0.05f), RoundedCornerShape(12.dp))) {
-                    Icon(if(isDark) Icons.Default.LightMode else Icons.Default.DarkMode, null, tint = textColor)
+                    IconButton(onClick = { viewModel.toggleTheme() }, Modifier.background(if (isDark) Color.White.copy(0.05f) else Color.Black.copy(0.05f), RoundedCornerShape(12.dp))) {
+                        Icon(if(isDark) Icons.Default.LightMode else Icons.Default.DarkMode, null, tint = textColor)
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    IconButton(onClick = { showAddModal = true }, Modifier.background(Color(0xFF3B82F6), RoundedCornerShape(12.dp))) {
+                        Icon(Icons.Default.Add, null, tint = Color.White)
+                    }
                 }
-                Spacer(Modifier.width(8.dp))
-                IconButton(onClick = { showAddModal = true }, Modifier.background(Color(0xFF3B82F6), RoundedCornerShape(12.dp))) {
-                    Icon(Icons.Default.Add, null, tint = Color.White)
-                }
+                
+                Spacer(Modifier.height(15.dp))
+                
+                // Search Bar
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    placeholder = { Text("Search by name, role or ID...", fontSize = 13.sp, color = labelColor) },
+                    leadingIcon = { Icon(Icons.Default.Cloud, null, tint = Color(0xFF3B82F6), modifier = Modifier.size(18.dp)) },
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = cardColor,
+                        unfocusedContainerColor = cardColor,
+                        focusedBorderColor = Color(0xFF3B82F6).copy(0.5f),
+                        unfocusedBorderColor = if(isDark) Color.White.copy(0.1f) else Color.Black.copy(0.05f)
+                    )
+                )
             }
 
             if (isLoading && staffData == null) {
@@ -191,28 +213,36 @@ fun StaffManagementScreen(
                         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
                             if (selectedTab == 0) {
                                 // Teaching Staff List
-                                if (!data.teaching_staff.isNullOrEmpty()) {
-                                    data.teaching_staff.forEach { member ->
+                                val filteredTeaching = data.teaching_staff?.filter { 
+                                    it.name.contains(searchQuery, true) || it.role.contains(searchQuery, true) || it.id.toString().contains(searchQuery, true)
+                                } ?: emptyList()
+
+                                if (filteredTeaching.isNotEmpty()) {
+                                    filteredTeaching.forEach { member ->
                                         StaffMemberRow(member, cardColor, textColor, labelColor) {
                                             onOpenProfile((member.id as? Number)?.toInt() ?: 0)
                                         }
                                     }
                                 } else {
                                     Box(Modifier.fillMaxWidth().padding(40.dp), Alignment.Center) {
-                                        Text("No teaching staff found", color = textColor.copy(0.5f))
+                                        Text(if(searchQuery.isEmpty()) "No teaching staff found" else "No matches for '$searchQuery'", color = textColor.copy(0.5f))
                                     }
                                 }
                             } else {
                                 // Non-Teaching Staff List
-                                if (!data.non_teaching_staff.isNullOrEmpty()) {
-                                    data.non_teaching_staff.forEach { member ->
+                                val filteredNonTeaching = data.non_teaching_staff?.filter { 
+                                    it.name.contains(searchQuery, true) || it.role.contains(searchQuery, true) || it.id.toString().contains(searchQuery, true)
+                                } ?: emptyList()
+
+                                if (filteredNonTeaching.isNotEmpty()) {
+                                    filteredNonTeaching.forEach { member ->
                                         StaffMemberRow(member, cardColor, textColor, labelColor) {
                                             onOpenProfile((member.id as? Number)?.toInt() ?: 0)
                                         }
                                     }
                                 } else {
                                     Box(Modifier.fillMaxWidth().padding(40.dp), Alignment.Center) {
-                                        Text("No non-teaching staff found", color = textColor.copy(0.5f))
+                                        Text(if(searchQuery.isEmpty()) "No non-teaching staff found" else "No matches for '$searchQuery'", color = textColor.copy(0.5f))
                                     }
                                 }
                             }
@@ -320,8 +350,13 @@ fun StaffMemberRow(
             }
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {
-                // Row 1: Name
-                Text(member.name, color = textColor, fontSize = 14.sp, fontWeight = FontWeight.Black, maxLines = 1)
+                // Row 1: Name & ID
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(member.name, color = textColor, fontSize = 14.sp, fontWeight = FontWeight.Black, maxLines = 1, modifier = Modifier.weight(1f))
+                    Box(Modifier.background(Color(0xFF3B82F6).copy(0.1f), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp)) {
+                        Text("ID: ${member.id}", color = Color(0xFF3B82F6), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
                 Spacer(Modifier.height(4.dp))
                 // Row 2: Attendance & Role
                 Text("${member.marked} • Role: ${member.role} (BPS: ${member.bps})", color = labelColor, fontSize = 11.sp, fontWeight = FontWeight.Medium)

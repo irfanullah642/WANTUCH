@@ -155,6 +155,10 @@ class WantuchViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    suspend fun genericGet(action: String, params: Map<String, String>): Result<okhttp3.ResponseBody> {
+        return repository.genericGet(action, params)
+    }
+
     fun saveSmartConfig(instId: Int, params: Map<String, String>) {
         viewModelScope.launch {
             _isLoading.value = true
@@ -177,14 +181,21 @@ class WantuchViewModel(application: Application) : AndroidViewModel(application)
     private val _staffLedger = MutableStateFlow<org.json.JSONObject?>(null)
     val staffLedger = _staffLedger.asStateFlow()
 
-    fun fetchMonthlyStudentLedger(instId: Int, classId: Int, month: String, year: Int) {
+    fun fetchMonthlyStudentLedger(instId: Int, classId: Int, month: String, year: Int, studentId: Int = 0) {
         viewModelScope.launch {
             _studentLedger.value = null
             _isLoading.value = true
             try {
-                val res = repository.genericGet("GET_MONTHLY_STUDENT_LEDGER", mapOf("institution_id" to instId.toString(), "class_id" to classId.toString(), "month" to month, "year" to year.toString()))
+                val params = mutableMapOf("institution_id" to instId.toString(), "class_id" to classId.toString(), "month" to month, "year" to year.toString())
+                if (studentId > 0) params["user_id"] = studentId.toString()
+                val res = repository.genericGet("GET_MONTHLY_STUDENT_LEDGER", params)
                 res.onSuccess { body ->
-                    _studentLedger.value = org.json.JSONObject(body.string())
+                    val bodyString = body.string()
+                    try {
+                        _studentLedger.value = org.json.JSONObject(bodyString)
+                    } catch (e: Exception) {
+                        _errorMsg.value = "Ledger Data Error: Invalid Response"
+                    }
                 }
             } catch (e: Exception) { _errorMsg.value = e.message ?: "Fetch Ledger Error" }
             _isLoading.value = false
@@ -205,11 +216,21 @@ class WantuchViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    private val _userRole = MutableStateFlow(prefs.getString("role", "Student") ?: "Student")
+    val userRole = _userRole.asStateFlow()
+
+    private val _username = MutableStateFlow(prefs.getString("current_username", prefs.getString("user", "")) ?: "")
+    val username = _username.asStateFlow()
+
+    private val _displayName = MutableStateFlow(prefs.getString("display_name", "") ?: "")
+    val displayName = _displayName.asStateFlow()
+
     private val _lastInstId = MutableStateFlow(0)
     val lastInstId = _lastInstId.asStateFlow()
 
     init {
         _lastInstId.value = prefs.getInt("last_inst", 0)
+        updateSession()
         // Collect cached data to show immediately when app starts
         viewModelScope.launch {
             try {
@@ -259,9 +280,16 @@ class WantuchViewModel(application: Application) : AndroidViewModel(application)
                         try {
                             repository.getLocalStaff(lastId).collect { entities ->
                                 if (entities.isNotEmpty() && _staffData.value == null) {
-                                    val teaching = entities.filter { it.role.contains("Teaching", ignoreCase = true) }.map { it.toDomain() }
-                                    val nonTeaching = entities.filter { !it.role.contains("Teaching", ignoreCase = true) }.map { it.toDomain() }
-                                    _staffData.value = StaffResponse(status = "success", teaching_staff = teaching, non_teaching_staff = nonTeaching)
+                                    val domainStaff = entities.map { it.toDomain() }
+                                    
+                                    val teaching = domainStaff.filter { it.user_type == "teaching" }
+                                    val nonTeaching = domainStaff.filter { it.user_type == "non-teaching" }
+
+                                    val calculatedStats = mutableMapOf(
+                                        "total" to (teaching.size + nonTeaching.size),
+                                        "present" to 0, "absent" to 0, "leave" to 0
+                                    )
+                                    _staffData.value = StaffResponse(status = "success", stats = calculatedStats, teaching_staff = teaching, non_teaching_staff = nonTeaching)
                                 }
                             }
                         } catch (e: Exception) { println("Local Staff Error: ${e.message}") }
@@ -296,12 +324,14 @@ class WantuchViewModel(application: Application) : AndroidViewModel(application)
     private val _schoolStructure = MutableStateFlow<SchoolStructureResponse?>(null)
     val schoolStructure = _schoolStructure.asStateFlow()
 
-    private val _userRole = MutableStateFlow(prefs.getString("role", "Student") ?: "Student")
-    val userRole = _userRole.asStateFlow()
 
-    fun updateRole() {
+    fun updateSession() {
         _userRole.value = prefs.getString("role", "Student") ?: "Student"
+        _username.value = prefs.getString("current_username", prefs.getString("user", "")) ?: ""
+        _displayName.value = prefs.getString("display_name", "") ?: ""
     }
+
+    fun updateRole() = updateSession()
 
     private val _isDarkTheme = MutableStateFlow(true)
     val isDarkTheme = _isDarkTheme.asStateFlow()
@@ -367,25 +397,31 @@ class WantuchViewModel(application: Application) : AndroidViewModel(application)
                 if (result.isSuccess) {
                     val resp = result.getOrNull()
                     if (resp?.status == "success") {
-                        // Always save institution context for better selection experience
+                        val resolvedRole = resp.role ?: role
+                        val resolvedUser = resp.username ?: user
+                        val resolvedInstId = resp.inst_id ?: instId
+                        val instType = prefs.getString("current_request_type", "School") ?: "School"
+
+                        // Always save session-based context
                         prefs.edit().apply {
-                            putInt("last_inst", instId)
-                            putString("role", role)
-                            putString("inst_type", prefs.getString("current_request_type", "School"))
+                            putString("current_username", resolvedUser)
+                            putString("role", resolvedRole)
+                            putInt("last_inst", resolvedInstId)
+                            putBoolean("is_logged_in", true)
+                            putString("inst_type", instType)
                             apply()
                         }
+                        updateSession()
 
                         if (remember) {
                             prefs.edit().apply {
                                 putString("user", user)
                                 putString("pass", pass)
                                 putBoolean("remember", true)
-                                putBoolean("is_logged_in", true)
                                 apply()
                             }
                         } else {
                             prefs.edit().remove("user").remove("pass").remove("remember").apply()
-                            prefs.edit().putBoolean("is_logged_in", true).apply()
                         }
                         onResult(resp.redirect ?: "modules/education/dashboard.php")
                     } else {
@@ -419,11 +455,30 @@ class WantuchViewModel(application: Application) : AndroidViewModel(application)
                 if (result.isSuccess) {
                     val resp = result.getOrNull()
                     if (resp?.status == "success") {
+                        val resolvedRole = resp.role ?: "parent"
+                        val resolvedUser = resp.username ?: cnic
+                        val resolvedInstId = resp.inst_id ?: 0
+                        val instType = prefs.getString("current_request_type", "School") ?: "School"
+
+                        // ALWAYS save session basics for Parent so MainActivity sees is_logged_in
+                        prefs.edit().apply {
+                            putString("current_username", resolvedUser)
+                            putString("role", resolvedRole)
+                            putInt("last_inst", resolvedInstId)
+                            putBoolean("is_logged_in", true)
+                            putString("inst_type", instType)
+                            apply()
+                        }
+                        updateSession()
+
                         if (remember) {
                             prefs.edit().apply {
                                 putString("cnic", cnic)
                                 putString("parent_pass", pass)
                                 putBoolean("remember_parent", true)
+                                putString("user", cnic)
+                                putString("pass", pass)
+                                putBoolean("remember", true)
                                 apply()
                             }
                         }
@@ -460,12 +515,23 @@ class WantuchViewModel(application: Application) : AndroidViewModel(application)
         _errorMsg.value = ""
     }
 
-    fun fetchPortfolio() {
+    fun fetchPortfolio(username: String = "", role: String = "") {
         viewModelScope.launch {
             try {
                 _isLoading.value = true
                 _errorMsg.value = ""
-                val result = repository.fetchPortfolio()
+                
+                // Fallback to saved prefs if not provided explicitly
+                val finalUser = if (username.isEmpty()) {
+                    prefs.getString("current_username", prefs.getString("user", "")) ?: ""
+                } else username
+                val finalId = prefs.getInt("user_id", 0)
+                val finalRole = (if (role.isEmpty()) {
+                    val r = _userRole.value.ifEmpty { prefs.getString("role", "super_admin") ?: "" }
+                    if (r.isEmpty() || r == "null") "super_admin" else r
+                } else role).lowercase()
+
+                val result = repository.fetchPortfolio(finalUser, finalRole, finalId)
                 if (result.isSuccess) {
                     _portfolio.value = result.getOrNull()
                 } else {
@@ -484,7 +550,9 @@ class WantuchViewModel(application: Application) : AndroidViewModel(application)
             try {
                 _isLoading.value = true
                 _errorMsg.value = ""
-                val result = repository.fetchDashboard(id)
+                val fUser = username.value.ifEmpty { prefs.getString("current_username", "") ?: "" }
+                val fRole = userRole.value.ifEmpty { prefs.getString("role", "super_admin") ?: "super_admin" }.lowercase()
+                val result = repository.fetchDashboard(id, fUser, fRole)
                 if (result.isSuccess) {
                     _dashboardData.value = result.getOrNull()
                     _lastInstId.value = id
@@ -599,14 +667,11 @@ class WantuchViewModel(application: Application) : AndroidViewModel(application)
                     _errorMsg.value = "No institution selected"
                     return@launch
                 }
-                val result = repository.fetchStaff(lastId)
+                val role = userRole.value
+                val userId = dashboardData.value?.user_id ?: 0
+                val result = repository.fetchStaff(lastId, role, userId)
                 if (result.isSuccess) {
-                    val resp = result.getOrNull()
-                    if (resp?.status == "success") {
-                        _staffData.value = resp
-                    } else {
-                        _errorMsg.value = resp?.message ?: "Failed to load staff"
-                    }
+                    _staffData.value = result.getOrNull()
                 } else {
                     _errorMsg.value = "Staff Load Error: ${result.exceptionOrNull()?.message}"
                 }
@@ -625,19 +690,16 @@ class WantuchViewModel(application: Application) : AndroidViewModel(application)
                 _isLoading.value = true
                 _errorMsg.value = ""
                 val lastId = prefs.getInt("last_inst", 0)
-                val result = repository.fetchStaffProfile(staffId, lastId)
+                val role = userRole.value
+                val userId = dashboardData.value?.user_id ?: 0
+                val result = repository.fetchStaffProfile(staffId, lastId, role, userId)
                 if (result.isSuccess) {
-                    val resp = result.getOrNull()
-                    if (resp?.status == "success") {
-                        _staffProfile.value = resp
-                    } else {
-                        _errorMsg.value = resp?.message ?: "Status Error: ${resp?.status}"
-                    }
+                    _staffProfile.value = result.getOrNull()
                 } else {
-                    _errorMsg.value = "Network Error: ${result.exceptionOrNull()?.localizedMessage}"
+                    _errorMsg.value = "Staff Profile Error: ${result.exceptionOrNull()?.message}"
                 }
             } catch (e: Exception) {
-                _errorMsg.value = "Crash: ${e.message}"
+                _errorMsg.value = "Staff Profile Crash: ${e.message}"
             } finally {
                 _isLoading.value = false
             }
@@ -837,7 +899,9 @@ class WantuchViewModel(application: Application) : AndroidViewModel(application)
                 _isLoading.value = true
                 _errorMsg.value = ""
                 val lastId = prefs.getInt("last_inst", 0)
-                val result = repository.fetchStudents(lastId, classId, sectionId, status)
+                val role = userRole.value
+                val userId = dashboardData.value?.user_id ?: 0
+                val result = repository.fetchStudents(lastId, role, userId, classId, sectionId, status)
                 if (result.isSuccess) {
                     _studentsData.value = result.getOrNull()
                 } else {
@@ -878,7 +942,9 @@ class WantuchViewModel(application: Application) : AndroidViewModel(application)
                 _isLoading.value = true
                 _errorMsg.value = ""
                 val lastId = prefs.getInt("last_inst", 0)
-                val result = repository.fetchStudentProfile(studentId, lastId)
+                val role = userRole.value
+                val userId = dashboardData.value?.user_id ?: 0
+                val result = repository.fetchStudentProfile(studentId, lastId, role, userId)
                 if (result.isSuccess) {
                     _studentProfile.value = result.getOrNull()
                 } else {
@@ -896,7 +962,9 @@ class WantuchViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             try {
                 val lastId = prefs.getInt("last_inst", 0)
-                val result = repository.fetchSchoolStructure(lastId)
+                val role = userRole.value
+                val userId = dashboardData.value?.user_id ?: 0
+                val result = repository.fetchSchoolStructure(lastId, role, userId)
                 if (result.isSuccess) {
                     _schoolStructure.value = result.getOrNull()
                 }
@@ -1159,22 +1227,28 @@ class WantuchViewModel(application: Application) : AndroidViewModel(application)
     private val _leaveAppeals = MutableStateFlow<Map<String, Any?>?>(null)
     val leaveAppeals = _leaveAppeals.asStateFlow()
 
-    fun fetchLeaveAppeals() {
+    fun fetchLeaveAppeals(userId: Int = 0) {
         viewModelScope.launch {
             try {
                 _isLoading.value = true
                 val lastId = prefs.getInt("last_inst", 0)
-                val result = repository.getLeaveAppeals(lastId)
+                val result = repository.getLeaveAppeals(lastId, userId)
                 if (result.isSuccess) {
-                    val json = result.getOrNull()?.string() ?: ""
-                    val obj = org.json.JSONObject(json)
-                    val map = mutableMapOf<String, Any?>()
-                    val keys = obj.keys()
-                    while(keys.hasNext()) {
-                        val k = keys.next()
-                        map[k] = obj.get(k)
+                    val json = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        result.getOrNull()?.string() ?: ""
                     }
-                    _leaveAppeals.value = map
+                    if (json.isNotEmpty()) {
+                        val obj = org.json.JSONObject(json)
+                        val map = mutableMapOf<String, Any?>()
+                        val keys = obj.keys()
+                        while(keys.hasNext()) {
+                            val k = keys.next()
+                            map[k] = obj.get(k)
+                        }
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                            _leaveAppeals.value = map
+                        }
+                    }
                 }
             } catch (e: Exception) {}
             finally { _isLoading.value = false }
@@ -1188,8 +1262,10 @@ class WantuchViewModel(application: Application) : AndroidViewModel(application)
                 val lastId = prefs.getInt("last_inst", 0)
                 val result = repository.updateAppealStatus(lastId, id, status)
                 if (result.isSuccess && result.getOrNull()?.status == "success") {
-                    onSuccess()
-                    fetchLeaveAppeals()
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        onSuccess()
+                        fetchLeaveAppeals()
+                    }
                 }
             } catch (e: Exception) {}
             finally { _isLoading.value = false }
@@ -1424,12 +1500,14 @@ class WantuchViewModel(application: Application) : AndroidViewModel(application)
             try {
                 _isLoading.value = true
                 val lastId = prefs.getInt("last_inst", 0)
-                val result = repository.fetchSyllabus(lastId, classId, sectionId, subjectId)
+                val role = (prefs.getString("role", "Student") ?: "Student").lowercase()
+                val uid = (dashboardData.value?.user_id ?: (dashboardData.value?.stats?.get("id")?.toString()?.toDoubleOrNull()?.toInt() ?: prefs.getInt("user_id", 0)))
+                
+                val result = repository.fetchSyllabus(lastId, role, uid, classId, sectionId, subjectId)
                 if (result.isSuccess) {
                     _syllabusData.value = result.getOrNull()
                 }
-            } catch (e: Exception) {}
-            finally { _isLoading.value = false }
+            } catch (e: Exception) { Log.e("WantuchVM", "Err: ${e.message}") } finally { _isLoading.value = false }
         }
     }
 
@@ -1484,7 +1562,10 @@ class WantuchViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    private var lastPromoCriteria: String = "percentage"
+
     fun fetchStudentsForPromotion(classId: Int, sectionId: Int, criteria: String, year: String) {
+        lastPromoCriteria = criteria
         viewModelScope.launch {
             _isLoading.value = true
             try {
@@ -1504,7 +1585,7 @@ class WantuchViewModel(application: Application) : AndroidViewModel(application)
                 val promoArray = listOf(mapOf("student_id" to studentId, "force" to force))
                 val promoJson = com.google.gson.Gson().toJson(promoArray)
                 val result = repository.promoteStudents(instId, promoJson, targetClassId, sourceClassId, sourceSectionId, year)
-                result.onSuccess { fetchStudentsForPromotion(sourceClassId, sourceSectionId, "percentage", year) }
+                result.onSuccess { fetchStudentsForPromotion(sourceClassId, sourceSectionId, lastPromoCriteria, year) }
             } catch (e: Exception) { Log.e("Wantuch", "Promote Error: ${e.message}") }
             finally { _isLoading.value = false }
         }
@@ -1517,7 +1598,7 @@ class WantuchViewModel(application: Application) : AndroidViewModel(application)
                 val instId = getInstitutionId()
                 val idJson = com.google.gson.Gson().toJson(studentIds)
                 val result = repository.shiftStudents(instId, idJson, targetClassId, sourceClassId, sourceSectionId, year)
-                result.onSuccess { fetchStudentsForPromotion(sourceClassId, sourceSectionId, "percentage", year) }
+                result.onSuccess { fetchStudentsForPromotion(sourceClassId, sourceSectionId, lastPromoCriteria, year) }
             } catch (e: Exception) { Log.e("Wantuch", "Shift Error: ${e.message}") }
             finally { _isLoading.value = false }
         }
@@ -1886,8 +1967,11 @@ class WantuchViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             try {
                 val lastId = prefs.getInt("last_inst", 0)
+                val role = (prefs.getString("role", "Student") ?: "Student").lowercase()
+                val uid = (dashboardData.value?.user_id ?: (dashboardData.value?.stats?.get("id")?.toString()?.toDoubleOrNull()?.toInt() ?: prefs.getInt("user_id", 0)))
+                
                 if (lastId != 0) {
-                    val result = repository.fetchSubjects(lastId)
+                    val result = repository.fetchSubjects(lastId, role, uid)
                     if (result.isSuccess) {
                         _subjects.value = result.getOrNull()
                     }
@@ -2040,16 +2124,18 @@ class WantuchViewModel(application: Application) : AndroidViewModel(application)
 
     fun fetchNotices() {
         updateRole()
-        Log.d("WantuchNOTICE", "FETCH NOTICES - ROLE IS: ${prefs.getString("role", "Student")}")
+        val role = (prefs.getString("role", "Student") ?: "Student").lowercase()
+        val uid = (dashboardData.value?.user_id ?: (dashboardData.value?.stats?.get("id")?.toString()?.toDoubleOrNull()?.toInt() ?: prefs.getInt("user_id", 0)))
+        Log.d("WantuchNOTICE", "FETCH NOTICES - ROLE IS: $role, UID: $uid")
         viewModelScope.launch {
             try {
                 _isLoading.value = true
-                val lastId = prefs.getInt("last_inst", 0)
-                val result = repository.fetchNotices(lastId)
+                val lastId = _lastInstId.value.takeIf { it != 0 } ?: (dashboardData.value?.stats?.get("institution_id")?.toString()?.toDoubleOrNull()?.toInt() ?: prefs.getInt("last_inst", 0))
+                val result = repository.fetchNotices(lastId, role, uid)
                 if (result.isSuccess) {
                     _noticesData.value = result.getOrNull()
                 } else {
-                    _errorMsg.value = result.getOrNull()?.message ?: "Failed"
+                    _errorMsg.value = "Failed to load notices"
                 }
             } catch (e: Exception) { _errorMsg.value = "Crash" } finally { _isLoading.value = false }
         }
@@ -2550,7 +2636,9 @@ class WantuchViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             try {
                 val lastId = prefs.getInt("last_inst", 0)
-                repository.fetchStaffProfile(staffId, lastId).onSuccess { onResult(it) }.onFailure { onResult(null) }
+                val role = userRole.value
+                val userId = dashboardData.value?.user_id ?: 0
+                repository.fetchStaffProfile(staffId, lastId, role, userId).onSuccess { onResult(it) }.onFailure { onResult(null) }
             } catch (e: Exception) { onResult(null) }
         }
     }
@@ -2559,7 +2647,9 @@ class WantuchViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             try {
                 val lastId = prefs.getInt("last_inst", 0)
-                repository.fetchStudentProfile(studentId, lastId).onSuccess { onResult(it) }.onFailure { onResult(null) }
+                val role = userRole.value
+                val userId = dashboardData.value?.user_id ?: 0
+                repository.fetchStudentProfile(studentId, lastId, role, userId).onSuccess { onResult(it) }.onFailure { onResult(null) }
             } catch (e: Exception) { onResult(null) }
         }
     }
@@ -2568,9 +2658,28 @@ class WantuchViewModel(application: Application) : AndroidViewModel(application)
             try {
                 _isLoading.value = true
                 val result = repository.saveLeaveAppeal(instId, userId, fromDate, toDate, leaveType, reason)
-                onComplete(result.isSuccess && result.getOrNull()?.status == "success")
+                val isSuccess = result.isSuccess && result.getOrNull()?.status == "success"
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    onComplete(isSuccess)
+                }
             } catch (e: Exception) {
                 onComplete(false)
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun deleteLeaveAppeal(id: Int, onComplete: () -> Unit) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                val lastId = prefs.getInt("last_inst", 0)
+                val result = repository.deleteLeaveAppeal(lastId, id)
+                if (result.isSuccess && result.getOrNull()?.status == "success") {
+                    onComplete()
+                }
+            } catch (e: Exception) {
             } finally {
                 _isLoading.value = false
             }

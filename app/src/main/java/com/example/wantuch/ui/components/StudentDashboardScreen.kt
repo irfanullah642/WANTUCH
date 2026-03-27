@@ -51,16 +51,20 @@ fun StudentDashboardScreen(
 
     val isDark by viewModel.isDarkTheme.collectAsState()
     val dashboardData by viewModel.dashboardData.collectAsState()
-    val staffProfile by viewModel.staffProfile.collectAsState()
+    val studentProfile by viewModel.studentProfile.collectAsState()
 
     LaunchedEffect(dashboardData?.user_id) {
         dashboardData?.user_id?.let { uid ->
              // If profile isn't loaded or belongs to a different user, fetch fresh data
-             if (staffProfile == null || (staffProfile?.basic?.get("id")?.toString() != uid.toString())) {
-                 viewModel.fetchStaffProfile(uid)
+             val currentProfileId = (studentProfile?.basic?.get("id") as? Number)?.toInt() ?: 
+                                   (studentProfile?.basic?.get("id")?.toString()?.toDoubleOrNull()?.toInt()) ?: 0
+             if (studentProfile == null || currentProfileId != uid) {
+                 viewModel.fetchStudentProfile(uid)
              }
         }
     }
+
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     val bgColor = if (isDark) Color(0xFF0F172A) else Color(0xFFF1F5F9)
     val cardColor = if (isDark) Color(0xFF1E293B) else Color.White
@@ -71,11 +75,12 @@ fun StudentDashboardScreen(
     val modules = dashboardData?.modules ?: listOf(
         com.example.wantuch.domain.model.ModuleItem("profile", "My Profile", "person"),
         com.example.wantuch.domain.model.ModuleItem("notices", "Notices", "campaign"),
+        com.example.wantuch.domain.model.ModuleItem("subjects", "Subjects", "menu_book"),
+        com.example.wantuch.domain.model.ModuleItem("exams", "My Exams", "assignment"),
         com.example.wantuch.domain.model.ModuleItem("timetable", "Timetable", "schedule"),
         com.example.wantuch.domain.model.ModuleItem("syllabus", "Syllabus", "book"),
         com.example.wantuch.domain.model.ModuleItem("homework", "Homework", "tasks"),
-        com.example.wantuch.domain.model.ModuleItem("exams", "My Exams", "assignment"),
-        com.example.wantuch.domain.model.ModuleItem("study_plan", "Study Plan", "event_available")
+        com.example.wantuch.domain.model.ModuleItem("smart_id", "Smart ID", "badge")
     )
 
     val userName = dashboardData?.full_name ?: "Student"
@@ -178,7 +183,7 @@ fun StudentDashboardScreen(
 
                             Spacer(Modifier.height(8.dp))
 
-                            val profilePic = staffProfile?.basic?.get("profile_pic")?.toString() ?: ""
+                            val profilePic = studentProfile?.basic?.get("profile_pic")?.toString() ?: ""
                             val rawPicInStats = (dashboardData?.stats?.get("profile_pic") ?: dashboardData?.stats?.get("pic") ?: dashboardData?.stats?.get("photo") ?: dashboardData?.stats?.get("user_pic") ?: dashboardData?.stats?.get("student_pic"))?.toString() ?: ""
                             val rawPicRoot = dashboardData?.profile_pic ?: ""
                             
@@ -246,15 +251,6 @@ fun StudentDashboardScreen(
                             val userId = dashboardData?.user_id ?: 0
                             onOpenFee(userId)
                         }
-                        
-                        val myClass = dashboardData?.stats?.get("my_class")?.toString() ?: "N/A"
-                        StudentStatCard(
-                            "MY CLASS",
-                            myClass.uppercase(),
-                            Color(0xFFF59E0B),
-                            isDark,
-                            Modifier.weight(1f)
-                        ) { onOpenClasses() }
                     }
                 }
             }
@@ -298,6 +294,15 @@ fun StudentDashboardScreen(
                         "attendance" -> onOpenAttendance()
                         "smart_id" -> onOpenSmartIDCard()
                         "profile" -> {
+                            val userId = dashboardData?.user_id ?: 0
+                            onOpenMyProfile(userId)
+                        }
+                        "classes", "edu_classes" -> {
+                            android.widget.Toast.makeText(
+                                context, 
+                                "Class info is available inside My Profile", 
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
                             val userId = dashboardData?.user_id ?: 0
                             onOpenMyProfile(userId)
                         }

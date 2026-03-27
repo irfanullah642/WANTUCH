@@ -30,7 +30,8 @@ import org.json.JSONObject
 @Composable
 fun ParentDashboardScreen(
     viewModel: WantuchViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onLogout: () -> Unit
 ) {
     BackHandler { onBack() }
 
@@ -44,10 +45,14 @@ fun ParentDashboardScreen(
     val bgColor = if (isDark) Color(0xFF0F172A) else Color(0xFFF8FAFC)
     val textColor = if (isDark) Color.White else Color(0xFF1E293B)
     val subColor = if (isDark) Color.White.copy(0.5f) else Color.Gray
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    var retryTrigger by remember { mutableStateOf(0) }
 
     // Load parent data
-    LaunchedEffect(Unit) {
+    LaunchedEffect(retryTrigger) {
         isLoading = true
+        errorMsg = ""
         viewModel.safeApiCall(
             "GET_PARENT_DASHBOARD",
             emptyMap()
@@ -97,7 +102,7 @@ fun ParentDashboardScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Notifications, null, tint = Color.White, modifier = Modifier.size(20.dp))
                         Spacer(Modifier.width(16.dp))
-                        Icon(Icons.Default.Logout, null, tint = Color.White, modifier = Modifier.size(20.dp).clickable { onBack() })
+                        Icon(Icons.Default.Logout, null, tint = Color.White, modifier = Modifier.size(20.dp).clickable { onLogout() })
                     }
                 }
             }
@@ -114,7 +119,7 @@ fun ParentDashboardScreen(
                     Spacer(Modifier.height(16.dp))
                     Text(errorMsg, color = Color.Red, textAlign = TextAlign.Center, fontSize = 14.sp)
                     Spacer(Modifier.height(24.dp))
-                    Button(onClick = { /* Retry logic */ }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6))) {
+                    Button(onClick = { retryTrigger++ }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6))) {
                         Text("Try Again")
                     }
                 }
@@ -167,6 +172,7 @@ fun ParentDashboardScreen(
 
 @Composable
 fun NewChildCard(child: JSONObject, isDark: Boolean) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val cardBg = if (isDark) Color(0xFF1E293B) else Color.White
     val textColor = if (isDark) Color.White else Color(0xFF1E293B)
     val subTextColor = if (isDark) Color.White.copy(0.6f) else Color.Gray
@@ -222,7 +228,13 @@ fun NewChildCard(child: JSONObject, isDark: Boolean) {
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
                     .border(1.dp, Color(0xFF3B82F6).copy(0.2f), RoundedCornerShape(12.dp))
-                    .clickable { }
+                    .clickable {
+                        android.widget.Toast.makeText(
+                            context,
+                            "Navigating to Student Profile (Coming Soon)",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                    }
                     .padding(vertical = 10.dp),
                 Alignment.Center
             ) {

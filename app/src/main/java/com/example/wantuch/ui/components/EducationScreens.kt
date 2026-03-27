@@ -14,7 +14,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.automirrored.filled.*
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalView
@@ -70,7 +70,7 @@ fun SchoolSelectorScreen(
                 .statusBarsPadding()
                 .padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack, Modifier.background(Color.White.copy(0.05f), RoundedCornerShape(12.dp))) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White)
+                    Icon(Icons.Default.ArrowBack, null, tint = Color.White)
                 }
                 Spacer(Modifier.width(16.dp))
                 Column {
@@ -82,6 +82,36 @@ fun SchoolSelectorScreen(
             if (isLoading && portfolio == null) {
                 Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator(color = Color(0xFF3B82F6)) }
             } else {
+                val errorMsg by viewModel.errorMsg.collectAsState()
+                
+                // --- DEBUG & ERROR DIALOG ---
+                if (errorMsg.isNotEmpty() || (portfolio != null && portfolio?.institutions.isNullOrEmpty())) {
+                    val displayError = if (errorMsg.isNotEmpty()) errorMsg else "No institutions found for this account."
+                    AlertDialog(
+                        onDismissRequest = { viewModel.clearError() },
+                        title = { Text("System Context Debug", color = Color.White) },
+                        text = {
+                            Column {
+                                Text(displayError, color = Color.White.copy(0.8f))
+                                Spacer(Modifier.height(12.dp))
+                                Text("Server Role: ${portfolio?.debug_role ?: "Unknown"}", color = Color(0xFF10B981), fontSize = 12.sp)
+                                Text("Server User: ${portfolio?.debug_user ?: "None"}", color = Color(0xFFF59E0B), fontSize = 12.sp)
+                                Text("Server UID: ${portfolio?.debug_uid ?: 0}", color = Color(0xFF3B82F6), fontSize = 12.sp)
+                                Text("Schools Found: ${portfolio?.count ?: 0}", color = Color(0xFF3B82F6), fontSize = 12.sp)
+                                if (portfolio?.institutions.isNullOrEmpty()) {
+                                    Spacer(Modifier.height(10.dp))
+                                    Text("Tip: If you are an owner, ensure your User ID matches the school's owner_id in the database.", color = Color.White.copy(0.4f), fontSize = 11.sp)
+                                }
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(onClick = { viewModel.fetchPortfolio() }) { Text("RETRY", color = Color(0xFF3B82F6)) }
+                        },
+                        containerColor = Color(0xFF1E293B),
+                        shape = RoundedCornerShape(20.dp)
+                    )
+                }
+
                 portfolio?.let { data ->
                     // Stats Row
                     Row(Modifier
@@ -144,7 +174,7 @@ fun InstitutionCard(inst: Institution, onClick: () -> Unit) {
                 }
             }
             Spacer(Modifier.height(14.dp))
-            Text(inst.name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp, textAlign = TextAlign.Center, maxLines = 2)
+            Text(inst.name ?: "Unknown", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp, textAlign = TextAlign.Center, maxLines = 2)
             Text(inst.type ?: "School", color = Color.White.copy(0.5f), fontSize = 10.sp)
         }
     }
@@ -246,7 +276,7 @@ fun SuspendedStatCard(label: String, value: String, accent: Color, isDark: Boole
 }
 
 @Composable
-fun FlapModuleCard(label: String, icon: ImageVector, isDark: Boolean, modifier: Modifier, onClick: () -> Unit) {
+fun FlapModuleCard(label: String, icon: ImageVector, isDark: Boolean, sub: String? = null, modifier: Modifier, onClick: () -> Unit) {
     Card(
         onClick = onClick,
         modifier = modifier.height(110.dp),
@@ -268,7 +298,7 @@ fun FlapModuleCard(label: String, icon: ImageVector, isDark: Boolean, modifier: 
             Spacer(Modifier.height(10.dp))
             Text(label.uppercase(), color = if (isDark) Color.White else Color(0xFF1E293B), fontSize = 11.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
             Spacer(Modifier.weight(1f))
-            Text("DASHBOARD", color = if (isDark) Color.White.copy(0.4f) else Color.Gray, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold)
+            Text(sub ?: "DASHBOARD", color = if (isDark) Color.White.copy(0.4f) else Color.Gray, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold)
         }
     }
 }

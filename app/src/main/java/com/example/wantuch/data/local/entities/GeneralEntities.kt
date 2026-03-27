@@ -32,15 +32,10 @@ data class PortfolioEntity(
 
 // Mappers
 fun Institution.toEntity(): InstitutionEntity {
-    val numericId = when (val originalId = id) {
-        is Int -> originalId
-        is String -> originalId.toIntOrNull() ?: 0
-        is Double -> originalId.toInt()
-        else -> 0
-    }
+    val numericId = id?.toString()?.toDoubleOrNull()?.toInt() ?: 0
     return InstitutionEntity(
         id = numericId,
-        name = name,
+        name = name ?: "Institution",
         type = type,
         logo = logo
     )
@@ -55,10 +50,10 @@ fun InstitutionEntity.toDomain() = Institution(
 
 fun DashboardResponse.toEntity(instId: Int) = DashboardEntity(
     institutionId = instId,
-    institutionName = institution_name,
+    institutionName = institution_name ?: "School",
     fullName = full_name,
     userId = user_id,
-    role = role,
+    role = role ?: "user",
     stats = stats,
     isHoliday = is_holiday,
     modules = modules

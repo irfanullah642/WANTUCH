@@ -14,10 +14,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Assignment
-import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.automirrored.filled.NoteAdd
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Assignment
+import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.NoteAdd
 import androidx.compose.material.icons.filled.*
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.*
@@ -130,7 +130,7 @@ fun QuestionPaperScreen(
                                 .size(36.dp)
                                 .background(Color.White.copy(.15f), RoundedCornerShape(10.dp))
                         ) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.ArrowBack, null, tint = Color.White, modifier = Modifier.size(18.dp))
                         }
                         Spacer(Modifier.width(14.dp))
                         Column(Modifier.weight(1f)) {
@@ -235,7 +235,7 @@ fun QuestionPaperScreen(
                 items(paperTypes.drop(1)) { type ->
                     QPFilterChip(
                         label = type,
-                        icon = Icons.AutoMirrored.Filled.Assignment,
+                        icon = Icons.Default.Assignment,
                         active = selectedType == type,
                         color = paperTypeColor(type),
                         isDark = isDark
@@ -576,7 +576,7 @@ private fun QPEmptyState(isDark: Boolean) {
                     .border(1.dp, Blue.copy(.2f), RoundedCornerShape(28.dp)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.AutoMirrored.Filled.MenuBook, null, tint = Blue, modifier = Modifier.size(46.dp))
+                Icon(Icons.Default.MenuBook, null, tint = Blue, modifier = Modifier.size(46.dp))
             }
             Spacer(Modifier.height(20.dp))
             Text("No Papers Found", color = if (isDark) Color.White else Color(0xFF1E293B), fontSize = 18.sp, fontWeight = FontWeight.Black)
@@ -653,7 +653,7 @@ private fun QPAddDialog(
                         Modifier.size(46.dp).clip(RoundedCornerShape(14.dp)).background(Indigo.copy(.12f)).border(1.dp, Indigo.copy(.3f), RoundedCornerShape(14.dp)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.AutoMirrored.Filled.NoteAdd, null, tint = Indigo, modifier = Modifier.size(24.dp))
+                        Icon(Icons.Default.NoteAdd, null, tint = Indigo, modifier = Modifier.size(24.dp))
                     }
                     Spacer(Modifier.width(14.dp))
                     Column {

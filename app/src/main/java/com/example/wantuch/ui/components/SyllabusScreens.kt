@@ -36,6 +36,9 @@ fun SyllabusPlannerScreen(
     val structure by viewModel.schoolStructure.collectAsState()
     val isDark by viewModel.isDarkTheme.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val userRole by viewModel.userRole.collectAsState()
+    val isMgmt = listOf("admin", "super_admin", "super admin", "developer").contains(userRole.lowercase())
+    val isStudent = userRole.equals("Student", ignoreCase = true)
 
     var selectedClass by remember { mutableStateOf("All Classes") }
     var selectedSection by remember { mutableStateOf("All Sections") }
@@ -93,59 +96,67 @@ fun SyllabusPlannerScreen(
 
             Spacer(Modifier.height(20.dp))
 
-            // Filters & Wizard Button
-            Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    val classNames = listOf("All Classes") + (structure?.classes?.map { it.name } ?: emptyList())
-                    Box(Modifier.weight(1f)) {
-                        DropdownSelector(selectedClass, classNames, isDark = isDark) { selectedClass = it }
+            // Filters & Wizard Button - RESTRICTED TO MGMT
+            if (isMgmt) {
+                Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        val classNames = listOf("All Classes") + (structure?.classes?.map { it.name } ?: emptyList())
+                        Box(Modifier.weight(1f)) {
+                            DropdownSelector(selectedClass, classNames, isDark = isDark) { selectedClass = it }
+                        }
+                        val selectedClassObj = structure?.classes?.find { it.name.equals(selectedClass, ignoreCase = true) }
+                        val sectionNames = listOf("All Sections") + (selectedClassObj?.sections?.map { it.name } ?: emptyList())
+                        Box(Modifier.weight(1f)) {
+                            DropdownSelector(selectedSection, sectionNames, isDark = isDark) { selectedSection = it }
+                        }
                     }
-                    val selectedClassObj = structure?.classes?.find { it.name.equals(selectedClass, ignoreCase = true) }
-                    val sectionNames = listOf("All Sections") + (selectedClassObj?.sections?.map { it.name } ?: emptyList())
-                    Box(Modifier.weight(1f)) {
-                        DropdownSelector(selectedSection, sectionNames, isDark = isDark) { selectedSection = it }
-                    }
-                }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    val allItems = syllabusData?.items ?: emptyList()
-                    val derivedSubjects = allItems.filter { 
-                        (selectedClass == "All Classes" || it.class_name.equals(selectedClass, ignoreCase = true)) &&
-                        (selectedSection == "All Sections" || it.section_name.equals(selectedSection, ignoreCase = true))
-                    }.map { it.subject_name }.distinct()
-                    val subjectNames = listOf("All Subjects") + derivedSubjects
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        val allItems = syllabusData?.items ?: emptyList()
+                        val derivedSubjects = allItems.filter { it2 ->
+                            (selectedClass == "All Classes" || it2.class_name.equals(selectedClass, ignoreCase = true)) &&
+                            (selectedSection == "All Sections" || it2.section_name.equals(selectedSection, ignoreCase = true))
+                        }.map { it2 -> it2.subject_name }.distinct()
+                        val subjectNames = listOf("All Subjects") + derivedSubjects
 
-                    Box(Modifier.weight(1.5f)) {
-                        DropdownSelector(selectedSubject, subjectNames, isDark = isDark) { selectedSubject = it }
-                    }
-                    Button(
-                        onClick = {
-                            val cls = structure?.classes?.find { it.name.equals(selectedClass, ignoreCase = true) }
-                            val sec = cls?.sections?.find { it.name.equals(selectedSection, ignoreCase = true) }
-                            val subItem = syllabusData?.items?.find {
-                                it.class_id == (cls?.id ?: -1) &&
-                                it.section_id == (sec?.id ?: -1) &&
-                                it.subject_name.equals(selectedSubject, ignoreCase = true)
-                            }
-                            
-                            if (subItem != null) {
-                                activeSubjectContext = subItem
-                                showWizard = true
-                            } else {
-                                // Fallback: try to find any item for class/section/subject but maybe it's not in the list yet
-                                // In web app, it allows starting wizard if specific class/sec/sub filters are picked even if empty
-                                // We'll just alert for now or implement a more robust check
-                            }
-                        },
-                        modifier = Modifier.weight(1f).height(50.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0EA5E9)),
-                        shape = RoundedCornerShape(12.dp),
-                        contentPadding = PaddingValues(0.dp)
-                    ) {
-                        Icon(Icons.Default.Bolt, null, Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("SYLLABUS WIZARD", fontSize = 9.sp, fontWeight = FontWeight.Black)
+                        Box(Modifier.weight(1.5f)) {
+                            DropdownSelector(selectedSubject, subjectNames, isDark = isDark) { selectedSubject = it }
+                        }
+                        Button(
+                            onClick = {
+                                val cls = structure?.classes?.find { it.name.equals(selectedClass, ignoreCase = true) }
+                                val sec = cls?.sections?.find { it.name.equals(selectedSection, ignoreCase = true) }
+                                val subItem = syllabusData?.items?.find { it3 ->
+                                    it3.class_id == (cls?.id ?: -1) &&
+                                    it3.section_id == (sec?.id ?: -1) &&
+                                    it3.subject_name.equals(selectedSubject, ignoreCase = true)
+                                }
+                                
+                                if (subItem != null) {
+                                    activeSubjectContext = subItem
+                                    showWizard = true
+                                }
+                            },
+                            modifier = Modifier.weight(1f).height(50.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0EA5E9)),
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Icon(Icons.Default.Bolt, null, Modifier.size(16.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("SYLLABUS WIZARD", fontSize = 9.sp, fontWeight = FontWeight.Black)
+                        }
                     }
                 }
+            } else {
+                // Header for students when filters are hidden
+                Text(
+                    "MY CLASS CURRICULUM", 
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    color = textColor, 
+                    fontWeight = FontWeight.Black, 
+                    fontSize = 18.sp,
+                    textAlign = TextAlign.Center
+                )
             }
 
             Spacer(Modifier.height(20.dp))
@@ -155,11 +166,11 @@ fun SyllabusPlannerScreen(
                     CircularProgressIndicator(color = Color(0xFF3B82F6))
                 }
             } else {
-                val list = syllabusData?.items ?: emptyList()
-                val filteredList = list.filter {
-                    (selectedClass == "All Classes" || it.class_name.equals(selectedClass, ignoreCase = true)) &&
-                    (selectedSection == "All Sections" || it.section_name.equals(selectedSection, ignoreCase = true)) &&
-                    (selectedSubject == "All Subjects" || it.subject_name.equals(selectedSubject, ignoreCase = true))
+                val list: List<SyllabusItem> = syllabusData?.items ?: emptyList()
+                val filteredList = list.filter { itX ->
+                    (selectedClass == "All Classes" || itX.class_name.equals(selectedClass, ignoreCase = true)) &&
+                    (selectedSection == "All Sections" || itX.section_name.equals(selectedSection, ignoreCase = true)) &&
+                    (selectedSubject == "All Subjects" || itX.subject_name.equals(selectedSubject, ignoreCase = true))
                 }
 
                 if (filteredList.isEmpty()) {
@@ -176,24 +187,25 @@ fun SyllabusPlannerScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         contentPadding = PaddingValues(bottom = 100.dp)
                     ) {
-                        items(filteredList) { item ->
+                        items(filteredList) { sItem: SyllabusItem ->
                             SyllabusItemCard(
-                                item = item,
+                                item = sItem,
                                 isDark = isDark,
                                 textColor = textColor,
                                 labelColor = labelColor,
                                 cardColor = cardColor,
                                 onStatusChange = { tid, stat ->
                                     val newStat = if (stat.equals("Completed", true)) "Pending" else "Completed"
-                                    viewModel.updateSyllabusStatus(tid, newStat, item.class_id, item.section_id, item.subject_id)
+                                    viewModel.updateSyllabusStatus(tid, newStat, sItem.class_id, sItem.section_id, sItem.subject_id)
                                 },
                                 onEditChapter = { ch ->
-                                    activeSubjectContext = item
+                                    activeSubjectContext = sItem
                                     showEditChapter = ch
                                 },
                                 onDeleteTopic = { tid ->
-                                    viewModel.deleteSyllabusTopic(tid, item.class_id, item.section_id, item.subject_id)
-                                }
+                                    viewModel.deleteSyllabusTopic(tid, sItem.class_id, sItem.section_id, sItem.subject_id)
+                                },
+                                userRole = userRole
                             )
                         }
                     }
@@ -229,8 +241,11 @@ fun SyllabusItemCard(
     cardColor: Color, 
     onStatusChange: (Int, String) -> Unit,
     onEditChapter: (SyllabusChapter) -> Unit,
-    onDeleteTopic: (Int) -> Unit
+    onDeleteTopic: (Int) -> Unit,
+    userRole: String = "Student"
 ) {
+    val isMgmt = listOf("admin", "super_admin", "super admin", "developer").contains(userRole.lowercase())
+    val isStudent = userRole.equals("Student", ignoreCase = true)
     var expanded by remember { mutableStateOf(false) }
 
     Card(
@@ -286,7 +301,8 @@ fun SyllabusItemCard(
                             labelColor = labelColor, 
                             onStatusChange = onStatusChange,
                             onEditChapter = onEditChapter,
-                            onDeleteTopic = onDeleteTopic
+                            onDeleteTopic = onDeleteTopic,
+                            userRole = userRole
                         )
                     }
                 }
@@ -303,8 +319,11 @@ fun SyllabusChapterCard(
     labelColor: Color, 
     onStatusChange: (Int, String) -> Unit,
     onEditChapter: (SyllabusChapter) -> Unit,
-    onDeleteTopic: (Int) -> Unit
+    onDeleteTopic: (Int) -> Unit,
+    userRole: String = "Student"
 ) {
+    val isMgmt = listOf("admin", "super_admin", "super admin", "developer").contains(userRole.lowercase())
+    val isStudent = userRole.equals("Student", ignoreCase = true)
     var expanded by remember { mutableStateOf(false) }
     val cardColor = if (isDark) Color(0xFF1E293B).copy(0.5f) else Color.White.copy(0.5f)
 
@@ -347,12 +366,14 @@ fun SyllabusChapterCard(
                 }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFF0EA5E9).copy(0.1f))
-                            .clickable { onEditChapter(chapter) },
-                        Alignment.Center
-                    ) {
-                        Icon(Icons.Default.Edit, null, tint = Color(0xFF0EA5E9), modifier = Modifier.size(14.dp))
+                    if (isMgmt) {
+                        Box(
+                            Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFF0EA5E9).copy(0.1f))
+                                .clickable { onEditChapter(chapter) },
+                            Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Edit, null, tint = Color(0xFF0EA5E9), modifier = Modifier.size(14.dp))
+                        }
                     }
                     Icon(
                         if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
@@ -365,18 +386,28 @@ fun SyllabusChapterCard(
                 Spacer(Modifier.height(10.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     chapter.topics.forEach { topic ->
-                        SyllabusTopicRow(topic = topic, isDark = isDark, textColor = textColor, labelColor = labelColor, onStatusChange = onStatusChange, onDelete = onDeleteTopic)
+                        SyllabusTopicRow(
+                            topic = topic, 
+                            isDark = isDark, 
+                            textColor = textColor, 
+                            labelColor = labelColor, 
+                            onStatusChange = onStatusChange, 
+                            onDelete = onDeleteTopic,
+                            userRole = userRole
+                        )
                     }
                 }
                 
-                Spacer(Modifier.height(10.dp))
-                Box(
-                    modifier = Modifier.fillMaxWidth().height(36.dp)
-                        .clip(RoundedCornerShape(8.dp)).border(1.dp, Color(0xFF0EA5E9).copy(0.5f), RoundedCornerShape(8.dp))
-                        .clickable { onEditChapter(chapter) },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("+ ADD / EDIT TOPICS", color = Color(0xFF0EA5E9), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                if (isMgmt) {
+                    Spacer(Modifier.height(10.dp))
+                    Box(
+                        modifier = Modifier.fillMaxWidth().height(36.dp)
+                            .clip(RoundedCornerShape(8.dp)).border(1.dp, Color(0xFF0EA5E9).copy(0.5f), RoundedCornerShape(8.dp))
+                            .clickable { onEditChapter(chapter) },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("+ ADD / EDIT TOPICS", color = Color(0xFF0EA5E9), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }
@@ -390,8 +421,11 @@ fun SyllabusTopicRow(
     textColor: Color, 
     labelColor: Color, 
     onStatusChange: (Int, String) -> Unit,
-    onDelete: (Int) -> Unit
+    onDelete: (Int) -> Unit,
+    userRole: String = "Student"
 ) {
+    val isMgmt = listOf("admin", "super_admin", "super admin", "developer").contains(userRole.lowercase())
+    val isStudent = userRole.equals("Student", ignoreCase = true)
     val isDone = topic.status.equals("Completed", ignoreCase = true)
     val rowColor = if (isDark) Color(0xFF0F172A).copy(0.4f) else Color(0xFFF1F5F9)
 
@@ -425,12 +459,14 @@ fun SyllabusTopicRow(
             Text(topic.target_date ?: "", color = labelColor, fontSize = 9.sp)
         }
 
-        Box(
-            Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)).border(1.dp, Color(0xFFEF4444).copy(0.3f), RoundedCornerShape(8.dp))
-                .clickable { onDelete(topic.id) },
-            Alignment.Center
-        ) {
-            Icon(Icons.Default.Delete, null, tint = Color(0xFFEF4444), modifier = Modifier.size(14.dp))
+        if (isMgmt) {
+            Box(
+                Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)).border(1.dp, Color(0xFFEF4444).copy(0.3f), RoundedCornerShape(8.dp))
+                    .clickable { onDelete(topic.id) },
+                Alignment.Center
+            ) {
+                Icon(Icons.Default.Delete, null, tint = Color(0xFFEF4444), modifier = Modifier.size(14.dp))
+            }
         }
     }
 }

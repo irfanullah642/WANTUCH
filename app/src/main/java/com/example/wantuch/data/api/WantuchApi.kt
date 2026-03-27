@@ -35,12 +35,19 @@ interface WantuchApi {
     suspend fun getUnreadCounts(): Map<String, Int>
 
     @GET("modules/education/api_mobile_dashboard.php")
-    suspend fun getPortfolio(@Query("action") action: String = "GET_PORTFOLIO"): PortfolioResponse
+    suspend fun getPortfolio(
+        @Query("username") username: String,
+        @Query("role") role: String,
+        @Query("action") action: String = "GET_PORTFOLIO",
+        @Query("user_id") userId: Int = 0
+    ): PortfolioResponse
 
     @GET("modules/education/api_mobile_dashboard.php")
     suspend fun switchAndGetDashboard(
-        @Query("action") action: String = "SWITCH_AND_GET_DASHBOARD",
-        @Query("institution_id") instId: Int
+        @Query("institution_id") instId: Int,
+        @Query("username") username: String,
+        @Query("role") role: String,
+        @Query("action") action: String
     ): DashboardResponse
     
     @GET("modules/education/api_mobile_dashboard.php")
@@ -50,7 +57,7 @@ interface WantuchApi {
     ): okhttp3.ResponseBody
 
     @FormUrlEncoded
-    @POST("modules/education/fee_api.php")
+    @POST("modules/education/api_mobile_dashboard.php")
     suspend fun feeApiPost(
         @Field("action") action: String,
         @FieldMap params: Map<String, String>
@@ -83,14 +90,18 @@ interface WantuchApi {
     @GET("modules/education/api_mobile_dashboard.php")
     suspend fun getStaff(
         @Query("action") action: String = "GET_STAFF",
-        @Query("institution_id") instId: Int
+        @Query("institution_id") instId: Int,
+        @Query("role") role: String,
+        @Query("user_id") userId: Int
     ): StaffResponse
 
     @GET("modules/education/api_mobile_dashboard.php")
     suspend fun getStaffProfile(
         @Query("action") action: String = "GET_STAFF_PROFILE",
         @Query("staff_id") staffId: Int,
-        @Query("institution_id") instId: Int
+        @Query("institution_id") instId: Int,
+        @Query("role") role: String,
+        @Query("user_id") userId: Int
     ): StaffProfileResponse
 
     @FormUrlEncoded
@@ -173,6 +184,8 @@ interface WantuchApi {
     suspend fun getStudents(
         @Query("action") action: String = "GET_STUDENTS",
         @Query("institution_id") instId: Int,
+        @Query("role") role: String,
+        @Query("user_id") userId: Int,
         @Query("class_id") classId: Int = 0,
         @Query("section_id") sectionId: Int = 0,
         @Query("status") status: String = "active",
@@ -183,13 +196,17 @@ interface WantuchApi {
     suspend fun getStudentProfile(
         @Query("action") action: String = "GET_STUDENT_PROFILE",
         @Query("student_id") studentId: Int,
-        @Query("institution_id") instId: Int
+        @Query("institution_id") instId: Int,
+        @Query("role") role: String,
+        @Query("user_id") userId: Int
     ): StudentProfileResponse
 
     @GET("modules/education/api_mobile_dashboard.php")
     suspend fun getStructure(
         @Query("action") action: String = "GET_STRUCTURE",
-        @Query("institution_id") instId: Int
+        @Query("institution_id") instId: Int,
+        @Query("role") role: String,
+        @Query("user_id") userId: Int
     ): SchoolStructureResponse
 
     @FormUrlEncoded
@@ -381,7 +398,6 @@ interface WantuchApi {
         @Field("institution_id") instId: Int
     ): BasicResponse
 
-    // Smart Paper Builder → PDF generation endpoint
     @FormUrlEncoded
     @POST("modules/education/api_mobile_dashboard.php")
     suspend fun saveSmartPaper(
@@ -390,7 +406,7 @@ interface WantuchApi {
         @Field("title") title: String,
         @Field("subject") subject: String,
         @Field("total_marks") totalMarks: String,
-        @Field("sections_data") sectionsData: String
+        @Field("sections") sectionsData: String
     ): BasicResponse
     @GET("modules/education/api_mobile_dashboard.php")
     suspend fun getSmartConfig(
@@ -447,7 +463,8 @@ interface WantuchApi {
     @GET("modules/education/api_mobile_dashboard.php")
     suspend fun getLeaveAppeals(
         @Query("action") action: String = "GET_LEAVE_APPEALS",
-        @Query("institution_id") instId: Int
+        @Query("institution_id") instId: Int,
+        @Query("user_id") userId: Int = 0
     ): okhttp3.ResponseBody
 
     @FormUrlEncoded
@@ -463,6 +480,8 @@ interface WantuchApi {
     suspend fun getSyllabus(
         @Query("action") action: String = "GET_SYLLABUS",
         @Query("institution_id") instId: Int,
+        @Query("role") role: String,
+        @Query("user_id") userId: Int,
         @Query("class_id") classId: Int = 0,
         @Query("section_id") sectionId: Int = 0,
         @Query("subject_id") subjectId: Int = 0
@@ -773,15 +792,19 @@ interface WantuchApi {
     ): BasicResponse
 
     @GET("modules/education/api_mobile_dashboard.php")
-    suspend fun getSubjects(
+    suspend fun fetchSubjects(
         @Query("action") action: String = "GET_SUBJECTS",
-        @Query("institution_id") instId: Int
+        @Query("institution_id") instId: Int,
+        @Query("role") role: String,
+        @Query("user_id") userId: Int
     ): SubjectResponse
 
     @GET("modules/education/api_mobile_dashboard.php")
     suspend fun getNotices(
         @Query("action") action: String = "GET_NOTICES",
-        @Query("institution_id") instId: Int
+        @Query("institution_id") instId: Int,
+        @Query("role") role: String,
+        @Query("user_id") userId: Int
     ): NoticeResponse
 
     @FormUrlEncoded
@@ -1032,6 +1055,14 @@ interface WantuchApi {
         @Field("to_date") toDate: String,
         @Field("leave_type") leaveType: String,
         @Field("reason") reason: String
+    ): BasicResponse
+
+    @FormUrlEncoded
+    @POST("modules/education/api_mobile_dashboard.php")
+    suspend fun deleteLeaveAppeal(
+        @Field("action") action: String = "DELETE_LEAVE_APPEAL",
+        @Field("institution_id") instId: Int,
+        @Field("id") id: Int
     ): BasicResponse
 
 

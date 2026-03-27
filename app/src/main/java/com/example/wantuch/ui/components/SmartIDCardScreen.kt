@@ -17,7 +17,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -93,7 +93,7 @@ fun SmartIDCardScreen(
             Box(Modifier.fillMaxWidth().statusBarsPadding().background(Brush.horizontalGradient(listOf(Color(0xFF1E40AF), Color(0xFF3B82F6)))).padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onBack, Modifier.background(Color.White.copy(0.1f), RoundedCornerShape(10.dp))) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White)
+                        Icon(Icons.Default.ArrowBack, null, tint = Color.White)
                     }
                     Spacer(Modifier.width(15.dp))
                     Column {

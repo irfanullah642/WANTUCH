@@ -96,6 +96,7 @@ fun WantuchApp(vm: WantuchViewModel = viewModel()) {
     var profileBackState by remember { mutableStateOf(EduFlowState.DASHBOARD) }
     var currentStaffId  by remember { mutableStateOf<Int?>(null) }
     var currentStudentId by remember { mutableStateOf<Int?>(null) }
+    var questionPaperBackState by remember { mutableStateOf(EduFlowState.REPORTS_DASHBOARD) }
 
     val appList = remember { mutableStateListOf(*defaultApps.toTypedArray()) }
     val lockPager = rememberPagerState(initialPage = 1) { 3 }
@@ -109,6 +110,36 @@ fun WantuchApp(vm: WantuchViewModel = viewModel()) {
                     appList[i] = appList[i].copy(unread = counts[key] ?: 0)
                 }
             }
+        }
+    }
+
+    // Global Back Press Handling
+    BackHandler(enabled = showHome || showEduFlow || genLoginVisible || eduModalType != null) {
+        if (webViewUrl != null) {
+            // Handled by WebDashboard internal BackHandler
+        } else if (genLoginVisible) {
+            genLoginVisible = false
+        } else if (eduModalType != null) {
+            eduModalType = null
+        } else if (showEduFlow) {
+            when (eduFlowState) {
+                EduFlowState.SELECTOR -> showEduFlow = false
+                EduFlowState.DASHBOARD, EduFlowState.PARENT_DASHBOARD, EduFlowState.STUDENT_DASHBOARD -> {
+                    eduFlowState = EduFlowState.SELECTOR
+                }
+                EduFlowState.MY_PROFILE, EduFlowState.STAFF_PROFILE, EduFlowState.STUDENT_PROFILE, EduFlowState.STUDENT_FEE_DETAIL -> {
+                    eduFlowState = profileBackState
+                }
+                EduFlowState.QUESTION_PAPER_BUILDER -> eduFlowState = EduFlowState.QUESTION_PAPERS
+                EduFlowState.QUESTION_PAPERS -> eduFlowState = questionPaperBackState
+                EduFlowState.SUBSTITUTION -> eduFlowState = EduFlowState.TIMETABLE
+                // All other sub-screens go back to main dashboard
+                else -> {
+                    eduFlowState = EduFlowState.DASHBOARD
+                }
+            }
+        } else if (showHome) {
+            showHome = false
         }
     }
 
@@ -152,22 +183,30 @@ fun WantuchApp(vm: WantuchViewModel = viewModel()) {
                     val lastInstId = saved["last_inst"] as? Int ?: 0
                     val lastRole = saved["role"] as? String ?: ""
 
-                    if (remember && isLogged && instType == app.type && lastInstId != 0 && lastRole.isNotEmpty()) {
+                    if (remember && isLogged && instType == app.type && lastRole.isNotEmpty()) {
                         // Restore session
                         showEduFlow = true
                         val lowerRole = lastRole.lowercase()
                         if (lowerRole == "student") {
                             eduFlowState = EduFlowState.STUDENT_DASHBOARD
+                            if (lastInstId != 0) vm.selectInstitution(lastInstId) {}
                         } else if (lowerRole == "parent") {
                             eduFlowState = EduFlowState.PARENT_DASHBOARD
+                        } else if (lowerRole == "super_admin" || lowerRole == "developer") {
+                            // Super Admins should usually land on the Selector to pick a school
+                            vm.fetchPortfolio(role = lastRole)
+                            eduFlowState = EduFlowState.SELECTOR
                         } else {
-                            // Staff/Admin, reload dashboard
-                            vm.selectInstitution(lastInstId) {
+                            // Staff/Admin, reload dashboard only if we have an ID
+                            if (lastInstId != 0) {
+                                vm.selectInstitution(lastInstId) {
+                                    eduFlowState = EduFlowState.DASHBOARD
+                                }
+                                // Fallback set
                                 eduFlowState = EduFlowState.DASHBOARD
-                            }
-                            // Call again even if callback doesn't run (offline case)
-                            if (eduFlowState == EduFlowState.SELECTOR) {
-                                eduFlowState = EduFlowState.DASHBOARD
+                            } else {
+                                vm.fetchPortfolio(role = lastRole)
+                                eduFlowState = EduFlowState.SELECTOR
                             }
                         }
                     } else {
@@ -181,7 +220,7 @@ fun WantuchApp(vm: WantuchViewModel = viewModel()) {
 
         // MODALS
         eduModalType?.let { type ->
-            EduLoginModal(type, vm, onDismiss = { eduModalType = null }, onSuccess = { role ->
+            EduLoginModal(type, vm, onDismiss = { eduModalType = null }, onSuccess = { role, instId ->
                 showEduFlow = true
                 val lowerRole = role.lowercase()
                 when (lowerRole) {
@@ -189,26 +228,30 @@ fun WantuchApp(vm: WantuchViewModel = viewModel()) {
                         // Parent has own portal – no institution needed
                         eduFlowState = EduFlowState.PARENT_DASHBOARD
                     }
-                    "admin" -> {
-                        // Admin goes through school selector since they may manage multiple
-                        eduFlowState = EduFlowState.SELECTOR
-                    }
                     "super_admin", "developer" -> {
-                        // Super admin / developer sees portfolio + selector
-                        vm.fetchPortfolio()
-                        eduFlowState = EduFlowState.SELECTOR
+                        // If an institution was specifically selected in the login modal, go to its dashboard
+                        if (instId != 0) {
+                            vm.selectInstitution(instId) {
+                                eduFlowState = EduFlowState.DASHBOARD
+                            }
+                        } else {
+                            // Otherwise, see the portfolio selector
+                            vm.fetchPortfolio(role = role)
+                            eduFlowState = EduFlowState.SELECTOR
+                        }
                     }
                     else -> {
-                        // Staff / Teacher / Student: auto-load their specific institution's dashboard
-                        val storedInstId = vm.getInstitutionId()
-                        if (storedInstId != 0) {
-                            vm.selectInstitution(storedInstId) {
+                        // Admin / Staff / Student: auto-load their specific institution's dashboard
+                        if (instId != 0) {
+                            vm.selectInstitution(instId) {
                                 eduFlowState = if (lowerRole == "student")
                                     EduFlowState.STUDENT_DASHBOARD
                                 else
-                                    EduFlowState.DASHBOARD  // Staff/Teacher use the full dashboard with role-filtered modules
+                                    EduFlowState.DASHBOARD  // Admin/Staff use the full dashboard
                             }
                         } else {
+                            // Fallback for cases without inst context
+                            vm.fetchPortfolio(role = role)
                             eduFlowState = EduFlowState.SELECTOR
                         }
                     }
@@ -225,7 +268,12 @@ fun WantuchApp(vm: WantuchViewModel = viewModel()) {
             when (eduFlowState) {
                 EduFlowState.PARENT_DASHBOARD -> ParentDashboardScreen(
                     viewModel = vm,
-                    onBack = { showEduFlow = false; eduFlowState = EduFlowState.SELECTOR }
+                    onBack = { showEduFlow = false; eduFlowState = EduFlowState.SELECTOR },
+                    onLogout = {
+                        vm.logout()
+                        showEduFlow = false
+                        eduFlowState = EduFlowState.SELECTOR
+                    }
                 )
                 EduFlowState.STUDENT_DASHBOARD -> StudentDashboardScreen(
                     viewModel = vm,
@@ -329,6 +377,7 @@ fun WantuchApp(vm: WantuchViewModel = viewModel()) {
                                 eduFlowState = EduFlowState.ATTENDANCE_MANAGEMENT
                             },
                             onOpenQuestionPapers = {
+                                questionPaperBackState = EduFlowState.DASHBOARD
                                 eduFlowState = EduFlowState.QUESTION_PAPERS
                             },
                             onOpenReports = {
@@ -461,7 +510,7 @@ fun WantuchApp(vm: WantuchViewModel = viewModel()) {
                 }
                 EduFlowState.QUESTION_PAPERS -> QuestionPaperScreen(
                     viewModel = vm,
-                    onBack = { eduFlowState = EduFlowState.REPORTS_DASHBOARD },
+                    onBack = { eduFlowState = questionPaperBackState },
                     onOpenWeb = { url -> 
                         if (url == "paper_builder") eduFlowState = EduFlowState.QUESTION_PAPER_BUILDER
                         else webViewUrl = url 
@@ -470,7 +519,10 @@ fun WantuchApp(vm: WantuchViewModel = viewModel()) {
                 EduFlowState.REPORTS_DASHBOARD -> ReportsDashboardScreen(
                     viewModel = vm,
                     onBack = { eduFlowState = EduFlowState.DASHBOARD },
-                    onOpenQuestionPapers = { eduFlowState = EduFlowState.QUESTION_PAPERS },
+                    onOpenQuestionPapers = { 
+                        questionPaperBackState = EduFlowState.REPORTS_DASHBOARD
+                        eduFlowState = EduFlowState.QUESTION_PAPERS 
+                    },
                     onOpenAnswerPapers = { webViewUrl = "https://wantuch.pk/modules/education/answer_papers.php" },
                     onOpenBulkExams = { webViewUrl = "https://wantuch.pk/modules/education/bulk_exam_papers.php" },
                     onOpenSmartIDCard = { eduFlowState = EduFlowState.SMART_ID_CARD },
@@ -562,12 +614,19 @@ fun WantuchApp(vm: WantuchViewModel = viewModel()) {
 
 @Composable
 fun WebDashboard(url: String, onBack: () -> Unit) {
-    BackHandler { onBack() }
+    var webViewRef by remember { mutableStateOf<WebView?>(null) }
+    BackHandler {
+        if (webViewRef?.canGoBack() == true) {
+            webViewRef?.goBack()
+        } else {
+            onBack()
+        }
+    }
     Column(Modifier.fillMaxSize().background(Color.Black)) {
         Row(Modifier.fillMaxWidth().statusBarsPadding().background(Color(0xFF0F172A)).padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null, tint = Color.White) }
             Text("Dashboard", color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            IconButton(onClick = { /* reload */ }) { Icon(Icons.Default.Refresh, null, tint = Color.White) }
+            IconButton(onClick = { webViewRef?.reload() }) { Icon(Icons.Default.Refresh, null, tint = Color.White) }
         }
         AndroidView(factory = { context ->
             WebView(context).apply {
@@ -575,6 +634,7 @@ fun WebDashboard(url: String, onBack: () -> Unit) {
                 settings.domStorageEnabled = true
                 webViewClient = WebViewClient()
                 loadUrl(url)
+                webViewRef = this
             }
         }, modifier = Modifier.weight(1f))
     }

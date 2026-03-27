@@ -103,6 +103,7 @@ fun NoticesScreen(viewModel: WantuchViewModel, onBack: () -> Unit) {
     val cardColor = if (isDark) Color(0xFF1E293B) else Color.White
     val textColor = if (isDark) Color.White else Color(0xFF1E293B)
     val labelColor = if (isDark) Color.White.copy(0.6f) else Color.Gray
+    val isMgmt = listOf("admin", "super_admin", "super admin", "developer").contains(userRole.lowercase())
 
     Scaffold(
         containerColor = bgColor,
@@ -255,8 +256,8 @@ fun NoticesScreen(viewModel: WantuchViewModel, onBack: () -> Unit) {
 
             Spacer(Modifier.height(16.dp))
 
-            // Add Button (Cyan Leaf Shape) - HIDDEN FROM STUDENTS
-            if (userRole != "Student") {
+            // Add Button (Cyan Leaf Shape)
+            if (isMgmt) {
                 Surface(
                     color = Color(0xFFE0F7FA), // Light cyan
                     shape = RoundedCornerShape(topStart = 16.dp, topEnd = 4.dp, bottomEnd = 16.dp, bottomStart = 4.dp),
@@ -348,7 +349,7 @@ fun NoticesScreen(viewModel: WantuchViewModel, onBack: () -> Unit) {
                                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                                 )
 
-                                if (userRole != "Student") {
+                                if (isMgmt) {
                                     Spacer(Modifier.height(12.dp))
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
@@ -454,6 +455,7 @@ fun ViewNoticeModal(
     onDelete: () -> Unit,
     onWhatsapp: () -> Unit
 ) {
+    val isMgmt = listOf("admin", "super_admin", "super admin", "developer").contains(userRole.lowercase())
     val bgDialog = if (isDark) Color(0xFF1E293B) else Color(0xFFFCF9F4)
     val textMain = if (isDark) Color.White else Color.Black
     val borderLight = if (isDark) Color(0xFF334155) else Color.LightGray.copy(alpha = 0.5f)
@@ -578,7 +580,7 @@ fun ViewNoticeModal(
                             fgColor = textMain,
                             onClick = onWhatsapp
                         )
-                        if (userRole != "Student") {
+                        if (isMgmt) {
                             NoticeActionBtn(
                                 icon = Icons.Default.Edit,
                                 text = "EDIT",

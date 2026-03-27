@@ -1,28 +1,32 @@
 package com.example.wantuch.domain.model
 
 data class Institution(
-    val id: Any, // Changed to Any to handle Int or String from JSON
-    val name: String,
+    val id: Any? = null,
+    val name: String? = null,
     val type: String? = null,
     val logo: String? = null
 )
 
 data class PortfolioResponse(
-    val status: String,
+    val status: String? = null,
     val stats: Map<String, Any?>? = null,
-    val institutions: List<Institution>? = null
+    val institutions: List<Institution>? = null,
+    val count: Int? = null,
+    val debug_role: String? = null,
+    val debug_user: String? = null,
+    val debug_uid: Int? = null
 )
 
 data class DashboardResponse(
-    val status: String,
-    val institution_name: String,
+    val status: String? = null,
+    val institution_name: String? = null,
     val institution_logo: String? = null,
     val full_name: String? = null,
     val profile_pic: String? = null,
     val user_id: Int? = null,
-    val role: String,
+    val role: String? = null,
     val stats: Map<String, Any?>? = null,
-    val is_holiday: Boolean,
+    val is_holiday: Boolean = false,
     val holiday_name: String? = null,
     val modules: List<ModuleItem>? = null
 )
@@ -30,13 +34,19 @@ data class DashboardResponse(
 data class ModuleItem(
     val id: String,
     val label: String,
-    val icon: String
+    val icon: String,
+    val sub: String? = null
 )
 
 data class LoginResponse(
-    val status: String,
+    val status: String? = null,
     val message: String? = null,
-    val redirect: String? = null
+    val redirect: String? = null,
+    val role: String? = null,
+    val user_id: Int? = null,
+    val inst_id: Int? = null,
+    val username: String? = null,
+    val is_logged_in: Boolean? = null
 )
 
 data class UnreadCounts(
@@ -74,7 +84,8 @@ data class StaffMember(
     val paid: Any?,
     val balance: Any?,
     val stats: String = "",
-    val profile_pic: String? = null
+    val profile_pic: String? = null,
+    val user_type: String? = null
 )
 
 data class StaffResponse(

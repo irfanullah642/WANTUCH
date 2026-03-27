@@ -25,7 +25,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
@@ -630,7 +630,7 @@ fun ContactCard(c: Map<String, String>, isDark: Boolean, onEdit: () -> Unit, onD
     val type = c["type"] ?: "Phone"
     val icon = when(type.lowercase()) {
         "email" -> Icons.Default.Email
-        "whatsapp" -> Icons.AutoMirrored.Filled.Chat
+        "whatsapp" -> Icons.Default.Chat
         else -> Icons.Default.Phone
     }
 

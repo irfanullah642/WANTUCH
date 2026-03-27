@@ -1,119 +1,19 @@
 package com.example.wantuch.ui.components
 
 import android.widget.Toast
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.*
+import androidx.compose.foundation.shape.*
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Assignment
-import androidx.compose.material.icons.filled.Badge
-import androidx.compose.material.icons.filled.Block
-import androidx.compose.material.icons.filled.Chat
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.DirectionsBus
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.EventAvailable
-import androidx.compose.material.icons.filled.Face
-import androidx.compose.material.icons.filled.FilterList
-import androidx.compose.material.icons.filled.Fingerprint
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Layers
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Money
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Payments
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Print
-import androidx.compose.material.icons.filled.Receipt
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.School
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Send
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.Summarize
-import androidx.compose.material.icons.filled.TrendingUp
-import androidx.compose.material.icons.filled.Upload
-import androidx.compose.material.icons.filled.VpnKey
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Divider
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.*
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -122,14 +22,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.text.input.*
 import coil.compose.AsyncImage
 import com.example.wantuch.domain.model.StudentMember
 import com.example.wantuch.ui.viewmodel.WantuchViewModel
 import org.json.JSONArray
 import org.json.JSONObject
-import kotlin.collections.component1
-import kotlin.collections.component2
-import kotlin.collections.set
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1397,6 +1295,7 @@ fun PremiumTabButton(title: String, isSelected: Boolean, isDark: Boolean, onClic
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FeeManagementScreen(
     viewModel: WantuchViewModel,
@@ -1410,7 +1309,11 @@ fun FeeManagementScreen(
     val labelColor = if (isDark) Color(0xFFA1A1AA) else Color(0xFF64748B)
 
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Intelligence", "Settings & Rules", "Fee Structure", "Students Fee Set", "Transport Setup", "Approvals", "WhatsApp")
+    val tabs = listOf("Intelligence", "Rules", "Structure", "Fee Set", "Transport", "Approvals", "WhatsApp")
+    
+    // Bottom Sheet State for Payment
+    var selectedStudentIdForSheet by remember { mutableIntStateOf(0) }
+    var showPaymentSheet by remember { mutableStateOf(false) }
 
     // Fetch stats and data
     val dashboardData by viewModel.dashboardData.collectAsState()
@@ -1442,9 +1345,12 @@ fun FeeManagementScreen(
                     Text("Fee Manager", color = textColor, fontSize = 20.sp, fontWeight = FontWeight.Black)
                 }
 
-                // Statistical Header
+                // Statistical Header (Summary)
                 feeDataState.value?.optJSONObject("stats")?.let { stats ->
-                    FeeStatHeader(stats, isDark)
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        StatSmallBadge("COLLECTED", "Rs. ${String.format("%,.0f", stats.optDouble("total_collected", 0.0))}", Color(0xFF10B981), isDark)
+                        StatSmallBadge("OUTSTANDING", "Rs. ${String.format("%,.0f", stats.optDouble("total_outstanding", 0.0))}", Color(0xFFEF4444), isDark)
+                    }
                 }
             }
         }
@@ -1475,43 +1381,66 @@ fun FeeManagementScreen(
                 if (isLoading.value) {
                     CircularProgressIndicator(Modifier.align(Alignment.Center), color = Color(0xFF3B82F6))
                 } else {
-                    FeeTabContent(selectedTab, feeDataState.value, viewModel, isDark, onOpenStudentFee)
+                    FeeTabContent(selectedTab, feeDataState.value, viewModel, isDark) { studentId ->
+                        selectedStudentIdForSheet = studentId
+                        showPaymentSheet = true
+                    }
                 }
+            }
+        }
+
+        if (showPaymentSheet && selectedStudentIdForSheet != 0) {
+            ModalBottomSheet(
+                onDismissRequest = { showPaymentSheet = false },
+                containerColor = bgColor,
+                dragHandle = { BottomSheetDefaults.DragHandle(color = labelColor.copy(0.2f)) },
+                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+            ) {
+                StudentFeeDetailScreen(
+                    studentId = selectedStudentIdForSheet,
+                    viewModel = viewModel,
+                    onBack = { showPaymentSheet = false },
+                    isBottomSheet = true
+                )
             }
         }
     }
 }
 
 @Composable
-fun FeeStatHeader(stats: JSONObject, isDark: Boolean) {
+fun FeeStatDashboardHeader(stats: JSONObject, isDark: Boolean) {
+    val bgColor = if (isDark) Color(0xFF1E293B) else Color.White
+    val textColor = if (isDark) Color.White else Color.Black
+    
     val list = listOf(
         Triple("TOTAL CHARGES", stats.optDouble("cumulative_charges", 0.0), Color(0xFF6366F1)),
         Triple("COLLECTED", stats.optDouble("total_collected", 0.0), Color(0xFF10B981)),
         Triple("OUTSTANDING", stats.optDouble("total_outstanding", 0.0), Color(0xFFEF4444)),
-        Triple("FINES", stats.optDouble("attendance_fine", 0.0), Color(0xFFF59E0B)),
-        Triple("PROJECTED", stats.optDouble("projected_month", 0.0), Color(0xFF3B82F6))
+        Triple("FINES", stats.optDouble("attendance_fine", 0.0), Color(0xFFF59E0B))
     )
 
-    LazyRow(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        items(list) { item ->
-            Column(
-                Modifier.width(110.dp).background(
-                    if (isDark) Color(0xFF1E293B) else Color.White,
-                    RoundedCornerShape(12.dp)
-                ).border(1.dp, if (isDark) Color.White.copy(0.1f) else Color.Black.copy(0.05f), RoundedCornerShape(12.dp))
-                    .padding(12.dp)
-            ) {
-                Text(item.first, color = if (isDark) Color.White.copy(0.5f) else Color.Black.copy(0.5f), fontSize = 9.sp, fontWeight = FontWeight.Black)
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    "Rs. ${String.format("%,.0f", item.second)}",
-                    color = item.third,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Black
-                )
+    Column(Modifier.fillMaxWidth().padding(16.dp)) {
+        Text("INSTITUTIONAL PERFORMANCE", color = if(isDark) Color.White.copy(0.5f) else Color.Black.copy(0.5f), fontSize = 10.sp, fontWeight = FontWeight.Black)
+        Spacer(Modifier.height(10.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            list.take(2).forEach { item ->
+                Column(
+                    Modifier.weight(1f).background(bgColor, RoundedCornerShape(16.dp)).border(1.dp, Color.White.copy(0.05f), RoundedCornerShape(16.dp)).padding(16.dp)
+                ) {
+                    Text(item.first, color = if(isDark) Color.White.copy(0.4f) else Color.Black.copy(0.4f), fontSize = 8.sp, fontWeight = FontWeight.Black)
+                    Text("Rs. " + String.format("%,.0f", item.second), color = item.third, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                }
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            list.drop(2).forEach { item ->
+                Column(
+                    Modifier.weight(1f).background(bgColor, RoundedCornerShape(16.dp)).border(1.dp, Color.White.copy(0.05f), RoundedCornerShape(16.dp)).padding(16.dp)
+                ) {
+                    Text(item.first, color = if(isDark) Color.White.copy(0.4f) else Color.Black.copy(0.4f), fontSize = 8.sp, fontWeight = FontWeight.Black)
+                    Text("Rs. " + String.format("%,.0f", item.second), color = item.third, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                }
             }
         }
     }
@@ -1619,6 +1548,11 @@ fun FeeIntelligenceTab(data: JSONObject, viewModel: WantuchViewModel, isDark: Bo
     }
 
     Column(Modifier.fillMaxSize()) {
+        // Intelligence Dashboard Header (Institutional Stats)
+        data.optJSONObject("stats")?.let { stats ->
+            FeeStatDashboardHeader(stats, isDark)
+        }
+
         // Toolbar Actions & Search
         Column(Modifier.fillMaxWidth().padding(12.dp)) {
             // ROW 1: Actions (Send, Print, Summary, Delete)
@@ -3203,8 +3137,14 @@ fun LogCard(log: JSONObject, isDark: Boolean, textColor: Color, labelColor: Colo
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StudentFeeDetailScreen(studentId: Int, viewModel: WantuchViewModel, onBack: () -> Unit) {
+fun StudentFeeDetailScreen(
+    studentId: Int,
+    viewModel: WantuchViewModel,
+    onBack: () -> Unit,
+    isBottomSheet: Boolean = false
+) {
     val isDark by viewModel.isDarkTheme.collectAsState()
     val bgColor = if (isDark) Color(0xFF0F172A) else Color(0xFFF8FAFC)
     val cardColor = if (isDark) Color(0xFF1E293B) else Color.White
@@ -3220,6 +3160,9 @@ fun StudentFeeDetailScreen(studentId: Int, viewModel: WantuchViewModel, onBack: 
     val banks = remember { mutableStateListOf<String>() }
     val selectedFeeEntry = remember { mutableStateOf<JSONObject?>(null) }
     val isLoading = remember { mutableStateOf(true) }
+    val hasError = remember { mutableStateOf(false) }
+    val errorDetail = remember { mutableStateOf("") }
+    val institutionName = remember { mutableStateOf("OFFICIAL SCHOOL RECEIPT") }
 
     val now = java.util.Calendar.getInstance()
     var monthFilter by remember { mutableStateOf(java.text.SimpleDateFormat("MMMM", java.util.Locale.US).format(now.time)) }
@@ -3229,6 +3172,7 @@ fun StudentFeeDetailScreen(studentId: Int, viewModel: WantuchViewModel, onBack: 
 
     fun refresh() {
         isLoading.value = true
+        hasError.value = false
         val params = mapOf(
             "student_id" to studentId.toString(),
             "institution_id" to instId.toString(),
@@ -3237,17 +3181,23 @@ fun StudentFeeDetailScreen(studentId: Int, viewModel: WantuchViewModel, onBack: 
         )
         viewModel.safeApiCall("GET_STUDENT_FEE_LEDGER", params) { json ->
             isLoading.value = false
-            ledgerData.clear()
-            json?.optJSONArray("ledger")?.let { arr ->
-                for (i in 0 until arr.length()) ledgerData.add(arr.getJSONObject(i))
-            }
-            val studentObj = json?.optJSONObject("student_info")
-            if (studentObj != null) {
-                studentInfo.value = studentObj
-            }
-            feeTypes.clear()
-            json?.optJSONArray("fee_types")?.let { arr ->
-                for (i in 0 until arr.length()) feeTypes.add(arr.getJSONObject(i))
+            val status = json.optString("status", "error")
+            if (status == "success") {
+                hasError.value = false
+                ledgerData.clear()
+                json.optJSONArray("ledger")?.let { arr ->
+                    for (i in 0 until arr.length()) ledgerData.add(arr.getJSONObject(i))
+                }
+                val studentObj = json.optJSONObject("student_info")
+                if (studentObj != null) studentInfo.value = studentObj
+                institutionName.value = json.optString("institution_name", "OFFICIAL SCHOOL RECEIPT")
+                feeTypes.clear()
+                json.optJSONArray("fee_types")?.let { arr ->
+                    for (i in 0 until arr.length()) feeTypes.add(arr.getJSONObject(i))
+                }
+            } else {
+                hasError.value = true
+                errorDetail.value = json.optString("message", "Failed to load fee data. Check your connection or session.")
             }
         }
     }
@@ -3272,142 +3222,221 @@ fun StudentFeeDetailScreen(studentId: Int, viewModel: WantuchViewModel, onBack: 
         }
     }
 
-    Scaffold(
-        containerColor = bgColor,
-        topBar = {
-            Row(
-                Modifier.fillMaxWidth().statusBarsPadding().padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = onBack, Modifier.background(Color.White.copy(0.05f), CircleShape)) {
-                    Icon(Icons.Default.ArrowBack, null, tint = if(isDark) Color.White else Color.Black)
-                }
-                Spacer(Modifier.width(12.dp))
-                Text("Payment Working", color = textColor, fontSize = 20.sp, fontWeight = FontWeight.Black)
-            }
+    if (isBottomSheet) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+            StudentFeeDetailBody(studentId, viewModel, onBack, isDark, textColor, labelColor, methods, banks, ledgerData, studentInfo, isLoading, hasError, errorDetail, selectedFeeEntry, institutionName, feeTypes, instId, userRole, monthFilter, yearFilter, typeFilter, { monthFilter = it }, { yearFilter = it }, { typeFilter = it }, { refresh() })
         }
-    ) { padding ->
-        Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState())) {
-            // Student Header
-            studentInfo.value?.let { info ->
-                StudentDetailHeader(info, ledgerData, isDark, userRole)
-            }
-
-            Spacer(Modifier.height(16.dp))
-
-            // Add Fee Section
-            // Add Fee / Filter Section
-            if (userRole != "Student") {
-                AddFeeSection(
-                    studentId = studentId,
-                    instId = instId,
-                    feeTypes = feeTypes,
-                    viewModel = viewModel,
-                    isDark = isDark,
-                    month = monthFilter,
-                    year = yearFilter,
-                    selectedType = typeFilter,
-                    onMonthChange = { monthFilter = it },
-                    onYearChange = { yearFilter = it },
-                    onTypeChange = { typeFilter = it },
-                    onDone = { refresh() }
-                )
-            }
-
-            Spacer(Modifier.height(16.dp))
-
-            // Ledger List aggregation with filtering
-            val filteredLedger = ledgerData.filter { item ->
-                typeFilter == "All Types" || item.optString("fee_type") == typeFilter
-            }
-
-            Column(Modifier.padding(horizontal = 16.dp)) {
-                if (filteredLedger.isNotEmpty()) {
-                    val label = when {
-                        monthFilter == "All" -> "ALL RECORDS"
-                        monthFilter == "Unpaid" -> "OUTSTANDING ARREARS & UNPAID"
-                        else -> "LEDGER FOR ${monthFilter.uppercase()} ${yearFilter.uppercase()} (Cumulative)"
-                    }
-                    Text(label, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = labelColor, modifier = Modifier.padding(bottom = 8.dp))
-                    filteredLedger.forEach { entry ->
-                        FeeEntryItem(entry, viewModel, isDark, userRole, { selectedFeeEntry.value = it }, { refresh() })
-                        Spacer(Modifier.height(8.dp))
-                    }
-                } else if (!isLoading.value) {
-                    Box(Modifier.fillMaxWidth().padding(40.dp), Alignment.Center) {
-                        val emptyLabel = if (monthFilter == "Unpaid") "No unpaid fees found" else "No matching records found"
-                        Text(emptyLabel, color = labelColor, fontSize = 12.sp)
-                    }
-                }
-            }
-
-            // MASS PAYMENT BOX
-            val totalUnpaid = ledgerData.filter { it.optString("Status") == "Unpaid" }.sumOf { it.optDouble("amount") }
-            if (totalUnpaid > 0 && !isLoading.value && userRole != "Student") {
-                Spacer(Modifier.height(16.dp))
-                Surface(
-                    color = if (isDark) Color(0xFF1E293B) else Color.White,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    border = BorderStroke(1.dp, Color(0xFF10B981).copy(0.3f))
+    } else {
+        Scaffold(
+            containerColor = bgColor,
+            topBar = {
+                Row(
+                    Modifier.fillMaxWidth().statusBarsPadding().padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text("MASS PAYMENT (WATERFALL)", color = textColor, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                        Text("Automatically cascaded starting from the earliest unpaid month.", color = labelColor, fontSize = 10.sp)
-                        Spacer(Modifier.height(16.dp))
-
-                        var customPayAllAmt by remember { mutableStateOf(totalUnpaid.toInt().toString()) }
-                        Text("PAYMENT AMOUNT", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = labelColor)
-                        PremiumTextField(customPayAllAmt, { customPayAllAmt = it }, "Enter sum to pay", Icons.Default.Money, isDark)
-
-                        Spacer(Modifier.height(12.dp))
-                        Button(
-                            onClick = {
-                                val payload = org.json.JSONObject()
-                                payload.put("amount", customPayAllAmt.toDoubleOrNull() ?: totalUnpaid)
-                                payload.put("bulk", true)
-                                payload.put("fee_type", "Bulk Complete Payment")
-                                payload.put("student_id", studentId)
-                                payload.put("institution_id", instId)
-                                selectedFeeEntry.value = payload
-                            },
-                            modifier = Modifier.fillMaxWidth().height(45.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Text("PROCEED WITH MASS PAYMENT", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Black)
-                        }
+                    IconButton(onClick = onBack, Modifier.background(Color.White.copy(0.05f), CircleShape)) {
+                        Icon(Icons.Default.ArrowBack, null, tint = if(isDark) Color.White else Color.Black)
                     }
+                    Spacer(Modifier.width(12.dp))
+                    Text("Payment Working", color = textColor, fontSize = 20.sp, fontWeight = FontWeight.Black)
                 }
             }
-
-            Spacer(Modifier.height(40.dp))
-        }
-
-        selectedFeeEntry.value?.let { entry ->
-            CollectionModal(
-                entry = entry,
-                methods = methods,
-                banks = banks,
-                viewModel = viewModel,
-                isDark = isDark,
-                onDismiss = { selectedFeeEntry.value = null },
-                onDone = {
-                    selectedFeeEntry.value = null
-                    refresh()
+        ) { padding ->
+            // Loading State
+            if (isLoading.value) {
+                Box(Modifier.fillMaxSize().padding(padding), Alignment.Center) {
+                    CircularProgressIndicator(color = Color(0xFF3B82F6))
                 }
-            )
+                return@Scaffold
+            }
+            Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState())) {
+                StudentFeeDetailBody(studentId, viewModel, onBack, isDark, textColor, labelColor, methods, banks, ledgerData, studentInfo, isLoading, hasError, errorDetail, selectedFeeEntry, institutionName, feeTypes, instId, userRole, monthFilter, yearFilter, typeFilter, { monthFilter = it }, { yearFilter = it }, { typeFilter = it }, { refresh() })
+            }
         }
     }
 }
 
 @Composable
-fun StudentDetailHeader(info: JSONObject, ledger: List<JSONObject>, isDark: Boolean, userRole: String) {
+fun StudentFeeDetailBody(
+    studentId: Int,
+    viewModel: WantuchViewModel,
+    onBack: () -> Unit,
+    isDark: Boolean,
+    textColor: Color,
+    labelColor: Color,
+    methods: MutableList<String>,
+    banks: MutableList<String>,
+    ledgerData: MutableList<JSONObject>,
+    studentInfo: MutableState<JSONObject?>,
+    isLoading: MutableState<Boolean>,
+    hasError: MutableState<Boolean>,
+    errorDetail: MutableState<String>,
+    selectedFeeEntry: MutableState<JSONObject?>,
+    institutionName: MutableState<String>,
+    feeTypes: MutableList<JSONObject>,
+    instId: Int,
+    userRole: String,
+    monthFilter: String,
+    yearFilter: String,
+    typeFilter: String,
+    onMonthChange: (String) -> Unit,
+    onYearChange: (String) -> Unit,
+    onTypeChange: (String) -> Unit,
+    refresh: () -> Unit
+) {
+    // Error State
+    if (hasError.value) {
+        Box(Modifier.fillMaxWidth().padding(32.dp), Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(Icons.Default.Warning, null, tint = Color(0xFFEF4444).copy(0.7f), modifier = Modifier.size(48.dp))
+                Spacer(Modifier.height(16.dp))
+                Text("Could Not Load Data", color = textColor, fontWeight = FontWeight.Black, fontSize = 16.sp)
+                Spacer(Modifier.height(8.dp))
+                Text(errorDetail.value, color = labelColor, fontSize = 11.sp, textAlign = TextAlign.Center)
+                Spacer(Modifier.height(20.dp))
+                Button(onClick = { refresh() }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6))) {
+                    Text("RETRY", fontWeight = FontWeight.Black)
+                }
+            }
+        }
+        return
+    }
+
+    // Student Header
+    studentInfo.value?.let { info ->
+        StudentDetailHeader(info, ledgerData, isDark, userRole, institutionName.value)
+    }
+
+    Spacer(Modifier.height(16.dp))
+
+    // Add Fee / Filter Section
+    AddFeeSection(
+        studentId = studentId,
+        instId = instId,
+        feeTypes = feeTypes,
+        viewModel = viewModel,
+        isDark = isDark,
+        month = monthFilter,
+        year = yearFilter,
+        selectedType = typeFilter,
+        onMonthChange = onMonthChange,
+        onYearChange = onYearChange,
+        onTypeChange = onTypeChange,
+        onDone = { refresh() }
+    )
+
+    Spacer(Modifier.height(16.dp))
+
+    // Ledger List aggregation with filtering
+    val filteredLedger = ledgerData.filter { item ->
+        typeFilter == "All Types" || item.optString("fee_type") == typeFilter
+    }
+
+    Column(Modifier.padding(horizontal = 16.dp)) {
+        if (filteredLedger.isNotEmpty()) {
+            val label = when {
+                monthFilter == "All" -> "ALL RECORDS"
+                monthFilter == "Unpaid" -> "OUTSTANDING ARREARS & UNPAID"
+                else -> "LEDGER FOR ${monthFilter.uppercase()} ${yearFilter.uppercase()}"
+            }
+            Text(label, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = labelColor, modifier = Modifier.padding(bottom = 8.dp))
+            filteredLedger.forEach { entry ->
+                FeeEntryItem(entry, viewModel, isDark, userRole, { selectedFeeEntry.value = it }, { refresh() })
+                Spacer(Modifier.height(8.dp))
+            }
+        } else if (!isLoading.value) {
+            Box(Modifier.fillMaxWidth().padding(40.dp), Alignment.Center) {
+                Text("No matching records found", color = labelColor, fontSize = 12.sp)
+            }
+        }
+    }
+
+    // PAY NOW BOX
+    val totalUnpaid = ledgerData.filter { it.optString("Status") == "Unpaid" }.sumOf { it.optDouble("amount") }
+    
+    val selectedMonths = listOf("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
+    val cal = java.util.Calendar.getInstance()
+    val currentMonthIdx = cal.get(java.util.Calendar.MONTH)
+    val currentYearNum = cal.get(java.util.Calendar.YEAR)
+    val selMonthIdx = selectedMonths.indexOf(monthFilter)
+    val selYearNum = yearFilter.toIntOrNull() ?: currentYearNum
+    val monthDiff = if (selMonthIdx != -1) (selYearNum - currentYearNum) * 12 + (selMonthIdx - currentMonthIdx) else 0
+    val tuitionFee = studentInfo.value?.optDouble("tuition_fee") ?: 0.0
+    val transportFee = studentInfo.value?.optDouble("transport_fee") ?: 0.0
+    val upcomingFeeTotal = if (monthDiff > 0) monthDiff * (tuitionFee + transportFee) else 0.0
+    val effectiveTotalToPay = totalUnpaid + upcomingFeeTotal
+
+    if (effectiveTotalToPay > 0 && !isLoading.value) {
+        Spacer(Modifier.height(16.dp))
+        Surface(
+            color = if (isDark) Color(0xFF1E293B) else Color.White,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(1.5.dp, Color(0xFF10B981).copy(0.4f))
+        ) {
+            Column(Modifier.padding(16.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Column {
+                        Text("TOTAL TO PAY", color = labelColor, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                        Text("Rs. ${String.format("%,.0f", effectiveTotalToPay)}", color = Color(0xFF10B981), fontSize = 24.sp, fontWeight = FontWeight.Black)
+                    }
+                }
+                Spacer(Modifier.height(14.dp))
+                var customPayAmt by remember(effectiveTotalToPay) { mutableStateOf(effectiveTotalToPay.toInt().toString()) }
+                PremiumTextField(customPayAmt, { customPayAmt = it }, "Amount", Icons.Default.Money, isDark, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number))
+                Spacer(Modifier.height(14.dp))
+                Button(
+                    onClick = {
+                        val payload = JSONObject()
+                        payload.put("amount", customPayAmt.toDoubleOrNull() ?: effectiveTotalToPay)
+                        payload.put("bulk", true)
+                        payload.put("fee_type", "Bulk Payment")
+                        payload.put("student_id", studentId)
+                        payload.put("institution_id", instId)
+                        selectedFeeEntry.value = payload
+                    },
+                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(Icons.Default.Payments, null, Modifier.size(20.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text("PAY NOW", color = Color.White, fontWeight = FontWeight.Black)
+                }
+            }
+        }
+    }
+    
+    Spacer(Modifier.height(40.dp))
+
+    selectedFeeEntry.value?.let { entry ->
+        CollectionModal(entry = entry, methods = methods, banks = banks, viewModel = viewModel, isDark = isDark, instId = instId, onDismiss = { selectedFeeEntry.value = null }, onDone = { selectedFeeEntry.value = null; refresh() })
+    }
+}
+
+@Composable
+fun RowScope.StatSmallBadge(label: String, value: String, color: Color, isDark: Boolean) {
+    Column(
+        Modifier.background(if (isDark) Color.White.copy(0.05f) else Color.Black.copy(0.05f), RoundedCornerShape(10.dp))
+            .padding(horizontal = 12.dp, vertical = 8.dp).weight(1f)
+    ) {
+        Text(label, color = if (isDark) Color.White.copy(0.4f) else Color.Black.copy(0.4f), fontSize = 8.sp, fontWeight = FontWeight.Black)
+        Text(value, color = color, fontSize = 11.sp, fontWeight = FontWeight.Black)
+    }
+}
+
+@Composable
+fun StudentDetailHeader(info: JSONObject, ledger: List<JSONObject>, isDark: Boolean, userRole: String, instName: String = "") {
     val cardColor = if (isDark) Color(0xFF1E293B) else Color.White
     val textColor = if (isDark) Color.White else Color.Black
     val labelColor = if (isDark) Color.White.copy(0.6f) else Color.Black.copy(0.6f)
 
     val totalPending = ledger.filter { it.optString("Status") == "Unpaid" }.sumOf { it.optDouble("amount") }
+    var showReceipt by remember { mutableStateOf(false) }
+
+    if (showReceipt) {
+        PaymentReceiptModal(info = info, ledger = ledger, instName = instName) { showReceipt = false }
+    }
 
     Surface(
         Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -3458,7 +3487,7 @@ fun StudentDetailHeader(info: JSONObject, ledger: List<JSONObject>, isDark: Bool
                     }
                     Spacer(Modifier.weight(1f))
                     Button(
-                        onClick = { /* Receipt */ },
+                        onClick = { showReceipt = true },
                         colors = ButtonDefaults.buttonColors(containerColor = if(isDark) Color(0xFF334155) else Color(0xFFE2E8F0)),
                         shape = RoundedCornerShape(8.dp),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
@@ -3489,57 +3518,40 @@ fun AddFeeSection(
     onDone: () -> Unit
 ) {
     val typeOptions = remember(feeTypes.size) { listOf("All Types") + feeTypes.map { it.optString("type_name") } }
-    val typeMap = remember(feeTypes.size) { feeTypes.associate { it.optString("type_name") to it.optInt("id") } }
+    val months = listOf("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
+    val years = (2022..2030).map { it.toString() }
+    val labelColor = if (isDark) Color.White.copy(0.5f) else Color.Black.copy(0.5f)
 
-    var amount by remember { mutableStateOf("") }
-
-    val months = listOf("All", "Unpaid", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
-    val years = listOf("All") + (2022..2030).map { it.toString() }
+    val now = java.util.Date()
+    val effectiveMonth = when (month) {
+        "All", "Unpaid" -> java.text.SimpleDateFormat("MMMM", java.util.Locale.US).format(now)
+        else -> month
+    }
+    val effectiveYear = when (year) {
+        "All" -> java.text.SimpleDateFormat("yyyy", java.util.Locale.US).format(now)
+        else -> year
+    }
 
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(Modifier.weight(1f)) { DropdownSelector(month, months, Modifier.fillMaxWidth(), isDark, onMonthChange) }
-            Box(Modifier.weight(1f)) { DropdownSelector(year, years, Modifier.fillMaxWidth(), isDark, onYearChange) }
-        }
-        Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.weight(1f)) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("MONTH", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = labelColor)
+                Spacer(Modifier.height(4.dp))
+                DropdownSelector(effectiveMonth, months, Modifier.fillMaxWidth(), isDark) { onMonthChange(it) }
+            }
+            Column(Modifier.weight(1f)) {
+                Text("YEAR", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = labelColor)
+                Spacer(Modifier.height(4.dp))
+                DropdownSelector(effectiveYear, years, Modifier.fillMaxWidth(), isDark) { onYearChange(it) }
+            }
+            Column(Modifier.weight(1f)) {
+                Text("FEE TYPE", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = labelColor)
+                Spacer(Modifier.height(4.dp))
                 DropdownSelector(selectedType, typeOptions, Modifier.fillMaxWidth(), isDark, onTypeChange)
             }
-            PremiumTextField(
-                value = amount,
-                onValueChange = { amount = it },
-                placeholder = "Amount",
-                icon = Icons.Default.Money,
-                isDark = isDark,
-                modifier = Modifier.weight(1f),
-                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
-            )
-        }
-        Spacer(Modifier.height(10.dp))
-        Button(
-            onClick = {
-                val finalType = if (selectedType == "All Types") "" else selectedType
-                val typeId = typeMap[finalType] ?: 0
-                val finalMonth = if (month == "All") java.text.SimpleDateFormat("MMMM", java.util.Locale.US).format(java.util.Date()) else month
-                val finalYear = if (year == "All") java.text.SimpleDateFormat("yyyy", java.util.Locale.US).format(java.util.Date()) else year
-
-                if (typeId > 0 && amount.isNotEmpty()) {
-                    viewModel.safeApiCall("ADD_STUDENT_FEE", mapOf(
-                        "student_id" to studentId.toString(),
-                        "institution_id" to instId.toString(),
-                        "fee_type_id" to typeId.toString(),
-                        "month" to finalMonth,
-                        "year" to finalYear,
-                        "amount" to amount
-                    )) { onDone() }
-                }
-            },
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6)),
-            shape = RoundedCornerShape(8.dp),
-            modifier = Modifier.fillMaxWidth().height(45.dp)
-        ) {
-            Text("ADD FEE", fontSize = 12.sp, fontWeight = FontWeight.Black)
         }
     }
 }
@@ -3576,7 +3588,7 @@ fun FeeEntryItem(entry: JSONObject, viewModel: WantuchViewModel, isDark: Boolean
 
             Surface(
                 onClick = {
-                    if (!isPaid && userRole != "Student") {
+                    if (!isPaid && !userRole.equals("Student", ignoreCase = true)) {
                         onCollect(entry)
                     }
                 },
@@ -3592,13 +3604,13 @@ fun FeeEntryItem(entry: JSONObject, viewModel: WantuchViewModel, isDark: Boolean
                 )
             }
 
-            if (userRole != "Student" && !isStatic) {
+            if (!userRole.equals("Student", ignoreCase = true) && !isStatic) {
                 Spacer(Modifier.width(8.dp))
                 IconButton(onClick = { /* Edit */ }, Modifier.size(30.dp)) {
                     Icon(Icons.Default.Edit, null, tint = labelColor, modifier = Modifier.size(16.dp))
                 }
                 IconButton(onClick = {
-                    viewModel.safeApiCall("DELETE_STUDENT_FEE", mapOf("id" to entry.optString("id"))) { onDone() }
+                    viewModel.safeFeeApiCall("DELETE_STUDENT_FEE", mapOf("id" to entry.optString("id"))) { onDone() }
                 }, Modifier.size(30.dp)) {
                     Icon(Icons.Default.Delete, null, tint = Color(0xFFEF4444).copy(0.6f), modifier = Modifier.size(16.dp))
                 }
@@ -3614,6 +3626,7 @@ fun CollectionModal(
     banks: List<String>,
     viewModel: WantuchViewModel,
     isDark: Boolean,
+    instId: Int,
     onDismiss: () -> Unit,
     onDone: () -> Unit
 ) {
@@ -3626,6 +3639,7 @@ fun CollectionModal(
     var bank by remember { mutableStateOf(banks.firstOrNull() ?: "") }
     var transId by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -3678,7 +3692,7 @@ fun CollectionModal(
                         onClick = {
                             isLoading = true
                             if (entry.optBoolean("bulk", false)) {
-                                viewModel.safeApiCall("COLLECT_BULK_FEE", mapOf(
+                                viewModel.safeFeeApiCall("COLLECT_BULK_FEE", mapOf(
                                     "student_id" to entry.optString("student_id"),
                                     "institution_id" to entry.optString("institution_id"),
                                     "amount" to amount,
@@ -3687,7 +3701,15 @@ fun CollectionModal(
                                     "transaction_id" to transId
                                 )) { json ->
                                     isLoading = false
-                                    if (json?.optString("status") == "success") onDone()
+                                    if (json.optString("status") == "success") {
+                                        onDone()
+                                    } else {
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            json.optString("message", "Payment failed"),
+                                            android.widget.Toast.LENGTH_LONG
+                                        ).show()
+                                    }
                                 }
                             } else {
                                 val params = mutableMapOf(
@@ -3696,7 +3718,7 @@ fun CollectionModal(
                                     "payment_method" to method,
                                     "bank_account" to bank,
                                     "transaction_id" to transId,
-                                    "institution_id" to entry.optString("institute_id") // ensure inst_id is passed
+                                    "institution_id" to instId.toString()
                                 )
                                 // If it's a static preview (ID 0), pass context
                                 if (entry.optString("id") == "0") {
@@ -3705,9 +3727,17 @@ fun CollectionModal(
                                     params["fee_year"] = entry.optString("fee_year")
                                     params["fee_type_id"] = entry.optString("fee_type_id")
                                 }
-                                viewModel.safeApiCall("COLLECT_FEE", params) { json ->
+                                viewModel.safeFeeApiCall("COLLECT_FEE", params) { json ->
                                     isLoading = false
-                                    if (json?.optString("status") == "success") onDone()
+                                    if (json.optString("status") == "success") {
+                                        onDone()
+                                    } else {
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            json.optString("message", "Payment failed"),
+                                            android.widget.Toast.LENGTH_LONG
+                                        ).show()
+                                    }
                                 }
                             }
                         },
@@ -3715,6 +3745,212 @@ fun CollectionModal(
                         enabled = !isLoading
                     ) {
                         Text(if (isLoading) "SAVING..." else "SAVE", color = Color.White, fontWeight = FontWeight.Black)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PaymentReceiptModal(
+    info: org.json.JSONObject,
+    ledger: List<org.json.JSONObject>,
+    instName: String,
+    onDismiss: () -> Unit
+) {
+    val paidItems = ledger.filter { it.optString("Status").equals("Paid", ignoreCase = true) }
+    val totalPaid = paidItems.sumOf { it.optDouble("amount") }
+    val timestamp = java.text.SimpleDateFormat("MMMM dd, yyyy", java.util.Locale.US).format(java.util.Date())
+    val exactDate = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.US).format(java.util.Date())
+    val receiptNo = "#" + (100000..999999).random()
+
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val prefs = context.getSharedPreferences("user_prefs", android.content.Context.MODE_PRIVATE)
+    val realInstName = if (instName.isNotEmpty()) instName 
+                     else prefs.getString("institution_name", "School") ?: "School"
+
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        val view = androidx.compose.ui.platform.LocalView.current
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = Color.White,
+            modifier = Modifier.fillMaxWidth().heightIn(max = 650.dp)
+        ) {
+            Column {
+                // Diagonal Blue Header with Logo
+                Box(modifier = Modifier.fillMaxWidth().height(90.dp)) {
+                    androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
+                        val path = androidx.compose.ui.graphics.Path().apply {
+                            moveTo(0f, 0f)
+                            lineTo(size.width * 0.48f, 0f)
+                            lineTo(size.width * 0.40f, size.height)
+                            lineTo(0f, size.height)
+                            close()
+                        }
+                        drawPath(path, color = Color(0xFF3B82F6))
+                        drawLine(color = Color(0xFF3B82F6), start = androidx.compose.ui.geometry.Offset(0f, size.height - 2), end = androidx.compose.ui.geometry.Offset(size.width, size.height - 2), strokeWidth = 8f)
+                    }
+                    
+                    Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.padding(start = 16.dp, end = 8.dp).weight(1.2f)) {
+                            Text(realInstName.uppercase(), color = Color.White, fontWeight = FontWeight.Black, fontSize = 13.sp, lineHeight = 14.sp)
+                            Text("OFFICIAL PAYMENT RECORD", color = Color.White.copy(0.8f), fontSize = 8.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
+                        }
+                        Row(Modifier.weight(1f).padding(end = 16.dp), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text("PAYMENT RECEIPT", fontSize = 11.sp, color = Color.Black, fontWeight = FontWeight.Black)
+                                Text(receiptNo, fontSize = 9.sp, color = Color.Gray)
+                                Text(timestamp, fontSize = 9.sp, color = Color.Gray)
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            // Placeholder Graphic for School Logo
+                            Box(Modifier.size(36.dp).clip(CircleShape).background(Color(0xFFF1F5F9)), contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.School, null, tint = Color(0xFF3B82F6), modifier = Modifier.size(20.dp))
+                            }
+                        }
+                    }
+                }
+
+                // Student Information
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Column(Modifier.weight(1f)) {
+                            Row {
+                                Text("STUDENT NAME", fontSize = 9.sp, color = Color.Gray, fontWeight = FontWeight.Bold, modifier = Modifier.width(90.dp))
+                                Text(info.optString("full_name").uppercase(), fontSize = 10.sp, color = Color.Black, fontWeight = FontWeight.Black)
+                            }
+                            Spacer(Modifier.height(12.dp))
+                            Row {
+                                Text("CLASS / SEC", fontSize = 9.sp, color = Color.Gray, fontWeight = FontWeight.Bold, modifier = Modifier.width(90.dp))
+                                Text("${info.optString("class_name")} - ${info.optString("section_name")}".uppercase(), fontSize = 10.sp, color = Color.Black, fontWeight = FontWeight.Black)
+                            }
+                        }
+                        Column(Modifier.weight(0.8f)) {
+                            Row {
+                                Text("S/O NAME", fontSize = 9.sp, color = Color.Gray, fontWeight = FontWeight.Bold, modifier = Modifier.width(70.dp))
+                                Text(info.optString("father_name").uppercase().ifEmpty { "N/A" }, fontSize = 10.sp, color = Color.Black, fontWeight = FontWeight.Black)
+                            }
+                            Spacer(Modifier.height(12.dp))
+                            Row {
+                                Text("ROLL NO", fontSize = 9.sp, color = Color.Gray, fontWeight = FontWeight.Bold, modifier = Modifier.width(70.dp))
+                                Text(info.optString("adm_no").ifEmpty { "N/A" }, fontSize = 10.sp, color = Color.Black, fontWeight = FontWeight.Black)
+                            }
+                        }
+                    }
+                }
+
+                Divider(color = Color.LightGray.copy(0.5f))
+
+                // Table Headers
+                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    Text("FEE DESCRIPTION", fontSize = 8.sp, color = Color.Black, fontWeight = FontWeight.Black, modifier = Modifier.weight(2f))
+                    Text("MONTH/YEAR", fontSize = 8.sp, color = Color.Black, fontWeight = FontWeight.Black, modifier = Modifier.weight(1.5f), textAlign = TextAlign.Center)
+                    Text("PAYMENT MODE", fontSize = 8.sp, color = Color.Black, fontWeight = FontWeight.Black, modifier = Modifier.weight(1.2f), textAlign = TextAlign.Center)
+                    Text("STATUS", fontSize = 8.sp, color = Color.Black, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                    Text("AMOUNT", fontSize = 8.sp, color = Color.Black, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f), textAlign = TextAlign.End)
+                }
+                
+                Divider(color = Color.Black)
+
+                // Table Body with Stamp Overlay
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.weight(1f, fill = false)) {
+                    // Transparent Table List
+                    LazyColumn(Modifier.fillMaxWidth()) {
+                        items(paidItems) { item ->
+                            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(item.optString("fee_type"), fontSize = 9.sp, color = Color.Black, fontWeight = FontWeight.Bold, modifier = Modifier.weight(2f))
+                                Text("${item.optString("fee_month")} ${item.optString("fee_year")}", fontSize = 9.sp, color = Color.Black, modifier = Modifier.weight(1.5f), textAlign = TextAlign.Center)
+                                Text(item.optString("payment_method", "Cash").ifEmpty { "Cash" }, fontSize = 9.sp, color = Color.Black, modifier = Modifier.weight(1.2f), textAlign = TextAlign.Center)
+                                Text("Paid", fontSize = 9.sp, color = Color(0xFF10B981), fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                                Text(String.format("%,.0f", item.optDouble("amount")), fontSize = 9.sp, color = Color.Black, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f), textAlign = TextAlign.End)
+                            }
+                            Divider(color = Color.LightGray.copy(0.4f))
+                        }
+                        
+                        // Footer Totals Inline
+                        item {
+                            Spacer(Modifier.height(4.dp))
+                            Row(Modifier.fillMaxWidth().background(Color(0xFFF1F5F9).copy(0.5f)).padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.End) {
+                                Text("Total Paid", fontSize = 9.sp, color = Color(0xFF10B981), fontWeight = FontWeight.Bold, modifier = Modifier.padding(end = 32.dp))
+                                Text("Rs. " + String.format("%,.0f", totalPaid), fontSize = 10.sp, color = Color(0xFF10B981), fontWeight = FontWeight.Black)
+                            }
+                            Divider(color = Color.Black, thickness = 2.dp)
+                            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                                Text("GRAND TOTAL", fontSize = 12.sp, color = Color.Black, fontWeight = FontWeight.Black, modifier = Modifier.padding(end = 24.dp))
+                                Text("Rs. " + String.format("%,.0f", totalPaid), fontSize = 14.sp, color = Color(0xFF3B82F6), fontWeight = FontWeight.Black)
+                            }
+                            Divider(color = Color.Black, thickness = 2.dp)
+                        }
+                    }
+
+                    // Watermark Stamp
+                    if (paidItems.isNotEmpty()) {
+                        androidx.compose.foundation.Canvas(modifier = Modifier.size(160.dp)) {
+                            val stampColor = Color.Red.copy(alpha = 0.25f)
+                            drawContext.canvas.nativeCanvas.rotate(-20f, size.width / 2, size.height / 2)
+                            
+                            drawCircle(color = stampColor, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 6f))
+                            drawCircle(color = stampColor, radius = size.minDimension / 2 - 12f, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2f))
+                            val paint = android.graphics.Paint().apply {
+                                color = android.graphics.Color.argb(64, 255, 0, 0)
+                                textAlign = android.graphics.Paint.Align.CENTER
+                                typeface = android.graphics.Typeface.DEFAULT_BOLD
+                            }
+                            paint.textSize = 48f
+                            drawContext.canvas.nativeCanvas.drawText("PAID", size.width / 2, size.height / 2 + 16f, paint)
+                            paint.textSize = 14f
+                            drawContext.canvas.nativeCanvas.drawText("***", size.width / 2, size.height / 2 - 24f, paint)
+                            paint.textSize = 12f
+                            drawContext.canvas.nativeCanvas.drawText("DATE: $exactDate", size.width / 2, size.height / 2 + 40f, paint)
+                            
+                            drawContext.canvas.nativeCanvas.save()
+                            drawContext.canvas.nativeCanvas.rotate(180f, size.width / 2, size.height / 2)
+                            paint.textSize = 16f
+                            drawContext.canvas.nativeCanvas.drawText("FINANCE DEPARTMENT", size.width / 2, 28f, paint)
+                            drawContext.canvas.nativeCanvas.restore()
+                            paint.textSize = 18f
+                            drawContext.canvas.nativeCanvas.drawText("APPROVED", size.width / 2, 28f, paint)
+                        }
+                    }
+                }
+
+                // Action Buttons Footer
+                Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Button(onClick = onDismiss, colors = ButtonDefaults.buttonColors(containerColor = Color.LightGray), modifier = Modifier.weight(1f)) {
+                        Text("CLOSE", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(Modifier.width(16.dp))
+                    Button(onClick = { 
+                        try {
+                            val bitmap = android.graphics.Bitmap.createBitmap(view.width, view.height, android.graphics.Bitmap.Config.ARGB_8888)
+                            val canvas = android.graphics.Canvas(bitmap)
+                            val bgPaint = android.graphics.Paint().apply { color = android.graphics.Color.WHITE }
+                            canvas.drawRect(0f, 0f, view.width.toFloat(), view.height.toFloat(), bgPaint)
+                            view.draw(canvas)
+                            
+                            val cv = android.content.ContentValues().apply {
+                                put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, "Receipt_${receiptNo}.jpg")
+                                put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+                                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                                    put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_PICTURES + "/Wantuch")
+                                }
+                            }
+                            val uri = context.contentResolver.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, cv)
+                            if (uri != null) {
+                                context.contentResolver.openOutputStream(uri)?.use { 
+                                    bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 100, it) 
+                                }
+                                android.widget.Toast.makeText(context, "Receipt saved to Gallery!", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        } catch(e: Exception) {
+                             e.printStackTrace()
+                             android.widget.Toast.makeText(context, "Failed to completely save image", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6)), modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Default.Download, null, modifier = Modifier.size(16.dp), tint = Color.White)
+                        Spacer(Modifier.width(8.dp))
+                        Text("SAVE JPG", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }

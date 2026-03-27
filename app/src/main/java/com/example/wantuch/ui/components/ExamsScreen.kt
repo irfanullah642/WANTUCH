@@ -36,9 +36,14 @@ fun ExamsScreen(
     val textMain = if (isDark) Color.White else Color.Black
     val instTitle = "RANA COLLEGE AND SCHOOL SYSTEM, KHWAZA KHELA SWAT" // Example from screenshot
 
+    val dashboardData by viewModel.dashboardData.collectAsState()
+    val userRole = dashboardData?.role?.lowercase() ?: ""
+    val isMgmt = listOf("admin", "super_admin", "super admin", "developer").contains(userRole)
+    val isStudent = userRole == "student"
+
     var selectedTab by remember { mutableStateOf("SCHEDULE") }
     
-    val tabs = listOf(
+    val allTabs = listOf(
         Triple("SCHEDULE", Icons.Default.Event, true),
         Triple("MARKS", Icons.Default.Create, false),
         Triple("RESULTS", Icons.Default.Description, false),
@@ -46,6 +51,7 @@ fun ExamsScreen(
         Triple("HALLS", Icons.Default.AccountBalance, true),
         Triple("RULES", Icons.Default.Settings, true)
     )
+    val tabs = if (isMgmt) allTabs else allTabs.filter { it.first == "SCHEDULE" || it.first == "RESULTS" }
 
     Scaffold(
         containerColor = bgMain,
@@ -180,50 +186,56 @@ fun ExamsScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 if (selectedTab == "SCHEDULE") {
-                    var isScheduleExpanded by remember { mutableStateOf(true) }
-                    ExamActionAccordion(
-                        title = "Schedule New Exam", 
-                        icon = Icons.Default.Event, 
-                        isExpanded = isScheduleExpanded, 
-                        isLocked = true,
-                        isDark = isDark,
-                        onClick = { isScheduleExpanded = !isScheduleExpanded }
-                    ) {
+                    if (!isMgmt) {
+                        // View only for students, staff, parents
                         ScheduleExamNativeForm(viewModel)
+                    } else {
+                        var isScheduleExpanded by remember { mutableStateOf(true) }
+                        ExamActionAccordion(
+                            title = "Schedule New Exam", 
+                            icon = Icons.Default.Event, 
+                            isExpanded = isScheduleExpanded, 
+                            isLocked = true,
+                            isDark = isDark,
+                            onClick = { isScheduleExpanded = !isScheduleExpanded }
+                        ) {
+                            ScheduleExamNativeForm(viewModel)
+                        }
+                        var isSlipsExpanded by remember { mutableStateOf(false) }
+                        ExamActionAccordion(
+                            title = "Generate Roll No Slips", 
+                            icon = Icons.Default.AccountBox, 
+                            hasLockOnLeft = true, 
+                            isExpanded = isSlipsExpanded,
+                            isDark = isDark,
+                            onClick = { isSlipsExpanded = !isSlipsExpanded }
+                        ) {
+                            GenerateSlipsNativeForm(viewModel, isDark, openWeb)
+                        }
+                        var isAwardExpanded by remember { mutableStateOf(false) }
+                        ExamActionAccordion(
+                            title = "Generate Award List", 
+                            icon = Icons.Default.Print, 
+                            hasLockOnLeft = true, 
+                            isExpanded = isAwardExpanded,
+                            isDark = isDark,
+                            onClick = { isAwardExpanded = !isAwardExpanded }
+                        ) {
+                            GenerateAwardListNativeForm(viewModel, isDark)
+                        }
+                        var isQuickExpanded by remember { mutableStateOf(false) }
+                        ExamActionAccordion(
+                            title = "Quick Datasheet", 
+                            icon = Icons.Default.FlashOn, 
+                            isExpanded = isQuickExpanded,
+                            isDark = isDark,
+                            onClick = { isQuickExpanded = !isQuickExpanded }
+                        ) {
+                            QuickDatasheetNativeForm(viewModel)
+                        }
                     }
-                    var isSlipsExpanded by remember { mutableStateOf(false) }
-                    ExamActionAccordion(
-                        title = "Generate Roll No Slips", 
-                        icon = Icons.Default.AccountBox, 
-                        hasLockOnLeft = true, 
-                        isExpanded = isSlipsExpanded,
-                        isDark = isDark,
-                        onClick = { isSlipsExpanded = !isSlipsExpanded }
-                    ) {
-                        GenerateSlipsNativeForm(viewModel, isDark, openWeb)
-                    }
-                    var isAwardExpanded by remember { mutableStateOf(false) }
-                    ExamActionAccordion(
-                        title = "Generate Award List", 
-                        icon = Icons.Default.Print, 
-                        hasLockOnLeft = true, 
-                        isExpanded = isAwardExpanded,
-                        isDark = isDark,
-                        onClick = { isAwardExpanded = !isAwardExpanded }
-                    ) {
-                        GenerateAwardListNativeForm(viewModel, isDark)
-                    }
-                    var isQuickExpanded by remember { mutableStateOf(false) }
-                    ExamActionAccordion(
-                        title = "Quick Datasheet", 
-                        icon = Icons.Default.FlashOn, 
-                        isExpanded = isQuickExpanded,
-                        isDark = isDark,
-                        onClick = { isQuickExpanded = !isQuickExpanded }
-                    ) {
-                        QuickDatasheetNativeForm(viewModel)
-                    }
-                } else if (selectedTab == "MARKS") {
+                }
+ else if (selectedTab == "MARKS") {
                     MarksTabContent(viewModel, isDark, openWeb)
                 } else if (selectedTab == "RESULTS") {
                     ResultsTabContent(viewModel, isDark, openWeb)
@@ -347,13 +359,11 @@ fun ScheduleExamNativeForm(viewModel: com.example.wantuch.ui.viewmodel.WantuchVi
     }
 
     val isDark by viewModel.isDarkTheme.collectAsState()
-
-    LaunchedEffect(Unit) {
-        viewModel.fetchSchoolStructure()
-        viewModel.fetchSubjects()
-    }
+    val dashboardData by viewModel.dashboardData.collectAsState()
+    val userRole = dashboardData?.role?.lowercase() ?: ""
+    val isMgmt = listOf("admin", "super_admin", "super admin", "developer").contains(userRole)
+    var activeTab by remember { mutableStateOf(if (isMgmt) "CREATE" else "VIEW") }
     
-    var activeTab by remember { mutableStateOf("VIEW") }
     var examType by remember { mutableStateOf("Select Type") }
     var semester by remember { mutableStateOf("Select Semester") }
     var year by remember { mutableStateOf("Select Year") }
@@ -367,489 +377,357 @@ fun ScheduleExamNativeForm(viewModel: com.example.wantuch.ui.viewmodel.WantuchVi
     
     val selectedSubjects = remember { mutableStateListOf<SelectedExamSubject>() }
     var statusMessage by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(Unit) {
+        viewModel.fetchSchoolStructure()
+        viewModel.fetchSubjects()
+    }
     
     Column(
         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
-                onClick = { activeTab = "CREATE" },
-                colors = ButtonDefaults.buttonColors(containerColor = if (activeTab == "CREATE") Color(0xFF3B82F6) else if (isDark) Color(0xFF334155) else Color(0xFFF1F5F9)),
-                modifier = Modifier.weight(1f).height(45.dp),
-                shape = RoundedCornerShape(24.dp),
-                contentPadding = PaddingValues(horizontal = 8.dp)
-            ) {
-                Icon(Icons.Default.AddCircle, contentDescription = null, tint = if (activeTab == "CREATE") Color.White else if(isDark) Color.White else Color.Black, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("Create New Exam", color = if (activeTab == "CREATE") Color.White else if (isDark) Color.White else Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            }
-            Button(
-                onClick = { activeTab = "VIEW" },
-                colors = ButtonDefaults.buttonColors(containerColor = if (activeTab == "VIEW") Color(0xFF3B82F6) else if (isDark) Color(0xFF334155) else Color(0xFFF1F5F9)),
-                modifier = Modifier.weight(1f).height(45.dp),
-                shape = RoundedCornerShape(24.dp),
-                contentPadding = PaddingValues(horizontal = 8.dp)
-            ) {
-                Icon(Icons.Default.FormatListBulleted, contentDescription = null, tint = if (activeTab == "VIEW") Color.White else if(isDark) Color.White else Color.Black, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("View Exam List", color = if (activeTab == "VIEW") Color.White else if (isDark) Color.White else Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        if (isMgmt) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = { activeTab = "CREATE" },
+                    colors = ButtonDefaults.buttonColors(containerColor = if (activeTab == "CREATE") Color(0xFF3B82F6) else if (isDark) Color(0xFF334155) else Color(0xFFF1F5F9)),
+                    modifier = Modifier.weight(1f).height(45.dp),
+                    shape = RoundedCornerShape(24.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp)
+                ) {
+                    Icon(Icons.Default.AddCircle, contentDescription = null, tint = if (activeTab == "CREATE") Color.White else if(isDark) Color.White else Color.Black, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Create New Exam", color = if (activeTab == "CREATE") Color.White else if (isDark) Color.White else Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+                Button(
+                    onClick = { activeTab = "VIEW" },
+                    colors = ButtonDefaults.buttonColors(containerColor = if (activeTab == "VIEW") Color(0xFF3B82F6) else if (isDark) Color(0xFF334155) else Color(0xFFF1F5F9)),
+                    modifier = Modifier.weight(1f).height(45.dp),
+                    shape = RoundedCornerShape(24.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp)
+                ) {
+                    Icon(Icons.Default.FormatListBulleted, contentDescription = null, tint = if (activeTab == "VIEW") Color.White else if(isDark) Color.White else Color.Black, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("View Exam List", color = if (activeTab == "VIEW") Color.White else if (isDark) Color.White else Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
 
-        if (activeTab == "CREATE") {
+        if (activeTab == "CREATE" && isMgmt) {
             val labelStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = Color.Gray, fontWeight = FontWeight.SemiBold)
 
         
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Column(Modifier.weight(1f)) {
-                Text("Exam Type", style = labelStyle)
-                Spacer(Modifier.height(4.dp))
-                DropdownSelector(
-                    value = examType,
-                    options = listOf("First Term", "Mid Term", "Final Term", "Monthly Test"),
-                    isDark = isDark,
-                    onValueChange = { examType = it },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-            Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Semester", style = labelStyle)
-                    Spacer(Modifier.width(4.dp))
-                    Icon(Icons.Default.AddCircle, contentDescription = "Add", tint = if(isDark) Color.White else Color.Black, modifier = Modifier.size(10.dp))
-                }
-                Spacer(Modifier.height(4.dp))
-                DropdownSelector(
-                    value = semester,
-                    options = listOf("First Semester", "Second Semester", "Third Semester", "Fourth Semester", "Fifth Semester", "Sixth Semester", "Seventh Semester", "Eighth Semester"),
-                    isDark = isDark,
-                    onValueChange = { semester = it },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        }
-        
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Column(Modifier.weight(0.5f)) {
-                Text("Year", style = labelStyle)
-                Spacer(Modifier.height(4.dp))
-                DropdownSelector(
-                    value = year,
-                    options = listOf("2024", "2025", "2026", "2027", "2028"),
-                    isDark = isDark,
-                    onValueChange = { year = it },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-            Column(Modifier.weight(1f)) {
-                Text("Class", style = labelStyle)
-                Spacer(Modifier.height(4.dp))
-                var expandedClass by remember { mutableStateOf(false) }
-                val selectedClass = classes.find { it.id == classId }?.name ?: "Select Class"
-                ExposedDropdownMenuBox(
-                    expanded = expandedClass,
-                    onExpandedChange = { expandedClass = !expandedClass }
-                ) {
-                    OutlinedTextField(
-                        value = selectedClass,
-                        onValueChange = {},
-                        readOnly = true,
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedClass) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp),
-                        textStyle = androidx.compose.ui.text.TextStyle(color = if(isDark) Color.White else Color.Black, fontSize = 12.sp)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(Modifier.weight(1f)) {
+                    Text("Exam Type", style = labelStyle)
+                    Spacer(Modifier.height(4.dp))
+                    DropdownSelector(
+                        value = examType,
+                        options = listOf("First Term", "Mid Term", "Final Term", "Monthly Test"),
+                        isDark = isDark,
+                        onValueChange = { examType = it },
+                        modifier = Modifier.fillMaxWidth()
                     )
-                    ExposedDropdownMenu(expanded = expandedClass, onDismissRequest = { expandedClass = false }, modifier = Modifier.background(if(isDark) Color(0xFF1E293B) else Color.White)) {
-                        classes.forEach { c ->
-                            DropdownMenuItem(text = { Text(c.name, color = if(isDark) Color.White else Color.Black) }, onClick = { classId = c.id; sectionId = null; expandedClass = false })
+                }
+                Column(Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Semester", style = labelStyle)
+                        Spacer(Modifier.width(4.dp))
+                        Icon(Icons.Default.AddCircle, contentDescription = "Add", tint = if(isDark) Color.White else Color.Black, modifier = Modifier.size(10.dp))
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    DropdownSelector(
+                        value = semester,
+                        options = listOf("First Semester", "Second Semester", "Third Semester", "Fourth Semester", "Fifth Semester", "Sixth Semester", "Seventh Semester", "Eighth Semester"),
+                        isDark = isDark,
+                        onValueChange = { semester = it },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+            
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(Modifier.weight(0.5f)) {
+                    Text("Year", style = labelStyle)
+                    Spacer(Modifier.height(4.dp))
+                    DropdownSelector(
+                        value = year,
+                        options = listOf("2024", "2025", "2026", "2027", "2028"),
+                        isDark = isDark,
+                        onValueChange = { year = it },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                Column(Modifier.weight(1f)) {
+                    Text("Class", style = labelStyle)
+                    Spacer(Modifier.height(4.dp))
+                    var expandedClass by remember { mutableStateOf(false) }
+                    val selectedClass = classes.find { it.id == classId }?.name ?: "Select Class"
+                    ExposedDropdownMenuBox(
+                        expanded = expandedClass,
+                        onExpandedChange = { expandedClass = !expandedClass }
+                    ) {
+                        OutlinedTextField(
+                            value = selectedClass,
+                            onValueChange = {},
+                            readOnly = true,
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedClass) },
+                            modifier = Modifier.menuAnchor().fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp),
+                            textStyle = androidx.compose.ui.text.TextStyle(color = if(isDark) Color.White else Color.Black, fontSize = 12.sp)
+                        )
+                        ExposedDropdownMenu(expanded = expandedClass, onDismissRequest = { expandedClass = false }, modifier = Modifier.background(if(isDark) Color(0xFF1E293B) else Color.White)) {
+                            classes.forEach { c ->
+                                DropdownMenuItem(text = { Text(c.name, color = if(isDark) Color.White else Color.Black) }, onClick = { classId = c.id; sectionId = null; expandedClass = false })
+                            }
                         }
                     }
                 }
             }
-        }
-        
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Column(Modifier.weight(1f)) {
-                Text("Section", style = labelStyle)
-                Spacer(Modifier.height(4.dp))
-                var expandedSection by remember { mutableStateOf(false) }
-                val currentClass = classes.find { it.id == classId }
-                val availableSections = currentClass?.sections ?: emptyList()
-                val selectedSection = availableSections.find { it.id == sectionId }?.name ?: "Select Section"
-                ExposedDropdownMenuBox(expanded = expandedSection, onExpandedChange = { expandedSection = !expandedSection }) {
-                    OutlinedTextField(
-                        value = selectedSection, onValueChange = {}, readOnly = true,
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expandedSection) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp),
-                        textStyle = androidx.compose.ui.text.TextStyle(color = if(isDark) Color.White else Color.Black, fontSize = 12.sp)
-                    )
-                    ExposedDropdownMenu(expanded = expandedSection, onDismissRequest = { expandedSection = false }, modifier = Modifier.background(if(isDark) Color(0xFF1E293B) else Color.White)) {
-                        availableSections.forEach { s ->
-                            DropdownMenuItem(text = { Text(s.name, color = if(isDark) Color.White else Color.Black) }, onClick = { sectionId = s.id; expandedSection = false })
+            
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(Modifier.weight(1f)) {
+                    Text("Section", style = labelStyle)
+                    Spacer(Modifier.height(4.dp))
+                    var expandedSection by remember { mutableStateOf(false) }
+                    val currentClass = classes.find { it.id == classId }
+                    val availableSections = currentClass?.sections ?: emptyList()
+                    val selectedSection = availableSections.find { it.id == sectionId }?.name ?: "Select Section"
+                    ExposedDropdownMenuBox(expanded = expandedSection, onExpandedChange = { expandedSection = !expandedSection }) {
+                        OutlinedTextField(
+                            value = selectedSection, onValueChange = {}, readOnly = true,
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expandedSection) },
+                            modifier = Modifier.menuAnchor().fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp),
+                            textStyle = androidx.compose.ui.text.TextStyle(color = if(isDark) Color.White else Color.Black, fontSize = 12.sp)
+                        )
+                        ExposedDropdownMenu(expanded = expandedSection, onDismissRequest = { expandedSection = false }, modifier = Modifier.background(if(isDark) Color(0xFF1E293B) else Color.White)) {
+                            availableSections.forEach { s ->
+                                DropdownMenuItem(text = { Text(s.name, color = if(isDark) Color.White else Color.Black) }, onClick = { sectionId = s.id; expandedSection = false })
+                            }
                         }
                     }
                 }
             }
-        }
-        
-        Text("Subject", style = labelStyle)
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(150.dp)
-                .border(1.dp, if(isDark) Color.White.copy(0.2f) else Color(0xFFE2E8F0), RoundedCornerShape(8.dp))
-                .background(Color.Transparent),
-            contentAlignment = Alignment.Center
-        ) {
-            if (subjects.isEmpty() || classId == null) {
-                Text(
-                    if (classId == null) "Please select a Class first to view subjects" else "No subjects available for this class",
-                    color = Color.Gray, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, fontSize = 12.sp,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                )
-            } else {
-                androidx.compose.foundation.lazy.LazyColumn(modifier = Modifier.fillMaxSize().padding(8.dp)) {
-                    item {
-                        val allSelected = subjects.isNotEmpty() && selectedSubjects.size == subjects.size
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable {
-                            if (allSelected) {
-                                selectedSubjects.clear()
-                            } else {
-                                selectedSubjects.clear()
-                                val format = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
-                                val cal = java.util.Calendar.getInstance()
-                                try {
-                                    if (startDate.isNotBlank()) cal.time = format.parse(startDate) ?: java.util.Date()
-                                } catch(e: Exception) {}
-                                
-                                subjects.forEachIndexed { idx, s ->
-                                    val safeCal = cal.clone() as java.util.Calendar
-                                    safeCal.add(java.util.Calendar.DAY_OF_YEAR, idx)
+            
+            Text("Subject", style = labelStyle)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(150.dp)
+                    .border(1.dp, if(isDark) Color.White.copy(0.2f) else Color(0xFFE2E8F0), RoundedCornerShape(8.dp))
+                    .background(Color.Transparent),
+                contentAlignment = Alignment.Center
+            ) {
+                if (subjects.isEmpty() || classId == null) {
+                    Text(
+                        if (classId == null) "Please select a Class first to view subjects" else "No subjects available for this class",
+                        color = Color.Gray, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, fontSize = 12.sp,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                } else {
+                    androidx.compose.foundation.lazy.LazyColumn(modifier = Modifier.fillMaxSize().padding(8.dp)) {
+                        item {
+                            val allSelected = subjects.isNotEmpty() && selectedSubjects.size == subjects.size
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable {
+                                if (allSelected) {
+                                    selectedSubjects.clear()
+                                } else {
+                                    selectedSubjects.clear()
+                                    val format = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+                                    val cal = java.util.Calendar.getInstance()
+                                    try {
+                                        if (startDate.isNotBlank() && startDate != "Select Date") cal.time = format.parse(startDate) ?: java.util.Date()
+                                    } catch(e: Exception) {}
+                                    
+                                    subjects.forEachIndexed { idx, s ->
+                                        val safeCal = cal.clone() as java.util.Calendar
+                                        safeCal.add(java.util.Calendar.DAY_OF_YEAR, idx)
+                                        selectedSubjects.add(SelectedExamSubject(
+                                            id = s.id, name = s.name,
+                                            date = format.format(safeCal.time),
+                                            time = if (startTime.contains("Select")) "09:00" else startTime, 
+                                            endTime = if (endTime.contains("Select")) "12:00" else endTime,
+                                            shift = if (shift.contains("Select")) "Morning" else shift, 
+                                            totalMarks = if (totalMarks.isBlank()) "100" else totalMarks
+                                        ))
+                                    }
+                                }
+                            }) {
+                                androidx.compose.material3.Checkbox(checked = allSelected, onCheckedChange = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text("All Subjects", color = if(isDark) Color.White else Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            androidx.compose.material3.Divider(color = Color(0xFFE2E8F0).copy(alpha = 0.5f))
+                        }
+                        items(subjects.size) { index ->
+                            val s = subjects[index]
+                            val isSelected = selectedSubjects.any { it.id == s.id }
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable {
+                                if (isSelected) {
+                                    selectedSubjects.removeAll { it.id == s.id }
+                                } else {
+                                    val format = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+                                    val cal = java.util.Calendar.getInstance()
+                                    try {
+                                        if (startDate.isNotBlank() && startDate != "Select Date") cal.time = format.parse(startDate) ?: java.util.Date()
+                                    } catch(e: Exception) {}
+                                    cal.add(java.util.Calendar.DAY_OF_YEAR, selectedSubjects.size)
                                     selectedSubjects.add(SelectedExamSubject(
                                         id = s.id, name = s.name,
-                                        date = format.format(safeCal.time),
+                                        date = format.format(cal.time),
                                         time = if (startTime.contains("Select")) "09:00" else startTime, 
                                         endTime = if (endTime.contains("Select")) "12:00" else endTime,
                                         shift = if (shift.contains("Select")) "Morning" else shift, 
                                         totalMarks = if (totalMarks.isBlank()) "100" else totalMarks
                                     ))
                                 }
-                            }
-                        }) {
-                            androidx.compose.material3.Checkbox(checked = allSelected, onCheckedChange = null)
-                            Spacer(Modifier.width(8.dp))
-                            Text("All Subjects", color = if(isDark) Color.White else Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        androidx.compose.material3.Divider(color = Color(0xFFE2E8F0).copy(alpha = 0.5f))
-                    }
-                    items(subjects.size) { index ->
-                    val s = subjects[index]
-                    val isSelected = selectedSubjects.any { it.id == s.id }
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable {
-                        if (isSelected) {
-                            selectedSubjects.removeAll { it.id == s.id }
-                        } else {
-                            val format = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
-                            val cal = java.util.Calendar.getInstance()
-                            try {
-                                if (startDate.isNotBlank()) cal.time = format.parse(startDate) ?: java.util.Date()
-                            } catch(e: Exception) {}
-                            cal.add(java.util.Calendar.DAY_OF_YEAR, selectedSubjects.size)
-                            selectedSubjects.add(SelectedExamSubject(
-                                id = s.id, name = s.name,
-                                date = format.format(cal.time),
-                                time = if (startTime.contains("Select")) "09:00" else startTime, 
-                                endTime = if (endTime.contains("Select")) "12:00" else endTime,
-                                shift = if (shift.contains("Select")) "Morning" else shift, 
-                                totalMarks = if (totalMarks.isBlank()) "100" else totalMarks
-                            ))
-                        }
-                    }) {
-                        androidx.compose.material3.Checkbox(checked = isSelected, onCheckedChange = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text(s.name, color = if(isDark) Color.White else Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    }
-                    if (index < subjects.size - 1) {
-                        androidx.compose.material3.Divider(color = Color(0xFFE2E8F0).copy(alpha = 0.5f))
-                    }
-                }
-            }
-        }
-        }
-
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            val context = androidx.compose.ui.platform.LocalContext.current
-            Column(Modifier.weight(1f)) {
-                Text("Start Date (Auto-increments)", style = labelStyle.copy(fontSize = 10.sp))
-                Spacer(Modifier.height(4.dp))
-                Box(contentAlignment = Alignment.CenterStart) {
-                    OutlinedTextField(
-                        value = startDate, onValueChange = {}, readOnly = true, enabled = false,
-                        trailingIcon = { Icon(Icons.Default.Event, "Calendar", tint = Color.Gray, modifier = Modifier.size(16.dp)) },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp),
-                        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                            disabledTextColor = if(isDark) Color.White else Color.Black,
-                            disabledBorderColor = if(isDark) Color.White.copy(0.1f) else Color.Black.copy(0.1f),
-                            disabledTrailingIconColor = if(isDark) Color.White else Color.Black
-                        )
-                    )
-                    Box(modifier = Modifier.matchParentSize().clickable {
-                        val cal = java.util.Calendar.getInstance()
-                        android.app.DatePickerDialog(context, { _, y, m, d ->
-                            startDate = "$y-${String.format("%02d", m + 1)}-${String.format("%02d", d)}"
-                        }, cal.get(java.util.Calendar.YEAR), cal.get(java.util.Calendar.MONTH), cal.get(java.util.Calendar.DAY_OF_MONTH)).show()
-                    })
-                }
-            }
-            Column(Modifier.weight(1f)) {
-                Text("Start Time (Def)", style = labelStyle.copy(fontSize = 10.sp))
-                Spacer(Modifier.height(4.dp))
-                DropdownSelector(
-                    value = startTime,
-                    options = listOf("08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30"),
-                    isDark = isDark,
-                    onValueChange = { startTime = it },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        }
-
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Column(Modifier.weight(1f)) {
-                Text("End Time (Def)", style = labelStyle.copy(fontSize = 10.sp))
-                Spacer(Modifier.height(4.dp))
-                DropdownSelector(
-                    value = endTime,
-                    options = listOf("09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00"),
-                    isDark = isDark,
-                    onValueChange = { endTime = it },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-            Column(Modifier.weight(1f)) {
-                Text("Total Marks (Default)", style = labelStyle.copy(fontSize = 10.sp))
-                Spacer(Modifier.height(4.dp))
-                OutlinedTextField(value = totalMarks, onValueChange = { totalMarks = it }, shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth(), textStyle = androidx.compose.ui.text.TextStyle(color = if(isDark) Color.White else Color.Black, fontSize = 12.sp))
-            }
-        }
-
-        Text("Shift (Default)", style = labelStyle.copy(fontSize = 10.sp))
-        Spacer(Modifier.height(-12.dp))
-        var expandedShift by remember { mutableStateOf(false) }
-        ExposedDropdownMenuBox(expanded = expandedShift, onExpandedChange = { expandedShift = !expandedShift }) {
-            OutlinedTextField(
-                value = shift, onValueChange = {}, readOnly = true,
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expandedShift) },
-                modifier = Modifier.menuAnchor().fillMaxWidth(),
-                shape = RoundedCornerShape(8.dp),
-                textStyle = androidx.compose.ui.text.TextStyle(color = if(isDark) Color.White else Color.Black, fontSize = 12.sp)
-            )
-            ExposedDropdownMenu(expanded = expandedShift, onDismissRequest = { expandedShift = false }, modifier = Modifier.background(if(isDark) Color(0xFF1E293B) else Color.White)) {
-                listOf("Morning", "Evening").forEach { s ->
-                    DropdownMenuItem(text = { Text(s, color = if(isDark) Color.White else Color.Black) }, onClick = { shift = s; expandedShift = false })
-                }
-            }
-        }
-        
-        if (selectedSubjects.isNotEmpty()) {
-            Spacer(Modifier.height(16.dp))
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.List, contentDescription = null, tint = if(isDark) Color.White else Color.Black, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("Selected Subjects & Exam Dates", color = if(isDark) Color.White else Color.Black, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            }
-            Spacer(Modifier.height(8.dp))
-            
-            // Render table-like horizontal scroll to match web app wide row design perfectly
-            Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
-                Column(modifier = Modifier.padding(bottom = 16.dp)) {
-                    // Table Header
-                    Row(
-                        modifier = Modifier.padding(bottom = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        Text("SUBJECT NAME", style = labelStyle.copy(fontSize = 11.sp, fontWeight = FontWeight.Black), modifier = Modifier.width(140.dp))
-                        Text("EXAM DATE", style = labelStyle.copy(fontSize = 11.sp, fontWeight = FontWeight.Black), modifier = Modifier.width(130.dp))
-                        Text("START TIME", style = labelStyle.copy(fontSize = 11.sp, fontWeight = FontWeight.Black), modifier = Modifier.width(130.dp))
-                        Text("END TIME", style = labelStyle.copy(fontSize = 11.sp, fontWeight = FontWeight.Black), modifier = Modifier.width(130.dp))
-                        Text("SHIFT", style = labelStyle.copy(fontSize = 11.sp, fontWeight = FontWeight.Black), modifier = Modifier.width(135.dp))
-                        Text("MARKS", style = labelStyle.copy(fontSize = 11.sp, fontWeight = FontWeight.Black), modifier = Modifier.width(120.dp))
-                        Spacer(Modifier.width(32.dp))
-                    }
-                    
-                    // Table Rows
-                    selectedSubjects.forEachIndexed { index, item ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
-                            modifier = Modifier.padding(vertical = 4.dp).background(if(isDark) Color(0xFF1E293B) else Color.White, RoundedCornerShape(8.dp)).padding(start = 8.dp, end = 8.dp, top = 6.dp, bottom = 6.dp)
-                        ) {
-                            // Subject Column
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.width(140.dp)) {
-                                Box(
-                                    modifier = Modifier.size(22.dp).background(Color(0xFF3B82F6), androidx.compose.foundation.shape.CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text("${index + 1}", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                }
+                            }) {
+                                androidx.compose.material3.Checkbox(checked = isSelected, onCheckedChange = null)
                                 Spacer(Modifier.width(8.dp))
-                                Text(item.name, color = if(isDark) Color.White else Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                Text(s.name, color = if(isDark) Color.White else Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
-                            
-                            // Exam Date
-                            OutlinedTextField(
-                                value = item.date, onValueChange = { selectedSubjects[index] = item.copy(date = it) },
-                                modifier = Modifier.width(130.dp).height(48.dp),
-                                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = if(isDark) Color.White else Color.Black, fontWeight = FontWeight.Bold),
-                                colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                                    unfocusedContainerColor = Color.Transparent, 
-                                    unfocusedBorderColor = if(isDark) Color.Gray.copy(0.3f) else Color(0xFFE2E8F0)
-                                ),
-                                shape = RoundedCornerShape(20.dp)
-                            )
-                            
-                            // Start Time
-                            OutlinedTextField(
-                                value = item.time, onValueChange = { selectedSubjects[index] = item.copy(time = it) },
-                                modifier = Modifier.width(130.dp).height(48.dp),
-                                trailingIcon = { Icon(Icons.Default.Schedule, null, modifier = Modifier.size(14.dp), tint = Color.Gray) },
-                                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = if(isDark) Color.White else Color.Black, fontWeight = FontWeight.Bold),
-                                colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                                    unfocusedContainerColor = Color.Transparent, 
-                                    unfocusedBorderColor = if(isDark) Color.Gray.copy(0.3f) else Color(0xFFE2E8F0)
-                                ),
-                                shape = RoundedCornerShape(20.dp)
-                            )
-                            
-                            // End Time
-                            OutlinedTextField(
-                                value = item.endTime, onValueChange = { selectedSubjects[index] = item.copy(endTime = it) },
-                                modifier = Modifier.width(130.dp).height(48.dp),
-                                trailingIcon = { Icon(Icons.Default.Schedule, null, modifier = Modifier.size(14.dp), tint = Color.Gray) },
-                                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = if(isDark) Color.White else Color.Black, fontWeight = FontWeight.Bold),
-                                colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                                    unfocusedContainerColor = Color.Transparent, 
-                                    unfocusedBorderColor = if(isDark) Color.Gray.copy(0.3f) else Color(0xFFE2E8F0)
-                                ),
-                                shape = RoundedCornerShape(20.dp)
-                            )
-                            
-                            // Shift
-                            var rowShiftExpanded by remember { mutableStateOf(false) }
-                            ExposedDropdownMenuBox(expanded = rowShiftExpanded, onExpandedChange = { rowShiftExpanded = !rowShiftExpanded }) {
-                                OutlinedTextField(
-                                    value = item.shift, onValueChange = {}, readOnly = true,
-                                    modifier = Modifier.width(135.dp).height(48.dp).menuAnchor(),
-                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(rowShiftExpanded) },
-                                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = if(isDark) Color.White else Color.Black, fontWeight = FontWeight.Bold),
-                                    colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                                        unfocusedContainerColor = Color.Transparent, 
-                                        unfocusedBorderColor = if(isDark) Color.Gray.copy(0.3f) else Color(0xFFE2E8F0)
-                                    ),
-                                    shape = RoundedCornerShape(20.dp)
-                                )
-                                ExposedDropdownMenu(expanded = rowShiftExpanded, onDismissRequest = { rowShiftExpanded = false }, modifier = Modifier.background(if(isDark) Color(0xFF1E293B) else Color.White)) {
-                                    listOf("Morning", "Evening").forEach { shiftOption ->
-                                        DropdownMenuItem(text = { Text(shiftOption, color = if(isDark) Color.White else Color.Black) }, onClick = { 
-                                            selectedSubjects[index] = item.copy(shift = shiftOption)
-                                            rowShiftExpanded = false 
-                                        })
-                                    }
-                                }
-                            }
-                            
-                            // Marks
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.width(120.dp)) {
-                                Text("Marks:", color = Color.Gray, fontSize = 10.sp)
-                                Spacer(Modifier.width(4.dp))
-                                androidx.compose.foundation.text.BasicTextField(
-                                    value = item.totalMarks, onValueChange = { selectedSubjects[index] = item.copy(totalMarks = it) },
-                                    modifier = Modifier.weight(1f).height(40.dp).border(1.dp, if(isDark) Color.Gray.copy(0.3f) else Color(0xFFE2E8F0), RoundedCornerShape(12.dp)).padding(horizontal = 4.dp),
-                                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 12.sp, color = if(isDark) Color.White else Color.Black, fontWeight = FontWeight.Bold, textAlign = androidx.compose.ui.text.style.TextAlign.Center),
-                                    decorationBox = { innerTextField ->
-                                        Box(contentAlignment = Alignment.Center) { innerTextField() }
-                                    }
-                                )
-                            }
-                            
-                            // Trash Icon
-                            androidx.compose.material3.IconButton(
-                                onClick = { selectedSubjects.removeAt(index) },
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = if(isDark) Color.White else Color.Black, modifier = Modifier.size(18.dp))
+                            if (index < subjects.size - 1) {
+                                androidx.compose.material3.Divider(color = Color(0xFFE2E8F0).copy(alpha = 0.5f))
                             }
                         }
                     }
                 }
             }
-        }
-        
-        statusMessage?.let {
-            Text(it, color = if (it.contains("successfully", true)) Color(0xFF059669) else Color.Red, fontSize = 12.sp)
-        }
 
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
-                onClick = {
-                    if (classId != null && sectionId != null && selectedSubjects.isNotEmpty()) {
-                        val payloadArr = selectedSubjects.map {
-                            "{\"class_id\":$classId,\"section_id\":$sectionId,\"subject_id\":${it.id},\"date\":\"${it.date}\",\"time\":\"${it.time}\",\"end_time\":\"${it.endTime}\",\"shift\":\"${it.shift}\",\"total\":\"${it.totalMarks}\"}"
-                        }
-                        val payload = payloadArr.joinToString(",", "[", "]")
-
-                        viewModel.createExam(
-                            type = examType,
-                            semester = semester,
-                            year = year,
-                            classId = classId!!,
-                            sectionId = sectionId!!,
-                            subjectsJson = payload,
-                            onSuccess = { 
-                                statusMessage = it
-                                selectedSubjects.clear()
-                            },
-                            onError = { statusMessage = it }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val context = androidx.compose.ui.platform.LocalContext.current
+                Column(Modifier.weight(1f)) {
+                    Text("Start Date (Auto-increments)", style = labelStyle.copy(fontSize = 10.sp))
+                    Spacer(Modifier.height(4.dp))
+                    Box(contentAlignment = Alignment.CenterStart) {
+                        OutlinedTextField(
+                            value = startDate, onValueChange = {}, readOnly = true, enabled = false,
+                            trailingIcon = { Icon(Icons.Default.Event, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(16.dp)) },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp),
+                            colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                                disabledTextColor = if(isDark) Color.White else Color.Black,
+                                disabledBorderColor = if(isDark) Color.White.copy(0.1f) else Color.Black.copy(0.1f),
+                                disabledTrailingIconColor = if(isDark) Color.White else Color.Black
+                            )
                         )
-                    } else {
-                        statusMessage = "Please select Class, Section, and at least 1 Subject"
+                        Box(modifier = Modifier.matchParentSize().clickable {
+                            val cal = java.util.Calendar.getInstance()
+                            android.app.DatePickerDialog(context, { _, y, m, d ->
+                                startDate = "$y-${String.format("%02d", m+1)}-${String.format("%02d", d)}"
+                            }, cal.get(java.util.Calendar.YEAR), cal.get(java.util.Calendar.MONTH), cal.get(java.util.Calendar.DAY_OF_MONTH)).show()
+                        })
                     }
-                },
-                modifier = Modifier.weight(1f).height(45.dp),
-                shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFCFF8E3))
-            ) {
-                Icon(Icons.Default.Save, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("SAVE EXAM", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 11.sp)
-                Spacer(Modifier.width(6.dp))
-                Icon(Icons.Default.Lock, contentDescription = null, tint = Color.Black, modifier = Modifier.size(12.dp))
+                }
+                Column(Modifier.weight(1f)) {
+                    Text("Start Time (Def)", style = labelStyle.copy(fontSize = 10.sp))
+                    Spacer(Modifier.height(4.dp))
+                    DropdownSelector(
+                        value = startTime,
+                        options = listOf("08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30"),
+                        isDark = isDark,
+                        onValueChange = { startTime = it },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(Modifier.weight(1f)) {
+                    Text("End Time (Def)", style = labelStyle.copy(fontSize = 10.sp))
+                    Spacer(Modifier.height(4.dp))
+                    DropdownSelector(
+                        value = endTime,
+                        options = listOf("09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00"),
+                        isDark = isDark,
+                        onValueChange = { endTime = it },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                Column(Modifier.weight(1f)) {
+                    Text("Total Marks (Default)", style = labelStyle.copy(fontSize = 10.sp))
+                    Spacer(Modifier.height(4.dp))
+                    OutlinedTextField(value = totalMarks, onValueChange = { totalMarks = it }, shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth(), textStyle = androidx.compose.ui.text.TextStyle(color = if(isDark) Color.White else Color.Black, fontSize = 12.sp))
+                }
+            }
+
+            Text("Shift (Default)", style = labelStyle.copy(fontSize = 10.sp))
+            Spacer(Modifier.height(-12.dp))
+            var expandedShift by remember { mutableStateOf(false) }
+            ExposedDropdownMenuBox(expanded = expandedShift, onExpandedChange = { expandedShift = !expandedShift }) {
+                OutlinedTextField(
+                    value = shift, onValueChange = {}, readOnly = true,
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expandedShift) },
+                    modifier = Modifier.menuAnchor().fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    textStyle = androidx.compose.ui.text.TextStyle(color = if(isDark) Color.White else Color.Black, fontSize = 12.sp)
+                )
+                ExposedDropdownMenu(expanded = expandedShift, onDismissRequest = { expandedShift = false }, modifier = Modifier.background(if(isDark) Color(0xFF1E293B) else Color.White)) {
+                    listOf("Morning", "Evening").forEach { s ->
+                        DropdownMenuItem(text = { Text(s, color = if(isDark) Color.White else Color.Black) }, onClick = { shift = s; expandedShift = false })
+                    }
+                }
             }
             
-            val printContext = androidx.compose.ui.platform.LocalContext.current
-            Button(
-                onClick = { 
-                    if (selectedSubjects.isNotEmpty() && classId != null) {
-                        activeTab = "DATASHEET_PREVIEW"
-                    } else {
-                        statusMessage = "Select Class and Subjects to Preview!"
-                    }
-                },
-                modifier = Modifier.weight(1f).height(45.dp),
-                shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD3F2FE))
-            ) {
-                Icon(Icons.Default.Visibility, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("PREVIEW DATE SHEET", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 11.sp)
-                Spacer(Modifier.width(6.dp))
-                Icon(Icons.Default.Lock, contentDescription = null, tint = Color.Black, modifier = Modifier.size(12.dp))
+            statusMessage?.let {
+                Text(it, color = if (it.contains("successfully", true)) Color(0xFF059669) else Color.Red, fontSize = 12.sp)
             }
-        }
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = {
+                        if (classId != null && sectionId != null && selectedSubjects.isNotEmpty()) {
+                            val payloadArr = selectedSubjects.map {
+                                "{\"class_id\":$classId,\"section_id\":$sectionId,\"subject_id\":${it.id},\"date\":\"${it.date}\",\"time\":\"${it.time}\",\"end_time\":\"${it.endTime}\",\"shift\":\"${it.shift}\",\"total\":\"${it.totalMarks}\"}"
+                            }
+                            val payload = payloadArr.joinToString(",", "[", "]")
+
+                            viewModel.createExam(
+                                type = examType,
+                                semester = semester,
+                                year = year,
+                                classId = classId!!,
+                                sectionId = sectionId!!,
+                                subjectsJson = payload,
+                                onSuccess = { 
+                                    statusMessage = it
+                                    selectedSubjects.clear()
+                                },
+                                onError = { statusMessage = it }
+                            )
+                        } else {
+                            statusMessage = "Please select Class, Section, and at least 1 Subject"
+                        }
+                    },
+                    modifier = Modifier.weight(1f).height(45.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFCFF8E3))
+                ) {
+                    Icon(Icons.Default.Save, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("SAVE EXAM", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 11.sp)
+                }
+
+                Button(
+                    onClick = { 
+                        if (selectedSubjects.isNotEmpty() && classId != null) {
+                            activeTab = "DATASHEET_PREVIEW"
+                        } else {
+                            statusMessage = "Select Class and Subjects to Preview!"
+                        }
+                    },
+                    modifier = Modifier.weight(1f).height(45.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD3F2FE))
+                ) {
+                    Icon(Icons.Default.Visibility, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("PREVIEW DATE SHEET", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 11.sp)
+                }
+            }
     } else if (activeTab == "DATASHEET_PREVIEW") {
         val printContext = androidx.compose.ui.platform.LocalContext.current
         

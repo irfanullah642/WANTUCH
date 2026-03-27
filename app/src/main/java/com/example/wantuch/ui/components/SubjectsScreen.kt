@@ -38,6 +38,7 @@ fun SubjectsScreen(viewModel: WantuchViewModel, onBack: () -> Unit) {
     val subjectsResponse by viewModel.subjects.collectAsState()
     val context = LocalContext.current
     val userRole by viewModel.userRole.collectAsState()
+    val isMgmt = listOf("admin", "super_admin", "super admin", "developer").contains(userRole.lowercase())
 
     LaunchedEffect(Unit) {
         viewModel.updateRole()
@@ -56,7 +57,7 @@ fun SubjectsScreen(viewModel: WantuchViewModel, onBack: () -> Unit) {
         containerColor = bgMain,
         modifier = Modifier.fillMaxSize(),
         floatingActionButton = {
-            if (userRole != "Student") {
+            if (isMgmt) {
                 FloatingActionButton(
                     onClick = { showAddModal = true },
                     containerColor = Color(0xFF00F3FF),
@@ -124,7 +125,7 @@ fun SubjectsScreen(viewModel: WantuchViewModel, onBack: () -> Unit) {
                         }
                     }
 
-                    if (userRole != "Student") {
+                    if (isMgmt) {
                         Spacer(Modifier.width(10.dp))
 
                         Button(
@@ -158,7 +159,7 @@ fun SubjectsScreen(viewModel: WantuchViewModel, onBack: () -> Unit) {
                         SubjectCard(
                             subject = subject,
                             isDark = isDark,
-                            userRole = userRole,
+                            isMgmt = isMgmt,
                             onEdit = { editSubject = subject },
                             onDelete = {
                                 viewModel.subjectAction(
@@ -239,7 +240,7 @@ fun SubjectsScreen(viewModel: WantuchViewModel, onBack: () -> Unit) {
 fun SubjectCard(
     subject: SchoolSubject,
     isDark: Boolean,
-    userRole: String = "Student",
+    isMgmt: Boolean = false,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -277,7 +278,7 @@ fun SubjectCard(
                 }
             }
 
-            if (userRole != "Student") {
+            if (isMgmt) {
                 Spacer(Modifier.height(12.dp))
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {

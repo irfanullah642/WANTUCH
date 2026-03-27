@@ -10,8 +10,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Assignment
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -82,7 +82,7 @@ fun ReportsDashboardScreen(
                             .size(36.dp)
                             .background(Color.White.copy(.15f), RoundedCornerShape(10.dp))
                     ) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.ArrowBack, "Back", tint = Color.White, modifier = Modifier.size(18.dp))
                     }
                     Spacer(Modifier.width(14.dp))
                     Column(Modifier.weight(1f)) {
@@ -123,7 +123,7 @@ fun ReportsDashboardScreen(
                 ReportModuleCard(
                     title = "Question Papers",
                     subtitle = "Create & Manage Examination Papers",
-                    icon = Icons.AutoMirrored.Filled.Assignment,
+                    icon = Icons.Default.Assignment,
                     color = blue,
                     isDark = isDark,
                     onClick = onOpenQuestionPapers

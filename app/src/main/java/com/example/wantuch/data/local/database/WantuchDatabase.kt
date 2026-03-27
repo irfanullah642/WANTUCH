@@ -24,7 +24,7 @@ import com.example.wantuch.data.local.dao.FaceEmbeddingDao
         PortfolioEntity::class,
         FaceEmbeddingEntity::class
     ], 
-    version = 4, 
+    version = 5, 
     exportSchema = false
 )
 @TypeConverters(Converters::class)
